@@ -36,6 +36,16 @@ Record the default Maestro smoke flow with:
 ./scripts/record-demo.sh
 ```
 
+Debug builds also accept named scanner fixtures without a camera feed. For example,
+the `single-code` fixture drives the same observation protocol used by scanner engines:
+
+```sh
+./scripts/record-demo.sh \
+  e2e/scanner-fixture-acceptance.yaml \
+  artifacts/scanner-fixture-acceptance.mp4 \
+  iPhone
+```
+
 The Maestro flow launches the app and asserts that its first screen is loaded before its native `startRecording` command. Put user interactions and their final-state assertion between `startRecording` and `stopRecording`; this keeps build, driver, and launch delays out of the MP4 and ends capture as soon as the acceptance path settles. Pass `iPad` as the third argument to record on an iPad Simulator.
 
 ## CI and tagless releases

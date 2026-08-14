@@ -77,13 +77,40 @@ private struct ScannerView: View {
                     description: Text("No camera is available on this device.")
                 )
             case .ready:
-                ContentUnavailableView(
-                    "Ready to Scan",
-                    systemImage: "qrcode.viewfinder",
-                    description: Text(
-                        "Point the camera at a QR code. Scanning starts automatically."
+                if session.visibleObservations.isEmpty {
+                    ContentUnavailableView(
+                        "Ready to Scan",
+                        systemImage: "qrcode.viewfinder",
+                        description: Text(
+                            "Point the camera at a QR code. Scanning starts automatically."
+                        )
                     )
-                )
+                } else {
+                    ScrollView {
+                        VStack(spacing: 16) {
+                            Image(systemName: "qrcode.viewfinder")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                                .accessibilityHidden(true)
+
+                            Text("Observed QR Code")
+                                .font(.title2.bold())
+
+                            ForEach(
+                                Array(session.visibleObservations.enumerated()),
+                                id: \.offset
+                            ) { _, observation in
+                                Text(observation.rawPayload)
+                                    .font(.body.monospaced())
+                                    .multilineTextAlignment(.center)
+                                    .textSelection(.enabled)
+                                    .accessibilityIdentifier("scanner-observation-payload")
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                    }
+                }
             }
         }
         .navigationTitle("Scanner")

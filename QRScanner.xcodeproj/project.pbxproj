@@ -16,6 +16,7 @@
 		A10000000000000000000007 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* Localizable.xcstrings */; };
 		A10000000000000000000008 /* CameraAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* CameraAccess.swift */; };
 		A10000000000000000000009 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000006 /* InfoPlist.strings */; };
+		D10000000000000000000001 /* ScannerObservation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* ScannerObservation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +49,7 @@
 		A2000000000000000000000A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		A2000000000000000000000B /* CameraAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAccess.swift; sourceTree = "<group>"; };
 		A2000000000000000000000C /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		D20000000000000000000001 /* ScannerObservation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerObservation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -91,6 +93,7 @@
 				A20000000000000000000001 /* QRScannerApp.swift */,
 				A20000000000000000000009 /* AppState.swift */,
 				A2000000000000000000000B /* CameraAccess.swift */,
+				D20000000000000000000001 /* ScannerObservation.swift */,
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* Assets.xcassets */,
 				A2000000000000000000000A /* Localizable.xcstrings */,
@@ -273,6 +276,7 @@
 				A10000000000000000000001 /* QRScannerApp.swift in Sources */,
 				A10000000000000000000006 /* AppState.swift in Sources */,
 				A10000000000000000000008 /* CameraAccess.swift in Sources */,
+				D10000000000000000000001 /* ScannerObservation.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

@@ -7,10 +7,24 @@ final class QRScannerUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(cameraFixture: String = "authorized") {
+    private func launch(
+        cameraFixture: String = "authorized",
+        scannerFixture: String? = nil
+    ) {
         app = XCUIApplication()
         app.launchArguments = ["--camera-fixture", cameraFixture]
+        if let scannerFixture {
+            app.launchArguments += ["--scanner-fixture", scannerFixture]
+        }
         app.launch()
+    }
+
+    func testNamedScannerFixtureDisplaysObservedPayload() {
+        launch(scannerFixture: "single-code")
+
+        XCTAssertTrue(app.staticTexts["Observed QR Code"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["https://example.com/fixture"].exists)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "scanner-observation-payload").count, 1)
     }
 
     func testScannerAndHistoryAreNamedAndReachable() {

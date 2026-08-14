@@ -55,7 +55,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: DerivedData/CI
-          key: ios-ci-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift', 'QRScanner/**/*.xcassets/**', 'QRScannerTests/**/*.swift') }}
+          key: ios-ci-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift', 'QRScanner/**/*.xcassets/**', 'QRScannerTests/**/*.swift', 'QRScannerUITests/**/*.swift') }}
           restore-keys: |
             ios-ci-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-
 
