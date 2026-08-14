@@ -10,21 +10,9 @@ Roadmap: https://planista.shloklab.us/AhljFFbc1VaGq4XX
 python3 scripts/test-semantic-version.py
 DEVICE_ID="$(./scripts/select-simulator.py iPhone)"
 xcodebuild test -project QRScanner.xcodeproj -scheme QRScanner -destination "platform=iOS Simulator,id=${DEVICE_ID}" -derivedDataPath DerivedData/Local CODE_SIGNING_ALLOWED=NO
-./scripts/record-demo.sh e2e/smoke.yaml artifacts/demo.mp4 iPhone
 ```
 
-`record-demo.sh` delegates the video boundary to Maestro. In each recorded flow, launch and assert the ready screen before `startRecording`, put only user interactions and their final-state assertion inside the recording, and keep `stopRecording` as the final command. This prevents build, Java/driver, and launch delays from appearing in acceptance videos. Verify the contract with `./scripts/test-record-demo.sh`.
-
-If recording prerequisites are missing, install them globally for this user with:
-
-```sh
-brew install maestro openjdk@17
-brew link --force --overwrite openjdk@17
-```
-
-The force-link is intentional: Homebrew keeps `openjdk@17` keg-only, while Maestro needs `java` on `PATH` in non-interactive agent shells. Confirm with `java -version` and `maestro --version` before recording.
-
-The target must continue to support both device families (`TARGETED_DEVICE_FAMILY = "1,2"`). Use the `record-ios-app` skill when asked to record a Maestro-driven Simulator demo.
+The target must continue to support both device families (`TARGETED_DEVICE_FAMILY = "1,2"`).
 
 ## Release policy
 

@@ -23,8 +23,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test semantic versioning
         run: python3 scripts/test-semantic-version.py
-      - name: Test recording orchestration
-        run: ./scripts/test-record-demo.sh
 
   ios:
     name: Swift tests (iPhone Simulator)
