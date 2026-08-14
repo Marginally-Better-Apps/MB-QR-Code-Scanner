@@ -1,0 +1,46 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Camera scanning will appear here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El escáner de la cámara aparecerá aquí."
+          }
+        }
+      }
+    },
+    "History" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial"
+          }
+        }
+      }
+    },
+    "Scanner" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escáner"
+          }
+        }
+      }
+    },
+    "Your scan history will appear here." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu historial de escaneos aparecerá aquí."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
