@@ -8,7 +8,6 @@ OUTPUT="${2:-artifacts/qr-scanner-demo.mp4}"
 DEVICE_FAMILY="${3:-iPhone}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DERIVED_DATA="${ROOT_DIR}/DerivedData/RecordDemo"
-APP_ID="com.marginallybetter.qrscanner"
 
 for tool in maestro xcodebuild xcrun; do
   if ! command -v "$tool" >/dev/null 2>&1; then
@@ -45,27 +44,33 @@ if [[ -z "$APP_PATH" ]]; then
 fi
 
 xcrun simctl install "$DEVICE_ID" "$APP_PATH"
-xcrun simctl launch "$DEVICE_ID" "$APP_ID"
 
-mkdir -p "$(dirname "$OUTPUT")"
-rm -f "$OUTPUT"
-xcrun simctl io "$DEVICE_ID" recordVideo --codec=h264 "$OUTPUT" &
-RECORD_PID=$!
+if ! grep -Eq '^[[:space:]]*-[[:space:]]+startRecording' "$FLOW" || \
+   ! grep -Eq '^[[:space:]]*-[[:space:]]+stopRecording' "$FLOW"; then
+  echo "error: $FLOW must bound its recorded interactions with startRecording and stopRecording" >&2
+  exit 1
+fi
 
+CAPTURE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/qr-scanner-capture.XXXXXX")"
 cleanup() {
-  if kill -0 "$RECORD_PID" 2>/dev/null; then
-    kill -INT "$RECORD_PID" 2>/dev/null || true
-    wait "$RECORD_PID" 2>/dev/null || true
-  fi
+  rm -rf "$CAPTURE_DIR"
 }
 trap cleanup EXIT
 
-sleep 1
-maestro test --device "$DEVICE_ID" "$FLOW"
+maestro test \
+  --device "$DEVICE_ID" \
+  --test-output-dir "$CAPTURE_DIR" \
+  "$FLOW"
 
-kill -INT "$RECORD_PID" 2>/dev/null || true
-wait "$RECORD_PID" 2>/dev/null || true
-trap - EXIT
+RECORDED_VIDEO="$(find "$CAPTURE_DIR" -type f -name '*.mp4' -print -quit)"
+if [[ -z "$RECORDED_VIDEO" ]]; then
+  echo "error: Maestro did not produce a recording" >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "$OUTPUT")"
+rm -f "$OUTPUT"
+mv "$RECORDED_VIDEO" "$OUTPUT"
 
 test -s "$OUTPUT"
 echo "Demo saved to $OUTPUT"
