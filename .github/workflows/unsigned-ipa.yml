@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: unsigned-ipa-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -21,13 +21,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fingerprint Xcode toolchain
+        id: xcode
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          echo "cache-key=$(xcodebuild -version | shasum -a 256 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
       - name: Cache DerivedData
         uses: actions/cache@v4
         with:
           path: DerivedData/Archive
-          key: ios-archive-${{ runner.os }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift') }}
+          key: ios-archive-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift', 'QRScanner/**/*.xcassets/**') }}
           restore-keys: |
-            ios-archive-${{ runner.os }}-
+            ios-archive-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-
 
       - name: Archive without signing
         run: |
