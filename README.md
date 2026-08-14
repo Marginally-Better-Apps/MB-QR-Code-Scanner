@@ -36,7 +36,7 @@ Record the default Maestro smoke flow with:
 ./scripts/record-demo.sh
 ```
 
-Pass `iPad` as the third argument to record on an iPad Simulator.
+The script first runs the flow without recording to warm Maestro and verify acceptance. It then terminates the app, waits for `simctl` to confirm capture is ready, and records the immediate relaunch. Pass `iPad` as the third argument to record on an iPad Simulator.
 
 ## CI and tagless releases
 
