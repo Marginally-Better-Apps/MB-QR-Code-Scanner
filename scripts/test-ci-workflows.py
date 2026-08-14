@@ -32,6 +32,11 @@ class PullRequestWorkflowTests(unittest.TestCase):
         self.assertNotIn("needs:", scripts_job)
         self.assertNotIn("needs:", ios_job)
 
+    def test_simulator_tests_use_the_faster_compatible_runner_image(self) -> None:
+        text = workflow("ci.yml")
+        ios_job = text[text.index("  ios:") :]
+        self.assertIn("runs-on: macos-14", ios_job)
+
     def test_ci_cache_is_invalidated_by_toolchain_and_build_inputs(self) -> None:
         text = workflow("ci.yml")
         self.assertIn("id: xcode", text)

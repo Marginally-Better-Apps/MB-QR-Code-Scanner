@@ -11,9 +11,7 @@ def version_tuple(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.replace("-", ".").split(".") if part.isdigit())
 
 
-def choose_device(
-    data: dict[str, Any], family: str, sdk_version: tuple[int, ...]
-) -> dict[str, Any]:
+def choose_device(data: dict[str, Any], family: str) -> dict[str, Any]:
     candidates = []
     for runtime, devices in data.get("devices", {}).items():
         if "iOS" not in runtime:
@@ -32,12 +30,6 @@ def choose_device(
 
     if not candidates:
         raise RuntimeError(f"no available {family} simulator found")
-
-    compatible = [
-        candidate for candidate in candidates if candidate["runtime_version"] <= sdk_version
-    ]
-    if compatible:
-        candidates = compatible
 
     newest_runtime = max(candidate["runtime_version"] for candidate in candidates)
     candidates = [
@@ -65,9 +57,6 @@ def main() -> None:
     if family not in {"iPhone", "iPad"}:
         raise SystemExit("usage: select-simulator.py [iPhone|iPad]")
 
-    sdk_version_text = subprocess.check_output(
-        ["xcrun", "--sdk", "iphonesimulator", "--show-sdk-version"], text=True
-    ).strip()
     data = json.loads(
         subprocess.check_output(
             ["xcrun", "simctl", "list", "devices", "available", "--json"], text=True
@@ -75,13 +64,13 @@ def main() -> None:
     )
 
     try:
-        chosen = choose_device(data, family, version_tuple(sdk_version_text))
+        chosen = choose_device(data, family)
     except RuntimeError as error:
         raise SystemExit(str(error)) from error
 
     runtime = ".".join(str(part) for part in chosen["runtime_version"])
     print(
-        f"Selected {chosen['name']} on iOS {runtime} for SDK {sdk_version_text}",
+        f"Selected {chosen['name']} on iOS {runtime}",
         file=sys.stderr,
     )
     print(chosen["udid"])

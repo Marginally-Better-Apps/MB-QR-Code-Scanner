@@ -27,9 +27,8 @@ The script and iOS jobs already ran independently; the iOS job determined merge 
 
 - Split the Xcode operation into a cold-cache `build-for-testing` and an unconditional
   `test-without-building`, allowing an exact warm hit to bypass compilation.
-- Disable parallel-test simulator cloning for the single test bundle, select the newest
-  runtime compatible with Xcode's installed Simulator SDK, and overlap simulator boot
-  with cache restoration/build work.
+- Disable parallel-test simulator cloning for the single test bundle and overlap simulator
+  boot with cache restoration/build work on the faster macOS 14 runner image.
 - Include the runner architecture, Xcode version, project, Swift sources, tests, and asset
   catalogs in the test-build cache key. A toolchain-matched fallback cache remains safe
   because a non-exact hit always takes the build-for-testing path.

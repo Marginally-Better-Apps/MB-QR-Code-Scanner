@@ -14,7 +14,7 @@ SPEC.loader.exec_module(select_simulator)
 
 
 class SimulatorSelectionTests(unittest.TestCase):
-    def test_prefers_newest_runtime_compatible_with_xcode_sdk(self) -> None:
+    def test_prefers_newest_available_runtime(self) -> None:
         devices = {
             "devices": {
                 "com.apple.CoreSimulator.SimRuntime.iOS-18-5": [
@@ -28,7 +28,7 @@ class SimulatorSelectionTests(unittest.TestCase):
                 "com.apple.CoreSimulator.SimRuntime.iOS-26-2": [
                     {
                         "name": "iPhone 17 Pro",
-                        "udid": "NEWER-BUT-INCOMPATIBLE",
+                        "udid": "NEWEST",
                         "state": "Shutdown",
                         "isAvailable": True,
                     }
@@ -36,10 +36,10 @@ class SimulatorSelectionTests(unittest.TestCase):
             }
         }
 
-        chosen = select_simulator.choose_device(devices, "iPhone", (18, 5))
+        chosen = select_simulator.choose_device(devices, "iPhone")
 
-        self.assertEqual(chosen["udid"], "COMPATIBLE")
-        self.assertEqual(chosen["runtime_version"], (18, 5))
+        self.assertEqual(chosen["udid"], "NEWEST")
+        self.assertEqual(chosen["runtime_version"], (26, 2))
 
     def test_prefers_an_already_booted_device_in_selected_runtime(self) -> None:
         devices = {
@@ -61,7 +61,7 @@ class SimulatorSelectionTests(unittest.TestCase):
             }
         }
 
-        chosen = select_simulator.choose_device(devices, "iPhone", (18, 5))
+        chosen = select_simulator.choose_device(devices, "iPhone")
 
         self.assertEqual(chosen["udid"], "BOOTED")
 
