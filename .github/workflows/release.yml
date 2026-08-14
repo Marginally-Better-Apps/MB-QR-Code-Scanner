@@ -28,14 +28,13 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          MESSAGE="$(git log -1 --format=%B)"
-          KIND="$(printf '%s\n' "$MESSAGE" | sed -nE '/^feat(\([^)]*\))?!: /{s/.*/major/p;q}; /^feat(\([^)]*\))?: /{s/.*/minor/p;q}; /^fix(\([^)]*\))?: /{s/.*/patch/p;q}')"
+          KIND="$(./scripts/semantic-version.py --kind HEAD)"
           VERSION="$(./scripts/semantic-version.py HEAD)"
 
           if [[ "$EVENT_NAME" = "workflow_dispatch" ]]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
             echo "kind=manual" >> "$GITHUB_OUTPUT"
-          elif [[ -n "$KIND" ]]; then
+          elif [[ "$KIND" != "none" ]]; then
             echo "build=true" >> "$GITHUB_OUTPUT"
             echo "kind=$KIND" >> "$GITHUB_OUTPUT"
           else
