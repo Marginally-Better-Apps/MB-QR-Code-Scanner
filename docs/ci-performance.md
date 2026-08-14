@@ -43,11 +43,32 @@ The script and iOS jobs already ran independently; the iOS job determined merge 
 
 | Validation | Main CI | PR title | PR unsigned IPA | All PR checks green | Cache evidence |
 | --- | ---: | ---: | ---: | ---: | --- |
-| [Cold cache](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772596229) | 5:45 | 0:06 | [0:41](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772596222) | 5:45 | Both v2 keys missed, then saved successfully |
+| [Cold CI / final PR set](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772596229) | 5:45 | 0:06 | [0:41](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772596222) | 5:45 | Test-build key missed, then saved successfully |
 | [Warm 1](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772949309) | 3:35 | 0:06 | [0:35](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772949358) | 3:35 | Exact test-build key restored; build step skipped |
 | [Warm 2](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31773174936) | 3:49 | 0:05 | [0:30](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31773174921) | 3:49 | Exact test-build key restored; build step skipped |
+| [Warm 3](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31773436627) | 2:10 | 0:09 | [0:31](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31773436619) | 2:10 | Exact test-build and archive keys restored; build step skipped |
+| Warm median | **3:35** | **0:06** | **0:31** | **3:35** | Exact cache hits in all three runs |
 
 The cold run preserved every check and artifact. Its iOS critical path was 0:12 to select
 and request simulator boot, a 0:34 cache miss lookup, a 3:35 test build, 0:51 to finish boot
 and execute tests, and 0:06 for device-family validation. Simulator boot overlapped the cache
-lookup and test build. The next three PR synchronizations provide warm-cache evidence.
+lookup and test build. The following three PR synchronizations provide warm-cache evidence.
+
+The unsigned IPA cache's independent [cold run](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31771011467)
+missed and saved the final archive v2 key; all three warm rows restored that exact key. The
+warm median is **1:21 (27%) faster** than the 4:56 baseline median for both main CI and all
+PR checks. Every warm run was also faster than every baseline run.
+
+## Remaining bottlenecks and tradeoffs
+
+- Simulator initialization and launch remain the critical path and account for most of the
+  1:39 spread between warm runs. Boot is started before cache restoration so useful work
+  overlaps it, but hosted-runner variance remains.
+- Exact test-build reuse applies only when project, source, test, assets, runner architecture,
+  and Xcode toolchain inputs match. Changed build inputs intentionally take the cold build
+  path; toolchain-matched fallback data only accelerates that mandatory rebuild.
+- Simulator tests use the macOS 14 image because it was materially faster here. The PR IPA
+  and release archive remain on macOS 15, so the newer release toolchain safeguard is intact.
+- Independent Linux policy checks, simulator tests, title validation, and IPA packaging all
+  continue in parallel. [Run 31772166995](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772166995)
+  was cancelled immediately after a superseding push, demonstrating stale-run cancellation.
