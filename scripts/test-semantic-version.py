@@ -14,6 +14,13 @@ SPEC.loader.exec_module(semantic_version)
 
 
 class SemanticVersionTests(unittest.TestCase):
+    def test_classifies_supported_release_types(self) -> None:
+        self.assertEqual(semantic_version.classify("fix: repair startup"), "patch")
+        self.assertEqual(semantic_version.classify("feat(scan): add torch"), "minor")
+        self.assertEqual(semantic_version.classify("feat(scan)!: replace API"), "major")
+        self.assertEqual(semantic_version.classify("docs: explain setup"), "none")
+        self.assertEqual(semantic_version.classify("fix!: unsupported breaking fix"), "none")
+
     def test_only_release_commit_types_bump(self) -> None:
         messages = ["docs: explain scanning", "fix: avoid duplicate scan", "chore: tidy"]
         self.assertEqual(semantic_version.version_from_messages(messages), (0, 0, 1))
