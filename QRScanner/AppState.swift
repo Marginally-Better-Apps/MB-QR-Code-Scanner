@@ -6,7 +6,47 @@ enum AppTab: Hashable {
 }
 
 @MainActor
-final class ScannerSessionStore: ObservableObject {}
+final class ScannerSessionStore: ObservableObject {
+    @Published private(set) var cameraAccessState: CameraAccessState
+
+    var isCameraActive: Bool {
+        cameraAccessState == .ready
+    }
+
+    private let cameraAccess: CameraAccessProviding
+
+    init(cameraAccess: CameraAccessProviding? = nil) {
+        let cameraAccess = cameraAccess ?? CameraAccessProviderFactory.make()
+        self.cameraAccess = cameraAccess
+        cameraAccessState = CameraAccessState.resolve(
+            authorization: cameraAccess.authorization,
+            cameraAvailable: cameraAccess.cameraAvailable
+        )
+    }
+
+    func activateScanner() async {
+        refreshCameraAccess()
+
+        guard cameraAccessState == .notDetermined else {
+            return
+        }
+
+        await cameraAccess.requestAuthorization()
+        refreshCameraAccess()
+    }
+
+    func resumeFromSettings() {
+        cameraAccess.refreshAuthorization()
+        refreshCameraAccess()
+    }
+
+    private func refreshCameraAccess() {
+        cameraAccessState = CameraAccessState.resolve(
+            authorization: cameraAccess.authorization,
+            cameraAvailable: cameraAccess.cameraAvailable
+        )
+    }
+}
 
 @MainActor
 final class AppState: ObservableObject {

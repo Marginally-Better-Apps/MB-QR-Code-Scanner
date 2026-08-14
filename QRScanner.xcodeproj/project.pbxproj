@@ -14,6 +14,8 @@
 		A10000000000000000000005 /* QRScannerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* QRScannerUITests.swift */; };
 		A10000000000000000000006 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000009 /* AppState.swift */; };
 		A10000000000000000000007 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000A /* Localizable.xcstrings */; };
+		A10000000000000000000008 /* CameraAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000000000000000000000B /* CameraAccess.swift */; };
+		A10000000000000000000009 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A70000000000000000000006 /* InfoPlist.strings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -44,6 +46,8 @@
 		A20000000000000000000008 /* QRScannerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QRScannerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000009 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A2000000000000000000000A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		A2000000000000000000000B /* CameraAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraAccess.swift; sourceTree = "<group>"; };
+		A2000000000000000000000C /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -86,9 +90,11 @@
 			children = (
 				A20000000000000000000001 /* QRScannerApp.swift */,
 				A20000000000000000000009 /* AppState.swift */,
+				A2000000000000000000000B /* CameraAccess.swift */,
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* Assets.xcassets */,
 				A2000000000000000000000A /* Localizable.xcstrings */,
+				A70000000000000000000006 /* InfoPlist.strings */,
 			);
 			path = QRScanner;
 			sourceTree = "<group>";
@@ -120,6 +126,17 @@
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
+
+/* Begin PBXVariantGroup section */
+		A70000000000000000000006 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A2000000000000000000000C /* es */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin PBXNativeTarget section */
 		A50000000000000000000001 /* QRScanner */ = {
@@ -206,6 +223,7 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				es,
 				Base,
 			);
 			mainGroup = A70000000000000000000001;
@@ -227,6 +245,7 @@
 			files = (
 				A10000000000000000000003 /* Assets.xcassets in Resources */,
 				A10000000000000000000007 /* Localizable.xcstrings in Resources */,
+				A10000000000000000000009 /* InfoPlist.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,6 +272,7 @@
 			files = (
 				A10000000000000000000001 /* QRScannerApp.swift in Sources */,
 				A10000000000000000000006 /* AppState.swift in Sources */,
+				A10000000000000000000008 /* CameraAccess.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -343,6 +363,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "QR Scanner";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSCameraUsageDescription = "QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -369,6 +390,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "QR Scanner";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSCameraUsageDescription = "QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
