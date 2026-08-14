@@ -8,7 +8,6 @@ OUTPUT="${2:-artifacts/qr-scanner-demo.mp4}"
 DEVICE_FAMILY="${3:-iPhone}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DERIVED_DATA="${ROOT_DIR}/DerivedData/RecordDemo"
-APP_ID="com.marginallybetter.qrscanner"
 
 for tool in maestro xcodebuild xcrun; do
   if ! command -v "$tool" >/dev/null 2>&1; then
@@ -46,51 +45,32 @@ fi
 
 xcrun simctl install "$DEVICE_ID" "$APP_PATH"
 
-echo "Preflighting flow and warming Maestro..."
-maestro test --device "$DEVICE_ID" "$FLOW"
-xcrun simctl terminate "$DEVICE_ID" "$APP_ID" 2>/dev/null || true
-
-mkdir -p "$(dirname "$OUTPUT")"
-rm -f "$OUTPUT"
-RECORD_LOG="$(mktemp "${TMPDIR:-/tmp}/qr-scanner-record.XXXXXX")"
-xcrun simctl io "$DEVICE_ID" recordVideo --codec=h264 "$OUTPUT" >"$RECORD_LOG" 2>&1 &
-RECORD_PID=$!
-
-cleanup() {
-  if kill -0 "$RECORD_PID" 2>/dev/null; then
-    kill -INT "$RECORD_PID" 2>/dev/null || true
-    wait "$RECORD_PID" 2>/dev/null || true
-  fi
-  rm -f "$RECORD_LOG"
-}
-trap cleanup EXIT
-
-RECORD_READY=false
-for _ in {1..50}; do
-  if grep -q "Recording started" "$RECORD_LOG"; then
-    RECORD_READY=true
-    break
-  fi
-  if ! kill -0 "$RECORD_PID" 2>/dev/null; then
-    cat "$RECORD_LOG" >&2
-    echo "error: Simulator recording stopped before it became ready" >&2
-    exit 1
-  fi
-  sleep 0.1
-done
-
-if [[ "$RECORD_READY" != true ]]; then
-  cat "$RECORD_LOG" >&2
-  echo "error: timed out waiting for Simulator recording to start" >&2
+if ! grep -Eq '^[[:space:]]*-[[:space:]]+startRecording' "$FLOW" || \
+   ! grep -Eq '^[[:space:]]*-[[:space:]]+stopRecording' "$FLOW"; then
+  echo "error: $FLOW must bound its recorded interactions with startRecording and stopRecording" >&2
   exit 1
 fi
 
-maestro test --device "$DEVICE_ID" "$FLOW"
+CAPTURE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/qr-scanner-capture.XXXXXX")"
+cleanup() {
+  rm -rf "$CAPTURE_DIR"
+}
+trap cleanup EXIT
 
-kill -INT "$RECORD_PID" 2>/dev/null || true
-wait "$RECORD_PID" 2>/dev/null || true
-rm -f "$RECORD_LOG"
-trap - EXIT
+maestro test \
+  --device "$DEVICE_ID" \
+  --test-output-dir "$CAPTURE_DIR" \
+  "$FLOW"
+
+RECORDED_VIDEO="$(find "$CAPTURE_DIR" -type f -name '*.mp4' -print -quit)"
+if [[ -z "$RECORDED_VIDEO" ]]; then
+  echo "error: Maestro did not produce a recording" >&2
+  exit 1
+fi
+
+mkdir -p "$(dirname "$OUTPUT")"
+rm -f "$OUTPUT"
+mv "$RECORDED_VIDEO" "$OUTPUT"
 
 test -s "$OUTPUT"
 echo "Demo saved to $OUTPUT"

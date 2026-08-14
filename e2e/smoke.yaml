@@ -3,3 +3,6 @@ appId: com.marginallybetter.qrscanner
 - launchApp:
     clearState: true
 - assertVisible: "Hello, world!"
+- startRecording: smoke
+- assertVisible: "Hello, world!"
+- stopRecording

@@ -13,7 +13,7 @@ xcodebuild test -project QRScanner.xcodeproj -scheme QRScanner -destination "pla
 ./scripts/record-demo.sh e2e/smoke.yaml artifacts/demo.mp4 iPhone
 ```
 
-`record-demo.sh` intentionally preflights the Maestro flow before starting `simctl` capture. Keep the preflight → terminate → recorder-ready → recorded-flow ordering so Java/driver startup never appears in acceptance videos. Verify it with `./scripts/test-record-demo.sh`.
+`record-demo.sh` delegates the video boundary to Maestro. In each recorded flow, launch and assert the ready screen before `startRecording`, put only user interactions and their final-state assertion inside the recording, and keep `stopRecording` as the final command. This prevents build, Java/driver, and launch delays from appearing in acceptance videos. Verify the contract with `./scripts/test-record-demo.sh`.
 
 If recording prerequisites are missing, install them globally for this user with:
 

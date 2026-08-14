@@ -28,6 +28,21 @@ EOF
 cat > "$TEST_BIN/maestro" <<'EOF'
 #!/usr/bin/env bash
 echo maestro >> "$TEST_LOG"
+
+capture_dir=""
+while [[ $# -gt 0 ]]; do
+  if [[ "$1" == "--test-output-dir" ]]; then
+    capture_dir="$2"
+    shift 2
+  else
+    shift
+  fi
+done
+
+if [[ -n "$capture_dir" ]]; then
+  mkdir -p "$capture_dir/startRecording"
+  printf video > "$capture_dir/startRecording/smoke.mp4"
+fi
 exit 0
 EOF
 
@@ -62,11 +77,31 @@ PATH="$TEST_BIN:/usr/bin:/bin" \
   iPhone >/dev/null
 
 actual="$(grep -E '^(maestro|terminate|record)$' "$TEST_LOG" | paste -sd ' ' -)"
-expected="maestro terminate record maestro"
+expected="maestro"
 
 if [[ "$actual" != "$expected" ]]; then
   echo "expected: $expected" >&2
   echo "actual:   $actual" >&2
+  exit 1
+fi
+
+line_number() {
+  grep -n -m 1 -- "$1" "$ROOT_DIR/e2e/smoke.yaml" | cut -d: -f1
+}
+
+launch_line="$(line_number 'launchApp')"
+loaded_line="$(line_number 'assertVisible')"
+start_line="$(line_number 'startRecording')"
+stop_line="$(line_number 'stopRecording')"
+
+if ! (( launch_line < loaded_line && loaded_line < start_line && start_line < stop_line )); then
+  echo "expected flow order: launchApp < assertVisible < startRecording < stopRecording" >&2
+  exit 1
+fi
+
+last_command="$(grep -E '^[[:space:]]*-[[:space:]]+' "$ROOT_DIR/e2e/smoke.yaml" | tail -1)"
+if [[ "$last_command" != "- stopRecording" ]]; then
+  echo "expected stopRecording to be the final flow command" >&2
   exit 1
 fi
 
