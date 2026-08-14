@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -23,6 +23,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test semantic versioning
         run: python3 scripts/test-semantic-version.py
+      - name: Test CI workflow safeguards
+        run: python3 scripts/test-ci-workflows.py
 
   ios:
     name: Swift tests (iPhone Simulator)
@@ -31,24 +33,55 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Cache DerivedData
-        uses: actions/cache@v4
-        with:
-          path: DerivedData/CI
-          key: ios-ci-${{ runner.os }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift', 'QRScannerTests/**/*.swift') }}
-          restore-keys: |
-            ios-ci-${{ runner.os }}-
+      - name: Fingerprint Xcode toolchain
+        id: xcode
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          echo "cache-key=$(xcodebuild -version | shasum -a 256 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
-      - name: Run tests
+      - name: Select and boot simulator
+        id: simulator
         run: |
           set -euo pipefail
           DEVICE_ID="$(./scripts/select-simulator.py iPhone)"
-          xcodebuild test \
+          echo "id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
+          xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+
+      - name: Cache test build
+        id: test-build-cache
+        uses: actions/cache@v4
+        with:
+          path: DerivedData/CI
+          key: ios-ci-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift', 'QRScanner/**/*.xcassets/**', 'QRScannerTests/**/*.swift') }}
+          restore-keys: |
+            ios-ci-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-
+
+      - name: Build tests on cold cache
+        if: steps.test-build-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          xcodebuild build-for-testing \
             -project QRScanner.xcodeproj \
             -scheme QRScanner \
             -configuration Debug \
-            -destination "platform=iOS Simulator,id=${DEVICE_ID}" \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}" \
             -derivedDataPath DerivedData/CI \
+            -parallel-testing-enabled NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Run tests without rebuilding
+        run: |
+          set -euo pipefail
+          xcodebuild test-without-building \
+            -project QRScanner.xcodeproj \
+            -scheme QRScanner \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}" \
+            -derivedDataPath DerivedData/CI \
+            -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
 
