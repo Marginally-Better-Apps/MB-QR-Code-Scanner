@@ -8,5 +8,5 @@ appId: com.marginallybetter.qrscanner
 - tapOn: "History"
 - assertVisible: "Your scan history will appear here."
 - tapOn: "Scanner"
-- assertVisible: "Camera scanning will appear here."
+- assertVisible: "Camera Unavailable"
 - stopRecording

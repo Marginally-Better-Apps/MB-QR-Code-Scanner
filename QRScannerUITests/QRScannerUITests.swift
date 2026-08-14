@@ -5,11 +5,17 @@ final class QRScannerUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+    }
+
+    private func launch(cameraFixture: String = "authorized") {
         app = XCUIApplication()
+        app.launchArguments = ["--camera-fixture", cameraFixture]
         app.launch()
     }
 
     func testScannerAndHistoryAreNamedAndReachable() {
+        launch()
+
         let scannerTab = app.buttons["Scanner"].firstMatch
         let historyTab = app.buttons["History"].firstMatch
 
@@ -25,8 +31,12 @@ final class QRScannerUITests: XCTestCase {
     }
 
     func testDestinationNamesAreLocalized() {
-        app.terminate()
-        app.launchArguments = ["-AppleLanguages", "(es)", "-AppleLocale", "es_ES"]
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--camera-fixture", "authorized",
+            "-AppleLanguages", "(es)",
+            "-AppleLocale", "es_ES"
+        ]
         app.launch()
 
         let scannerTab = app.buttons["Escáner"].firstMatch
@@ -37,5 +47,81 @@ final class QRScannerUITests: XCTestCase {
 
         historyTab.tap()
         XCTAssertTrue(app.navigationBars["Historial"].waitForExistence(timeout: 2))
+    }
+
+    func testCameraUnavailableStateIsLocalized() {
+        app = XCUIApplication()
+        app.launchArguments = [
+            "--camera-fixture", "restricted",
+            "-AppleLanguages", "(es)",
+            "-AppleLocale", "es_ES"
+        ]
+        app.launch()
+
+        XCTAssertTrue(
+            app.staticTexts["El acceso a la cámara está restringido"].waitForExistence(timeout: 5)
+        )
+        XCTAssertTrue(
+            app.staticTexts[
+                "El acceso a la cámara está restringido por Tiempo en pantalla o la gestión del dispositivo."
+            ].exists
+        )
+    }
+
+    func testFirstRunRequestsCameraAccessInScannerContext() {
+        launch(cameraFixture: "not-determined")
+
+        XCTAssertTrue(app.navigationBars["Scanner"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Camera Access"].exists)
+        XCTAssertTrue(
+            app.staticTexts[
+                "QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved."
+            ].exists
+        )
+        XCTAssertEqual(app.pageIndicators.count, 0)
+        XCTAssertEqual(app.buttons.matching(identifier: "camera-primary-action").count, 0)
+    }
+
+    func testDeniedAccessOffersSettingsWithoutADeadScanControl() {
+        launch(cameraFixture: "denied")
+
+        XCTAssertTrue(app.staticTexts["Camera Access Is Off"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Allow camera access in Settings to scan QR codes."].exists)
+        XCTAssertTrue(app.buttons["Open Settings"].exists)
+        XCTAssertEqual(app.buttons.matching(identifier: "camera-primary-action").count, 1)
+        XCTAssertFalse(app.buttons["Scan"].exists)
+    }
+
+    func testRestrictedAndHardwareUnavailableStatesUseAccurateLanguageAndNoControls() {
+        launch(cameraFixture: "restricted")
+
+        XCTAssertTrue(app.staticTexts["Camera Access Is Restricted"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts["Camera access is restricted by Screen Time or device management."].exists
+        )
+        XCTAssertEqual(app.buttons.matching(identifier: "camera-primary-action").count, 0)
+
+        app.terminate()
+        launch(cameraFixture: "hardware-unavailable")
+
+        XCTAssertTrue(app.staticTexts["Camera Unavailable"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No camera is available on this device."].exists)
+        XCTAssertEqual(app.buttons.matching(identifier: "camera-primary-action").count, 0)
+    }
+
+    func testReturningFromSettingsRecoversAndActivatesCamera() {
+        launch(cameraFixture: "recovering")
+
+        let settingsButton = app.buttons["Open Settings"]
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 5))
+        settingsButton.tap()
+
+        app.activate()
+
+        XCTAssertTrue(app.staticTexts["Ready to Scan"].waitForExistence(timeout: 5))
+        XCTAssertTrue(
+            app.staticTexts["Point the camera at a QR code. Scanning starts automatically."].exists
+        )
+        XCTAssertFalse(app.buttons["Scan"].exists)
     }
 }

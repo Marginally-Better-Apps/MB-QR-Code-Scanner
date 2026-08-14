@@ -1,6 +1,6 @@
 # QR Scanner
 
-A native SwiftUI iPhone and iPad QR code scanner. The app opens to a system Scanner/History tab shell; camera and history behavior arrive in subsequent product stories.
+A native SwiftUI iPhone and iPad QR code scanner. The app opens to a system Scanner/History tab shell with recoverable camera-access states; QR capture and history persistence arrive in subsequent product stories.
 
 ## Requirements
 

@@ -1,0 +1,15 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "recovering"
+- assertVisible: "Camera Access Is Off"
+- assertVisible: "Open Settings"
+- startRecording: camera-permission-acceptance
+- tapOn: "Open Settings"
+- launchApp:
+    stopApp: false
+- assertVisible: "Ready to Scan"
+- assertVisible: "Point the camera at a QR code. Scanning starts automatically."
+- stopRecording
