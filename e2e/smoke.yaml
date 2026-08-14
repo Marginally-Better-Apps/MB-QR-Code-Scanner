@@ -1,0 +1,5 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Hello, world!"

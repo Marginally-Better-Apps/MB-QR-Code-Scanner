@@ -1,0 +1,57 @@
+name: PR unsigned IPA
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: unsigned-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ipa:
+    name: Build unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: DerivedData/Archive
+          key: ios-archive-${{ runner.os }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift') }}
+          restore-keys: |
+            ios-archive-${{ runner.os }}-
+
+      - name: Archive without signing
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project QRScanner.xcodeproj \
+            -scheme QRScanner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/QRScanner.xcarchive" \
+            -derivedDataPath "$PWD/DerivedData/Archive" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+
+      - name: Package IPA
+        run: ./scripts/package-ipa.sh build/QRScanner.xcarchive artifacts/QR-Scanner-unsigned.ipa
+
+      - name: Upload unsigned IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: QR-Scanner-PR-${{ github.event.pull_request.number || github.run_number }}-unsigned
+          path: artifacts/QR-Scanner-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 14

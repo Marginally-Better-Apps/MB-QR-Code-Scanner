@@ -1,0 +1,93 @@
+name: Tagless release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tagless-release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build semantic unsigned IPA
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          MESSAGE="$(git log -1 --format=%B)"
+          KIND="$(printf '%s\n' "$MESSAGE" | sed -nE '/^feat(\([^)]*\))?!: /{s/.*/major/p;q}; /^feat(\([^)]*\))?: /{s/.*/minor/p;q}; /^fix(\([^)]*\))?: /{s/.*/patch/p;q}')"
+          VERSION="$(./scripts/semantic-version.py HEAD)"
+
+          if [[ "$EVENT_NAME" = "workflow_dispatch" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "kind=manual" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$KIND" ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            echo "kind=$KIND" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+            echo "kind=none" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Explain non-release commit
+        if: steps.release.outputs.build != 'true'
+        run: echo "The main commit is not fix:, feat:, or feat!:; no release artifact will be built."
+
+      - name: Cache DerivedData
+        if: steps.release.outputs.build == 'true'
+        uses: actions/cache@v4
+        with:
+          path: DerivedData/Release
+          key: ios-release-${{ runner.os }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift') }}
+          restore-keys: |
+            ios-release-${{ runner.os }}-
+
+      - name: Archive without signing
+        if: steps.release.outputs.build == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          set -euo pipefail
+          xcodebuild archive \
+            -project QRScanner.xcodeproj \
+            -scheme QRScanner \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$PWD/build/QRScanner.xcarchive" \
+            -derivedDataPath "$PWD/DerivedData/Release" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+
+      - name: Package IPA
+        if: steps.release.outputs.build == 'true'
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: ./scripts/package-ipa.sh build/QRScanner.xcarchive "artifacts/QR-Scanner-v${VERSION}-unsigned.ipa"
+
+      - name: Upload tagless release artifact
+        if: steps.release.outputs.build == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: QR-Scanner-v${{ steps.release.outputs.version }}-unsigned
+          path: artifacts/QR-Scanner-v${{ steps.release.outputs.version }}-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

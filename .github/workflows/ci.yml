@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: Release policy tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test semantic versioning
+        run: python3 scripts/test-semantic-version.py
+
+  ios:
+    name: Swift tests (iPhone Simulator)
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: DerivedData/CI
+          key: ios-ci-${{ runner.os }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift', 'QRScannerTests/**/*.swift') }}
+          restore-keys: |
+            ios-ci-${{ runner.os }}-
+
+      - name: Run tests
+        run: |
+          set -euo pipefail
+          DEVICE_ID="$(./scripts/select-simulator.py iPhone)"
+          xcodebuild test \
+            -project QRScanner.xcodeproj \
+            -scheme QRScanner \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,id=${DEVICE_ID}" \
+            -derivedDataPath DerivedData/CI \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Verify universal iOS device family
+        run: |
+          set -euo pipefail
+          FAMILY="$(xcodebuild -project QRScanner.xcodeproj -scheme QRScanner -showBuildSettings | awk -F ' = ' '/TARGETED_DEVICE_FAMILY/{print $2; exit}')"
+          test "$FAMILY" = "1,2"
