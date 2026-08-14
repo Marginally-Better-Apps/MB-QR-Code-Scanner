@@ -44,6 +44,7 @@ The script and iOS jobs already ran independently; the iOS job determined merge 
 | Validation | Main CI | PR title | PR unsigned IPA | All PR checks green | Cache evidence |
 | --- | ---: | ---: | ---: | ---: | --- |
 | [Cold cache](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772596229) | 5:45 | 0:06 | [0:41](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772596222) | 5:45 | Both v2 keys missed, then saved successfully |
+| [Warm 1](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772949309) | 3:35 | 0:06 | [0:35](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31772949358) | 3:35 | Exact test-build key restored; build step skipped |
 
 The cold run preserved every check and artifact. Its iOS critical path was 0:12 to select
 and request simulator boot, a 0:34 cache miss lookup, a 3:35 test build, 0:51 to finish boot
