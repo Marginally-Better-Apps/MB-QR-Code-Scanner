@@ -1,6 +1,6 @@
 # QR Scanner
 
-A native SwiftUI scaffold for an iPhone and iPad QR code scanner. The current app intentionally contains only Xcode's basic “Hello, world!” view; scanner behavior comes in the next product phase.
+A native SwiftUI iPhone and iPad QR code scanner. The app opens to a system Scanner/History tab shell; camera and history behavior arrive in subsequent product stories.
 
 ## Requirements
 
