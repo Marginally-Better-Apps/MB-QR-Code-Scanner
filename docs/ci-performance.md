@@ -41,6 +41,10 @@ The script and iOS jobs already ran independently; the iOS job determined merge 
 
 ## Post-change evidence
 
-The cold-cache run and at least three warm-cache PR runs are recorded in the implementation
-PR after GitHub-hosted cache priming. The PR also records cache-hit log evidence and the
-remaining runner/simulator bottlenecks.
+| Validation | Main CI | PR title | PR unsigned IPA | All PR checks green | Cache evidence |
+| --- | ---: | ---: | ---: | ---: | --- |
+| [Cold cache](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31771011483) | 5:36 | 0:04 | [0:35](https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/actions/runs/31771011467) | 5:36 | Both v2 keys missed, then saved successfully |
+
+The cold run preserved every check and artifact. Its iOS critical path was a 1:30 simulator
+selection/boot, 0:38 cache miss lookup, 2:09 test build, 0:42 test execution, and 0:07
+device-family validation. The next three PR synchronizations provide warm-cache evidence.
