@@ -48,6 +48,7 @@ class PullRequestWorkflowTests(unittest.TestCase):
             "QRScanner/**/*.swift",
             "QRScanner/**/*.xcassets/**",
             "QRScannerTests/**/*.swift",
+            "QRScannerUITests/**/*.swift",
         ):
             with self.subTest(build_input=build_input):
                 self.assertIn(build_input, text)

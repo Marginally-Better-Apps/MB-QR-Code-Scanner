@@ -101,6 +101,16 @@
         }
       }
     },
+    "Observed QR Code" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código QR observado"
+          }
+        }
+      }
+    },
     "Point the camera at a QR code. Scanning starts automatically." : {
       "localizations" : {
         "es" : {
