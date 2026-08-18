@@ -134,16 +134,7 @@ final class VisionKitScannerObservationSource: ScannerObservationSource, VisionK
     )
 
     static func normalizedBounds(_ bounds: CGRect, in viewSize: CGSize) -> CGRect {
-        guard viewSize.width > 0, viewSize.height > 0 else {
-            return .zero
-        }
-
-        return CGRect(
-            x: bounds.origin.x / viewSize.width,
-            y: bounds.origin.y / viewSize.height,
-            width: bounds.size.width / viewSize.width,
-            height: bounds.size.height / viewSize.height
-        )
+        ScannerPreviewCoordinates.normalizedBounds(bounds, in: viewSize)
     }
 
     static func boundingRect(

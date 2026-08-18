@@ -1,6 +1,8 @@
 # QR Scanner
 
-A native SwiftUI iPhone and iPad QR code scanner. The app opens to a system Scanner/History tab shell with recoverable camera-access states. On devices that support VisionKit Data Scanner, the live camera recognizes QR codes through the scanner observation protocol; history persistence arrives in subsequent product stories.
+A native SwiftUI iPhone and iPad QR code scanner. The app opens to a system Scanner/History tab shell with recoverable camera-access states. On devices that support VisionKit Data Scanner, the live camera uses that engine; otherwise it falls back to AVFoundation QR metadata. Both engines share the scanner observation protocol. History persistence arrives in subsequent product stories.
+
+The supported-device decision table and fallback device-lab plan live in [docs/scanner-engine-support.md](docs/scanner-engine-support.md).
 
 ## Requirements
 
