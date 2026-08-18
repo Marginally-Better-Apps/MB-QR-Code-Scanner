@@ -19,6 +19,7 @@
 		D10000000000000000000001 /* ScannerObservation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D20000000000000000000001 /* ScannerObservation.swift */; };
 		E10000000000000000000001 /* VisionKitScannerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E20000000000000000000001 /* VisionKitScannerEngine.swift */; };
 		F10000000000000000000001 /* AVFoundationScannerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F20000000000000000000001 /* AVFoundationScannerEngine.swift */; };
+		G10000000000000000000001 /* ScannerPreviewGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = G20000000000000000000001 /* ScannerPreviewGeometry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -54,6 +55,7 @@
 		D20000000000000000000001 /* ScannerObservation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerObservation.swift; sourceTree = "<group>"; };
 		E20000000000000000000001 /* VisionKitScannerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisionKitScannerEngine.swift; sourceTree = "<group>"; };
 		F20000000000000000000001 /* AVFoundationScannerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVFoundationScannerEngine.swift; sourceTree = "<group>"; };
+		G20000000000000000000001 /* ScannerPreviewGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerPreviewGeometry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +102,7 @@
 				D20000000000000000000001 /* ScannerObservation.swift */,
 				E20000000000000000000001 /* VisionKitScannerEngine.swift */,
 				F20000000000000000000001 /* AVFoundationScannerEngine.swift */,
+				G20000000000000000000001 /* ScannerPreviewGeometry.swift */,
 				A20000000000000000000002 /* ContentView.swift */,
 				A20000000000000000000003 /* Assets.xcassets */,
 				A2000000000000000000000A /* Localizable.xcstrings */,
@@ -285,6 +288,7 @@
 				D10000000000000000000001 /* ScannerObservation.swift in Sources */,
 				E10000000000000000000001 /* VisionKitScannerEngine.swift in Sources */,
 				F10000000000000000000001 /* AVFoundationScannerEngine.swift in Sources */,
+				G10000000000000000000001 /* ScannerPreviewGeometry.swift in Sources */,
 				A10000000000000000000002 /* ContentView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

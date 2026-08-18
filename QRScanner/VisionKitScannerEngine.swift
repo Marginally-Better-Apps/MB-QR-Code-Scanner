@@ -10,6 +10,7 @@ struct VisionKitScannerConfiguration: Equatable {
     var isHighFrameRateTrackingEnabled: Bool
     var isGuidanceEnabled: Bool
     var isHighlightingEnabled: Bool
+    var recognitionRegion: CGRect
 }
 
 struct VisionKitRecognizedBarcode: Equatable {
@@ -69,6 +70,7 @@ final class SystemVisionKitScannerPlatform: VisionKitScannerPlatform {
 @MainActor
 final class VisionKitScannerObservationSource: ScannerObservationSource, VisionKitScannerEventSink {
     let engineID = ScannerEngineID("visionkit")
+    let usesCustomCameraGestures = false
 
     var previewController: UIViewController? { controller?.previewController }
 
@@ -97,7 +99,7 @@ final class VisionKitScannerObservationSource: ScannerObservationSource, VisionK
 
     func handleLifecycle(_ phase: ScannerLifecyclePhase) {
         switch phase {
-        case .background:
+        case .background, .inactive:
             stopScanningIfNeeded()
         case .active:
             startScanningIfPossible()
@@ -130,7 +132,8 @@ final class VisionKitScannerObservationSource: ScannerObservationSource, VisionK
         recognizesMultipleItems: true,
         isHighFrameRateTrackingEnabled: true,
         isGuidanceEnabled: false,
-        isHighlightingEnabled: false
+        isHighlightingEnabled: false,
+        recognitionRegion: ScannerRecognitionRegion.fullPreview
     )
 
     static func normalizedBounds(_ bounds: CGRect, in viewSize: CGSize) -> CGRect {
@@ -186,13 +189,10 @@ final class VisionKitScannerObservationSource: ScannerObservationSource, VisionK
         let viewSize = controller?.viewSize ?? .zero
         receiveFrame?(
             allItems.compactMap { item in
-                guard let payload = item.payload else {
-                    return nil
-                }
-
-                return ScannerObservation(
-                    rawPayload: payload,
-                    displayBounds: Self.normalizedBounds(item.bounds, in: viewSize),
+                ScannerObservationMapper.map(
+                    payload: item.payload,
+                    bounds: item.bounds,
+                    viewSize: viewSize,
                     timestamp: timestamp,
                     engineID: engineID
                 )

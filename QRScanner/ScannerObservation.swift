@@ -32,6 +32,7 @@ struct SystemScannerClock: ScannerClock {
 
 enum ScannerLifecyclePhase: Equatable {
     case active
+    case inactive
     case background
 }
 
@@ -144,6 +145,29 @@ enum ScannerObservationSourceFactory {
                     ScannerFixtureDetection(
                         rawPayload: "https://example.com/fixture",
                         displayBounds: CGRect(x: 0.2, y: 0.3, width: 0.6, height: 0.25)
+                    )
+                ]
+            )
+        case "edge-codes":
+            return ScannerObservationFixtureSource(
+                engineID: ScannerEngineID("fixture.edge-codes"),
+                clock: clock,
+                startupFrame: [
+                    ScannerFixtureDetection(
+                        rawPayload: "https://example.com/edge-left",
+                        displayBounds: CGRect(x: 0.01, y: 0.40, width: 0.12, height: 0.12)
+                    ),
+                    ScannerFixtureDetection(
+                        rawPayload: "https://example.com/edge-right",
+                        displayBounds: CGRect(x: 0.87, y: 0.40, width: 0.12, height: 0.12)
+                    ),
+                    ScannerFixtureDetection(
+                        rawPayload: "https://example.com/edge-top",
+                        displayBounds: CGRect(x: 0.44, y: 0.01, width: 0.12, height: 0.12)
+                    ),
+                    ScannerFixtureDetection(
+                        rawPayload: "https://example.com/edge-bottom",
+                        displayBounds: CGRect(x: 0.44, y: 0.87, width: 0.12, height: 0.12)
                     )
                 ]
             )

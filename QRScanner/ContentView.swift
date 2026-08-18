@@ -23,11 +23,16 @@ struct ContentView: View {
             switch newPhase {
             case .active:
                 appState.scannerSession.handleLifecycle(.active)
+            case .inactive:
+                appState.scannerSession.handleLifecycle(.inactive)
             case .background:
                 appState.scannerSession.handleLifecycle(.background)
             default:
                 break
             }
+        }
+        .onChange(of: appState.selectedTab) { _, tab in
+            appState.scannerSession.handlePresentation(tab == .scanner ? .visible : .obscured)
         }
     }
 }
@@ -82,6 +87,10 @@ private struct ScannerView: View {
                         .ignoresSafeArea()
                         .onAppear {
                             session.handleLifecycle(.active)
+                            session.handlePresentation(.visible)
+                        }
+                        .overlay {
+                            observationBoundsOverlay
                         }
                         .overlay(alignment: .bottom) {
                             if !session.visibleObservations.isEmpty {
@@ -89,6 +98,7 @@ private struct ScannerView: View {
                                     .padding()
                                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
                                     .padding()
+                                    .accessibilityIdentifier("scanner-result-tray")
                             }
                         }
                         .accessibilityElement(children: .contain)
@@ -109,6 +119,26 @@ private struct ScannerView: View {
         .task {
             await session.activateScanner()
         }
+    }
+
+    private var observationBoundsOverlay: some View {
+        GeometryReader { geometry in
+            ForEach(Array(session.visibleObservations.enumerated()), id: \.offset) { _, observation in
+                let rect = CGRect(
+                    x: observation.displayBounds.origin.x * geometry.size.width,
+                    y: observation.displayBounds.origin.y * geometry.size.height,
+                    width: observation.displayBounds.width * geometry.size.width,
+                    height: observation.displayBounds.height * geometry.size.height
+                )
+                Rectangle()
+                    .stroke(.yellow, lineWidth: 2)
+                    .frame(width: rect.width, height: rect.height)
+                    .position(x: rect.midX, y: rect.midY)
+                    .accessibilityIdentifier("scanner-observation-bounds")
+                    .accessibilityHidden(true)
+            }
+        }
+        .allowsHitTesting(false)
     }
 
     private var observationList: some View {
@@ -146,7 +176,9 @@ private struct ScannerCameraPreview: UIViewControllerRepresentable {
         controller
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        uiViewController.view.setNeedsLayout()
+    }
 }
 
 private struct HistoryView: View {

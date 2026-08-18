@@ -1,3 +1,4 @@
+import AVFoundation
 import Vision
 import XCTest
 @testable import QRScanner
@@ -343,7 +344,8 @@ final class QRScannerTests: XCTestCase {
                 recognizesMultipleItems: true,
                 isHighFrameRateTrackingEnabled: true,
                 isGuidanceEnabled: false,
-                isHighlightingEnabled: false
+                isHighlightingEnabled: false,
+                recognitionRegion: ScannerRecognitionRegion.fullPreview
             )
         )
     }
@@ -556,6 +558,273 @@ final class QRScannerTests: XCTestCase {
         }
     }
 
+    func testRecognitionRegionIsTheFullPreviewAndNotACenterCrop() {
+        let centerGuide = CGRect(x: 0.25, y: 0.35, width: 0.5, height: 0.3)
+        let edgeBounds = [
+            CGRect(x: 0.01, y: 0.40, width: 0.12, height: 0.12),
+            CGRect(x: 0.87, y: 0.40, width: 0.12, height: 0.12),
+            CGRect(x: 0.44, y: 0.01, width: 0.12, height: 0.12),
+            CGRect(x: 0.44, y: 0.87, width: 0.12, height: 0.12)
+        ]
+
+        XCTAssertEqual(ScannerRecognitionRegion.fullPreview, CGRect(x: 0, y: 0, width: 1, height: 1))
+        XCTAssertEqual(
+            VisionKitScannerObservationSource.productConfiguration.recognitionRegion,
+            ScannerRecognitionRegion.fullPreview
+        )
+        XCTAssertEqual(
+            AVFoundationScannerObservationSource.productConfiguration.recognitionRegion,
+            ScannerRecognitionRegion.fullPreview
+        )
+        XCTAssertEqual(
+            AVFoundationScannerObservationSource.productConfiguration.videoGravity,
+            ScannerPreviewPresentation.aspectFillGravity
+        )
+
+        for bounds in edgeBounds {
+            XCTAssertFalse(centerGuide.intersects(bounds), "Edge codes sit outside the visual guide")
+            XCTAssertTrue(ScannerRecognitionRegion.containsVisibleCode(at: bounds))
+        }
+    }
+
+    func testAVFoundationEnginePublishesCodesNearEachPreviewEdge() {
+        let timestamp = Date(timeIntervalSince1970: 1_728_000_500)
+        let platform = AVFoundationScannerPlatformStub(isAuthorized: true)
+        platform.viewSize = CGSize(width: 100, height: 200)
+        let source = AVFoundationScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: timestamp)
+        )
+        var receivedFrames: [[ScannerObservation]] = []
+        source.start { receivedFrames.append($0) }
+
+        XCTAssertEqual(platform.lastConfiguration?.recognitionRegion, ScannerRecognitionRegion.fullPreview)
+        XCTAssertEqual(platform.lastConfiguration?.videoGravity, ScannerPreviewPresentation.aspectFillGravity)
+
+        let edges: [(String, CGRect)] = [
+            ("edge-left", CGRect(x: 1, y: 90, width: 12, height: 12)),
+            ("edge-right", CGRect(x: 87, y: 90, width: 12, height: 12)),
+            ("edge-top", CGRect(x: 44, y: 1, width: 12, height: 12)),
+            ("edge-bottom", CGRect(x: 44, y: 187, width: 12, height: 12))
+        ]
+
+        platform.eventSink?.avFoundationScannerDidOutput(
+            edges.map { AVFoundationRecognizedBarcode(payload: $0.0, bounds: $0.1) }
+        )
+
+        let frame = try! XCTUnwrap(receivedFrames.last)
+        XCTAssertEqual(frame.map(\.rawPayload), edges.map(\.0))
+        XCTAssertEqual(frame.map(\.displayBounds), [
+            CGRect(x: 0.01, y: 0.45, width: 0.12, height: 0.06),
+            CGRect(x: 0.87, y: 0.45, width: 0.12, height: 0.06),
+            CGRect(x: 0.44, y: 0.005, width: 0.12, height: 0.06),
+            CGRect(x: 0.44, y: 0.935, width: 0.12, height: 0.06)
+        ])
+        XCTAssertTrue(frame.allSatisfy { ScannerRecognitionRegion.containsVisibleCode(at: $0.displayBounds) })
+    }
+
+    func testObservationBoundsStayAlignedInPortraitLandscapeAndAfterResize() {
+        let portrait = CGSize(width: 390, height: 844)
+        let landscape = CGSize(width: 844, height: 390)
+        let resized = CGSize(width: 200, height: 400)
+        let layerBounds = CGRect(x: 12, y: 80, width: 90, height: 90)
+
+        let portraitMapped = ScannerPreviewCoordinates.normalizedBounds(layerBounds, in: portrait)
+        let landscapeMapped = ScannerPreviewCoordinates.normalizedBounds(layerBounds, in: landscape)
+        let resizedMapped = ScannerPreviewCoordinates.normalizedBounds(layerBounds, in: resized)
+
+        XCTAssertEqual(portraitMapped.origin.x, 12 / 390, accuracy: 0.0001)
+        XCTAssertEqual(portraitMapped.origin.y, 80 / 844, accuracy: 0.0001)
+        XCTAssertEqual(landscapeMapped.origin.x, 12 / 844, accuracy: 0.0001)
+        XCTAssertEqual(landscapeMapped.origin.y, 80 / 390, accuracy: 0.0001)
+        XCTAssertEqual(resizedMapped.size.width, 90 / 200, accuracy: 0.0001)
+        XCTAssertEqual(resizedMapped.size.height, 90 / 400, accuracy: 0.0001)
+
+        XCTAssertEqual(
+            ScannerCaptureOrientation.videoOrientation(for: .portrait),
+            .portrait
+        )
+        XCTAssertEqual(
+            ScannerCaptureOrientation.videoOrientation(for: .landscapeLeft),
+            .landscapeLeft
+        )
+        XCTAssertEqual(
+            ScannerCaptureOrientation.videoOrientation(for: .landscapeRight),
+            .landscapeRight
+        )
+
+        let platform = AVFoundationScannerPlatformStub(isAuthorized: true)
+        platform.viewSize = portrait
+        let source = AVFoundationScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: Date(timeIntervalSince1970: 40))
+        )
+        var receivedFrames: [[ScannerObservation]] = []
+        source.start { receivedFrames.append($0) }
+
+        platform.eventSink?.avFoundationScannerDidOutput([
+            AVFoundationRecognizedBarcode(payload: "aligned", bounds: layerBounds)
+        ])
+        platform.viewSize = landscape
+        source.handlePreviewLayoutChange()
+        platform.eventSink?.avFoundationScannerDidOutput([
+            AVFoundationRecognizedBarcode(payload: "aligned", bounds: layerBounds)
+        ])
+        platform.viewSize = resized
+        source.handlePreviewLayoutChange()
+        platform.eventSink?.avFoundationScannerDidOutput([
+            AVFoundationRecognizedBarcode(payload: "aligned", bounds: layerBounds)
+        ])
+
+        XCTAssertEqual(platform.layoutUpdateCount, 2)
+        XCTAssertEqual(receivedFrames.map { $0.map(\.displayBounds) }, [
+            [portraitMapped],
+            [landscapeMapped],
+            [resizedMapped]
+        ])
+    }
+
+    func testPinchZoomAndTapFocusDoNotTriggerResultActions() {
+        let platform = AVFoundationScannerPlatformStub(isAuthorized: true)
+        let source = AVFoundationScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: .distantPast)
+        )
+        source.start { _ in }
+
+        let resultTray = CGRect(x: 0, y: 0.72, width: 1, height: 0.28)
+        XCTAssertEqual(
+            ScannerCameraInteractionRouter.hitTarget(
+                at: CGPoint(x: 0.5, y: 0.4),
+                resultActionRect: resultTray
+            ),
+            .camera
+        )
+        XCTAssertEqual(
+            ScannerCameraInteractionRouter.hitTarget(
+                at: CGPoint(x: 0.5, y: 0.85),
+                resultActionRect: resultTray
+            ),
+            .resultAction
+        )
+
+        var resultActionCount = 0
+        source.beginPinchZoom()
+        source.updatePinchZoom(
+            scale: 2,
+            atNormalizedPoint: CGPoint(x: 0.5, y: 0.4),
+            resultActionRect: resultTray,
+            onResultAction: { resultActionCount += 1 }
+        )
+        source.focus(
+            atNormalizedPoint: CGPoint(x: 0.2, y: 0.3),
+            resultActionRect: resultTray,
+            onResultAction: { resultActionCount += 1 }
+        )
+        source.focus(
+            atNormalizedPoint: CGPoint(x: 0.5, y: 0.85),
+            resultActionRect: resultTray,
+            onResultAction: { resultActionCount += 1 }
+        )
+
+        XCTAssertEqual(resultActionCount, 1)
+        XCTAssertEqual(platform.zoomFactor, 2)
+        XCTAssertEqual(platform.focusPoint, CGPoint(x: 0.2, y: 0.3))
+        XCTAssertTrue(source.usesCustomCameraGestures)
+        XCTAssertFalse(
+            VisionKitScannerObservationSource(
+                platform: VisionKitScannerPlatformStub(isSupported: true, isAvailable: true),
+                clock: TestScannerClock(now: .distantPast)
+            ).usesCustomCameraGestures
+        )
+    }
+
+    func testScanningPausesWhenScannerIsObscuredOrSceneIsInactiveAndResumesOnce() async {
+        let platform = AVFoundationScannerPlatformStub(isAuthorized: true)
+        let source = AVFoundationScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: Date(timeIntervalSince1970: 50))
+        )
+        let session = ScannerSessionStore(
+            cameraAccess: CameraAccessStub(authorization: .authorized),
+            observationSource: source
+        )
+
+        await session.activateScanner()
+        XCTAssertEqual(platform.startScanningCount, 1)
+
+        session.handlePresentation(.obscured)
+        session.handlePresentation(.obscured)
+        XCTAssertEqual(platform.stopScanningCount, 1)
+        XCTAssertEqual(platform.startScanningCount, 1)
+
+        platform.eventSink?.avFoundationScannerDidOutput([
+            AVFoundationRecognizedBarcode(payload: "ignored-while-obscured", bounds: CGRect(x: 0, y: 0, width: 10, height: 10))
+        ])
+        XCTAssertTrue(session.visibleObservations.isEmpty)
+
+        session.handlePresentation(.visible)
+        session.handlePresentation(.visible)
+        XCTAssertEqual(platform.startScanningCount, 2)
+        XCTAssertEqual(platform.makeControllerCount, 1)
+        XCTAssertEqual(platform.stopScanningCount, 1)
+
+        session.handleLifecycle(.inactive)
+        session.handleLifecycle(.inactive)
+        XCTAssertEqual(platform.stopScanningCount, 2)
+
+        session.handleLifecycle(.active)
+        session.handleLifecycle(.active)
+        XCTAssertEqual(platform.startScanningCount, 3)
+        XCTAssertEqual(platform.stopScanningCount, 2)
+    }
+
+    func testCoordinateMappingDoesNotRequireTheMainActor() {
+        let expectation = expectation(description: "map off the main actor")
+        let bounds = CGRect(x: 10, y: 20, width: 30, height: 40)
+        let viewSize = CGSize(width: 100, height: 200)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            XCTAssertFalse(Thread.isMainThread)
+            let mapped = ScannerObservationMapper.map(
+                payload: "off-main",
+                bounds: bounds,
+                viewSize: viewSize,
+                timestamp: Date(timeIntervalSince1970: 1),
+                engineID: ScannerEngineID("avfoundation")
+            )
+            XCTAssertEqual(
+                mapped?.displayBounds,
+                ScannerPreviewCoordinates.normalizedBounds(bounds, in: viewSize)
+            )
+            expectation.fulfill()
+        }
+
+        wait(for: [expectation], timeout: 1)
+    }
+
+    func testNamedEdgeFixtureEmitsACodeNearEachPreviewEdge() {
+        let timestamp = Date(timeIntervalSince1970: 1_728_000_600)
+        let source = ScannerObservationSourceFactory.make(
+            arguments: ["QRScanner", "--scanner-fixture", "edge-codes"],
+            fixturesEnabled: true,
+            clock: TestScannerClock(now: timestamp)
+        )
+        var receivedFrames: [[ScannerObservation]] = []
+        source.start { receivedFrames.append($0) }
+
+        XCTAssertEqual(source.engineID, ScannerEngineID("fixture.edge-codes"))
+        let frame = try! XCTUnwrap(receivedFrames.first)
+        XCTAssertEqual(frame.map(\.rawPayload), [
+            "https://example.com/edge-left",
+            "https://example.com/edge-right",
+            "https://example.com/edge-top",
+            "https://example.com/edge-bottom"
+        ])
+        XCTAssertTrue(frame.allSatisfy { ScannerRecognitionRegion.containsVisibleCode(at: $0.displayBounds) })
+        XCTAssertFalse(frame.contains { CGRect(x: 0.25, y: 0.35, width: 0.5, height: 0.3).intersects($0.displayBounds) })
+    }
+
     private func detection(_ rawPayload: String) -> ScannerFixtureDetection {
         ScannerFixtureDetection(
             rawPayload: rawPayload,
@@ -629,9 +898,15 @@ private final class AVFoundationScannerPlatformStub: AVFoundationScannerPlatform
     var makeControllerCount = 0
     var startScanningCount = 0
     var stopScanningCount = 0
+    var layoutUpdateCount = 0
     var isScanning = false
     var viewSize = CGSize(width: 100, height: 200)
+    var zoomFactor: CGFloat = 1
+    var minZoomFactor: CGFloat = 1
+    var maxZoomFactor: CGFloat = 8
+    var focusPoint: CGPoint?
     private(set) var lastMetadataObjectTypes: [String]?
+    private(set) var lastConfiguration: AVFoundationScannerConfiguration?
     private(set) weak var eventSink: AVFoundationScannerEventSink?
 
     init(isAuthorized: Bool) {
@@ -639,11 +914,12 @@ private final class AVFoundationScannerPlatformStub: AVFoundationScannerPlatform
     }
 
     func makeController(
-        metadataObjectTypes: [String],
+        configuration: AVFoundationScannerConfiguration,
         eventSink: AVFoundationScannerEventSink
     ) -> AVFoundationScannerControlling {
         makeControllerCount += 1
-        lastMetadataObjectTypes = metadataObjectTypes
+        lastConfiguration = configuration
+        lastMetadataObjectTypes = configuration.metadataObjectTypes
         self.eventSink = eventSink
         return AVFoundationScannerControllerStub(platform: self)
     }
@@ -666,9 +942,25 @@ private final class AVFoundationScannerControllerStub: AVFoundationScannerContro
         platform.isScanning = true
     }
 
+    var zoomFactor: CGFloat { platform.zoomFactor }
+    var minZoomFactor: CGFloat { platform.minZoomFactor }
+    var maxZoomFactor: CGFloat { platform.maxZoomFactor }
+
     func stopScanning() {
         platform.stopScanningCount += 1
         platform.isScanning = false
+    }
+
+    func setZoomFactor(_ factor: CGFloat) {
+        platform.zoomFactor = min(platform.maxZoomFactor, max(platform.minZoomFactor, factor))
+    }
+
+    func focus(atNormalizedPoint point: CGPoint) {
+        platform.focusPoint = point
+    }
+
+    func updatePreviewLayout() {
+        platform.layoutUpdateCount += 1
     }
 }
 

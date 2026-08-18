@@ -27,6 +27,24 @@ final class QRScannerUITests: XCTestCase {
         XCTAssertEqual(app.staticTexts.matching(identifier: "scanner-observation-payload").count, 1)
     }
 
+    func testEdgeFixtureRecognizesCodesOutsideTheCenterGuide() {
+        launch(scannerFixture: "edge-codes")
+
+        XCTAssertTrue(app.staticTexts["Observed QR Code"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["https://example.com/edge-left"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["https://example.com/edge-right"].exists)
+        XCTAssertTrue(app.staticTexts["https://example.com/edge-top"].exists)
+        XCTAssertTrue(app.staticTexts["https://example.com/edge-bottom"].exists)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "scanner-observation-payload").count, 4)
+
+        app.buttons["History"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Your scan history will appear here."].waitForExistence(timeout: 2))
+
+        app.buttons["Scanner"].firstMatch.tap()
+        XCTAssertTrue(app.staticTexts["Observed QR Code"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts.matching(identifier: "scanner-observation-payload").count, 4)
+    }
+
     func testScannerAndHistoryAreNamedAndReachable() {
         launch()
 

@@ -1,0 +1,20 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "edge-codes"
+- assertVisible: "Observed QR Code"
+- assertVisible: "https://example.com/edge-left"
+- assertVisible: "https://example.com/edge-right"
+- assertVisible: "https://example.com/edge-top"
+- assertVisible: "https://example.com/edge-bottom"
+- startRecording: full-frame-scan-acceptance
+- tapOn: "History"
+- assertVisible: "Your scan history will appear here."
+- tapOn: "Scanner"
+- assertVisible: "Observed QR Code"
+- assertVisible: "https://example.com/edge-left"
+- assertVisible: "https://example.com/edge-bottom"
+- stopRecording
