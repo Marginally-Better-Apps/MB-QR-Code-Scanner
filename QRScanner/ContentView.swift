@@ -184,7 +184,7 @@ private struct ObservationResultBar: View {
         }
         .frame(minHeight: 44)
         .foregroundStyle(.primary)
-        .background { ObservationResultBarBackground() }
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .sensoryFeedback(.success, trigger: copyCount)
     }
 
@@ -195,21 +195,6 @@ private struct ObservationResultBar: View {
         Task { @MainActor in
             try? await Task.sleep(for: .seconds(1.5))
             didCopy = false
-        }
-    }
-}
-
-private struct ObservationResultBarBackground: View {
-    private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: 12, style: .continuous)
-    }
-
-    var body: some View {
-        if #available(iOS 26.0, *) {
-            shape.fill(.ultraThinMaterial)
-                .glassEffect(.regular, in: shape)
-        } else {
-            shape.fill(.ultraThinMaterial)
         }
     }
 }
