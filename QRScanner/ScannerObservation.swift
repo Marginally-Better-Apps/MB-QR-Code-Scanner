@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import UIKit
 
 struct ScannerEngineID: RawRepresentable, Hashable, Sendable {
     let rawValue: String
@@ -28,12 +29,25 @@ struct SystemScannerClock: ScannerClock {
     var now: Date { Date() }
 }
 
+enum ScannerLifecyclePhase: Equatable {
+    case active
+    case background
+}
+
 @MainActor
 protocol ScannerObservationSource: AnyObject {
     var engineID: ScannerEngineID { get }
+    var previewController: UIViewController? { get }
 
     func start(receiveFrame: @escaping ([ScannerObservation]) -> Void)
     func stop()
+    func handleLifecycle(_ phase: ScannerLifecyclePhase)
+}
+
+extension ScannerObservationSource {
+    var previewController: UIViewController? { nil }
+
+    func handleLifecycle(_ phase: ScannerLifecyclePhase) {}
 }
 
 @MainActor
@@ -66,7 +80,7 @@ enum ScannerObservationSourceFactory {
             fixturesEnabled,
             let fixture = commandLineFixture ?? defaults.string(forKey: "scannerFixture")
         else {
-            return IdleScannerObservationSource()
+            return VisionKitScannerObservationSource(clock: clock)
         }
 
         switch fixture {
@@ -82,10 +96,10 @@ enum ScannerObservationSourceFactory {
                 ]
             )
         default:
-            return IdleScannerObservationSource()
+            return VisionKitScannerObservationSource(clock: clock)
         }
 #else
-        return IdleScannerObservationSource()
+        return VisionKitScannerObservationSource(clock: clock)
 #endif
     }
 

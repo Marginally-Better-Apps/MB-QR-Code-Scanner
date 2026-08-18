@@ -71,6 +71,16 @@
         }
       }
     },
+    "Live camera scan area" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Área de escaneo con cámara en vivo"
+          }
+        }
+      }
+    },
     "History" : {
       "localizations" : {
         "es" : {

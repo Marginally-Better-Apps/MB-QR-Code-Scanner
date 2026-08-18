@@ -25,8 +25,13 @@ struct ContentView: View {
         }
         .tabViewStyle(.automatic)
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
-                appState.scannerSession.resumeFromSettings()
+            switch newPhase {
+            case .active:
+                appState.scannerSession.handleLifecycle(.active)
+            case .background:
+                appState.scannerSession.handleLifecycle(.background)
+            default:
+                break
             }
         }
     }
@@ -77,7 +82,23 @@ private struct ScannerView: View {
                     description: Text("No camera is available on this device.")
                 )
             case .ready:
-                if session.visibleObservations.isEmpty {
+                if let previewController = session.previewController {
+                    ScannerCameraPreview(controller: previewController)
+                        .ignoresSafeArea(edges: .bottom)
+                        .onAppear {
+                            session.handleLifecycle(.active)
+                        }
+                        .overlay(alignment: .bottom) {
+                            if !session.visibleObservations.isEmpty {
+                                observationList
+                                    .padding()
+                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                                    .padding()
+                            }
+                        }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Live camera scan area")
+                } else if session.visibleObservations.isEmpty {
                     ContentUnavailableView(
                         "Ready to Scan",
                         systemImage: "qrcode.viewfinder",
@@ -86,30 +107,7 @@ private struct ScannerView: View {
                         )
                     )
                 } else {
-                    ScrollView {
-                        VStack(spacing: 16) {
-                            Image(systemName: "qrcode.viewfinder")
-                                .font(.largeTitle)
-                                .foregroundStyle(.secondary)
-                                .accessibilityHidden(true)
-
-                            Text("Observed QR Code")
-                                .font(.title2.bold())
-
-                            ForEach(
-                                Array(session.visibleObservations.enumerated()),
-                                id: \.offset
-                            ) { _, observation in
-                                Text(observation.rawPayload)
-                                    .font(.body.monospaced())
-                                    .multilineTextAlignment(.center)
-                                    .textSelection(.enabled)
-                                    .accessibilityIdentifier("scanner-observation-payload")
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding()
-                    }
+                    observationList
                 }
             }
         }
@@ -118,6 +116,43 @@ private struct ScannerView: View {
             await session.activateScanner()
         }
     }
+
+    private var observationList: some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                Image(systemName: "qrcode.viewfinder")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+                    .accessibilityHidden(true)
+
+                Text("Observed QR Code")
+                    .font(.title2.bold())
+
+                ForEach(
+                    Array(session.visibleObservations.enumerated()),
+                    id: \.offset
+                ) { _, observation in
+                    Text(observation.rawPayload)
+                        .font(.body.monospaced())
+                        .multilineTextAlignment(.center)
+                        .textSelection(.enabled)
+                        .accessibilityIdentifier("scanner-observation-payload")
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+        }
+    }
+}
+
+private struct ScannerCameraPreview: UIViewControllerRepresentable {
+    let controller: UIViewController
+
+    func makeUIViewController(context: Context) -> UIViewController {
+        controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
 private struct HistoryView: View {

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum AppTab: Hashable {
     case scanner
@@ -9,6 +10,7 @@ enum AppTab: Hashable {
 final class ScannerSessionStore: ObservableObject {
     @Published private(set) var cameraAccessState: CameraAccessState
     @Published private(set) var visibleObservations: [ScannerObservation] = []
+    @Published private(set) var previewController: UIViewController?
 
     var isCameraActive: Bool {
         cameraAccessState == .ready
@@ -50,6 +52,18 @@ final class ScannerSessionStore: ObservableObject {
         updateObservationSourceActivity()
     }
 
+    func handleLifecycle(_ phase: ScannerLifecyclePhase) {
+        switch phase {
+        case .background:
+            observationSource.handleLifecycle(.background)
+        case .active:
+            cameraAccess.refreshAuthorization()
+            refreshCameraAccess()
+            updateObservationSourceActivity()
+            observationSource.handleLifecycle(.active)
+        }
+    }
+
     private func refreshCameraAccess() {
         cameraAccessState = CameraAccessState.resolve(
             authorization: cameraAccess.authorization,
@@ -72,6 +86,7 @@ final class ScannerSessionStore: ObservableObject {
         observationSource.start { [weak self] frame in
             self?.visibleObservations = frame
         }
+        previewController = observationSource.previewController
     }
 }
 

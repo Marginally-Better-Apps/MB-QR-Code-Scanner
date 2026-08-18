@@ -1,3 +1,4 @@
+import Vision
 import XCTest
 @testable import QRScanner
 
@@ -116,7 +117,7 @@ final class QRScannerTests: XCTestCase {
         var receivedFrames: [[ScannerObservation]] = []
         source.start { receivedFrames.append($0) }
 
-        XCTAssertEqual(source.engineID, ScannerEngineID("idle"))
+        XCTAssertEqual(source.engineID, ScannerEngineID("visionkit"))
         XCTAssertTrue(receivedFrames.isEmpty)
     }
 
@@ -217,6 +218,175 @@ final class QRScannerTests: XCTestCase {
         XCTAssertTrue(appState.scannerSession === originalSession)
     }
 
+    func testFactorySelectsVisionKitEngineWhenNoFixtureIsRequested() {
+        let source = ScannerObservationSourceFactory.make(
+            arguments: ["QRScanner"],
+            fixturesEnabled: true
+        )
+
+        XCTAssertEqual(source.engineID, ScannerEngineID("visionkit"))
+    }
+
+    func testVisionKitEngineDoesNotConstructControllerUntilSupportedAndAvailable() {
+        let unavailable = VisionKitScannerPlatformStub(isSupported: true, isAvailable: false)
+        let unsupported = VisionKitScannerPlatformStub(isSupported: false, isAvailable: true)
+        let available = VisionKitScannerPlatformStub(isSupported: true, isAvailable: true)
+
+        VisionKitScannerObservationSource(platform: unavailable, clock: TestScannerClock(now: .distantPast))
+            .start { _ in }
+        VisionKitScannerObservationSource(platform: unsupported, clock: TestScannerClock(now: .distantPast))
+            .start { _ in }
+
+        XCTAssertEqual(unavailable.makeControllerCount, 0)
+        XCTAssertEqual(unsupported.makeControllerCount, 0)
+        XCTAssertEqual(unavailable.startScanningCount, 0)
+        XCTAssertEqual(unsupported.startScanningCount, 0)
+
+        VisionKitScannerObservationSource(platform: available, clock: TestScannerClock(now: .distantPast))
+            .start { _ in }
+
+        XCTAssertEqual(available.makeControllerCount, 1)
+        XCTAssertEqual(available.startScanningCount, 1)
+    }
+
+    func testVisionKitEngineRequestsQROnlyMultipleItemsAndProductOwnedFeedback() {
+        let platform = VisionKitScannerPlatformStub(isSupported: true, isAvailable: true)
+        let source = VisionKitScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: .distantPast)
+        )
+
+        source.start { _ in }
+
+        XCTAssertEqual(
+            platform.lastConfiguration,
+            VisionKitScannerConfiguration(
+                barcodeSymbologies: [VNBarcodeSymbology.qr.rawValue],
+                recognizesMultipleItems: true,
+                isHighFrameRateTrackingEnabled: true,
+                isGuidanceEnabled: false,
+                isHighlightingEnabled: false
+            )
+        )
+    }
+
+    func testVisionKitEngineTranslatesAddUpdateAndRemoveIntoNormalizedObservations() {
+        let timestamp = Date(timeIntervalSince1970: 1_728_000_300)
+        let platform = VisionKitScannerPlatformStub(isSupported: true, isAvailable: true)
+        platform.viewSize = CGSize(width: 100, height: 200)
+        let source = VisionKitScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: timestamp)
+        )
+        var receivedFrames: [[ScannerObservation]] = []
+        source.start { receivedFrames.append($0) }
+
+        let first = VisionKitRecognizedBarcode(
+            payload: "https://example.com/one",
+            bounds: CGRect(x: 10, y: 40, width: 50, height: 20)
+        )
+        let second = VisionKitRecognizedBarcode(
+            payload: "https://example.com/two",
+            bounds: CGRect(x: 20, y: 80, width: 40, height: 40)
+        )
+        let missingPayload = VisionKitRecognizedBarcode(
+            payload: nil,
+            bounds: CGRect(x: 0, y: 0, width: 10, height: 10)
+        )
+
+        platform.eventSink?.visionKitScannerDidAdd([first], allItems: [first, missingPayload])
+        platform.eventSink?.visionKitScannerDidUpdate([first], allItems: [first, second])
+        platform.eventSink?.visionKitScannerDidRemove([first], allItems: [second])
+        platform.eventSink?.visionKitScannerDidRemove([second], allItems: [])
+
+        XCTAssertEqual(receivedFrames.map { $0.map(\.rawPayload) }, [
+            ["https://example.com/one"],
+            ["https://example.com/one", "https://example.com/two"],
+            ["https://example.com/two"],
+            []
+        ])
+        XCTAssertEqual(
+            receivedFrames[0][0].displayBounds,
+            CGRect(x: 0.1, y: 0.2, width: 0.5, height: 0.1)
+        )
+        XCTAssertEqual(
+            receivedFrames[1][1].displayBounds,
+            CGRect(x: 0.2, y: 0.4, width: 0.4, height: 0.2)
+        )
+        XCTAssertTrue(receivedFrames.flatMap { $0 }.allSatisfy { $0.engineID == source.engineID })
+        XCTAssertTrue(receivedFrames.flatMap { $0 }.allSatisfy { $0.timestamp == timestamp })
+    }
+
+    func testVisionKitEngineStartStopAndSceneTransitionsAreIdempotent() {
+        let platform = VisionKitScannerPlatformStub(isSupported: true, isAvailable: true)
+        let source = VisionKitScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: Date(timeIntervalSince1970: 20))
+        )
+        var receivedFrames: [[ScannerObservation]] = []
+        source.start { receivedFrames.append($0) }
+        source.start { receivedFrames.append($0) }
+
+        XCTAssertEqual(platform.makeControllerCount, 1)
+        XCTAssertEqual(platform.startScanningCount, 1)
+
+        platform.eventSink?.visionKitScannerDidAdd(
+            [VisionKitRecognizedBarcode(payload: "once", bounds: CGRect(x: 0, y: 0, width: 10, height: 10))],
+            allItems: [VisionKitRecognizedBarcode(payload: "once", bounds: CGRect(x: 0, y: 0, width: 10, height: 10))]
+        )
+        XCTAssertEqual(receivedFrames.count, 1)
+
+        source.handleLifecycle(.background)
+        source.handleLifecycle(.background)
+        XCTAssertEqual(platform.stopScanningCount, 1)
+        XCTAssertEqual(platform.startScanningCount, 1)
+
+        platform.eventSink?.visionKitScannerDidUpdate(
+            [VisionKitRecognizedBarcode(payload: "ignored", bounds: CGRect(x: 0, y: 0, width: 10, height: 10))],
+            allItems: [VisionKitRecognizedBarcode(payload: "ignored", bounds: CGRect(x: 0, y: 0, width: 10, height: 10))]
+        )
+        XCTAssertEqual(receivedFrames.count, 1)
+
+        source.handleLifecycle(.active)
+        source.handleLifecycle(.active)
+        XCTAssertEqual(platform.startScanningCount, 2)
+        XCTAssertEqual(platform.makeControllerCount, 1)
+        XCTAssertEqual(receivedFrames.count, 1)
+
+        source.stop()
+        source.stop()
+        XCTAssertEqual(platform.stopScanningCount, 2)
+
+        platform.eventSink?.visionKitScannerDidAdd(
+            [VisionKitRecognizedBarcode(payload: "after-stop", bounds: CGRect(x: 0, y: 0, width: 10, height: 10))],
+            allItems: [VisionKitRecognizedBarcode(payload: "after-stop", bounds: CGRect(x: 0, y: 0, width: 10, height: 10))]
+        )
+        XCTAssertEqual(receivedFrames.count, 1)
+    }
+
+    func testScannerSessionStopsAndRestartsTheEngineAcrossSceneTransitions() async {
+        let platform = VisionKitScannerPlatformStub(isSupported: true, isAvailable: true)
+        let source = VisionKitScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: Date(timeIntervalSince1970: 30))
+        )
+        let session = ScannerSessionStore(
+            cameraAccess: CameraAccessStub(authorization: .authorized),
+            observationSource: source
+        )
+
+        await session.activateScanner()
+        XCTAssertEqual(platform.startScanningCount, 1)
+
+        session.handleLifecycle(.background)
+        XCTAssertEqual(platform.stopScanningCount, 1)
+        XCTAssertEqual(platform.startScanningCount, 1)
+
+        session.handleLifecycle(.active)
+        XCTAssertEqual(platform.startScanningCount, 2)
+        XCTAssertEqual(platform.makeControllerCount, 1)
+    }
+
     private func detection(_ rawPayload: String) -> ScannerFixtureDetection {
         ScannerFixtureDetection(
             rawPayload: rawPayload,
@@ -230,6 +400,57 @@ private final class TestScannerClock: ScannerClock {
 
     init(now: Date) {
         self.now = now
+    }
+}
+
+@MainActor
+private final class VisionKitScannerPlatformStub: VisionKitScannerPlatform {
+    var isSupported: Bool
+    var isAvailable: Bool
+    var makeControllerCount = 0
+    var startScanningCount = 0
+    var stopScanningCount = 0
+    var isScanning = false
+    var viewSize = CGSize(width: 100, height: 200)
+    private(set) var lastConfiguration: VisionKitScannerConfiguration?
+    private(set) weak var eventSink: VisionKitScannerEventSink?
+
+    init(isSupported: Bool, isAvailable: Bool) {
+        self.isSupported = isSupported
+        self.isAvailable = isAvailable
+    }
+
+    func makeController(
+        configuration: VisionKitScannerConfiguration,
+        eventSink: VisionKitScannerEventSink
+    ) -> VisionKitScannerControlling {
+        makeControllerCount += 1
+        lastConfiguration = configuration
+        self.eventSink = eventSink
+        return VisionKitScannerControllerStub(platform: self)
+    }
+}
+
+@MainActor
+private final class VisionKitScannerControllerStub: VisionKitScannerControlling {
+    private let platform: VisionKitScannerPlatformStub
+
+    var isScanning: Bool { platform.isScanning }
+    var viewSize: CGSize { platform.viewSize }
+    var previewController: UIViewController? { nil }
+
+    init(platform: VisionKitScannerPlatformStub) {
+        self.platform = platform
+    }
+
+    func startScanning() throws {
+        platform.startScanningCount += 1
+        platform.isScanning = true
+    }
+
+    func stopScanning() {
+        platform.stopScanningCount += 1
+        platform.isScanning = false
     }
 }
 
