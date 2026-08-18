@@ -83,22 +83,30 @@ private struct ScannerView: View {
                 )
             case .ready:
                 if let previewController = session.previewController {
-                    ScannerCameraPreview(controller: previewController)
-                        .ignoresSafeArea()
-                        .onAppear {
-                            session.handleLifecycle(.active)
-                            session.handlePresentation(.visible)
-                        }
-                        .overlay {
-                            observationBoundsOverlay
-                        }
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .bottom) {
+                            ScannerCameraPreview(controller: previewController)
+                                .ignoresSafeArea()
+                                .onAppear {
+                                    session.handleLifecycle(.active)
+                                    session.handlePresentation(.visible)
+                                }
+                                .overlay {
+                                    observationBoundsOverlay
+                                }
+                                .accessibilityElement(children: .contain)
+                                .accessibilityLabel("Live camera scan area")
+
                             if !session.visibleObservations.isEmpty {
                                 observationList
                             }
                         }
-                        .accessibilityElement(children: .contain)
-                        .accessibilityLabel("Live camera scan area")
+                        .frame(
+                            width: geometry.size.width,
+                            height: geometry.size.height,
+                            alignment: .bottom
+                        )
+                    }
                 } else if session.visibleObservations.isEmpty {
                     ContentUnavailableView(
                         "Ready to Scan",
@@ -108,10 +116,15 @@ private struct ScannerView: View {
                         )
                     )
                 } else {
-                    observationList
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        observationList
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             await session.activateScanner()
         }
@@ -148,6 +161,7 @@ private struct ScannerView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -169,8 +183,7 @@ private struct ObservationResultBar: View {
 
             Rectangle()
                 .fill(.separator)
-                .frame(width: 1)
-                .padding(.vertical, 8)
+                .frame(width: 1, height: 20)
 
             Button(action: copyPayload) {
                 Image(systemName: didCopy ? "checkmark" : "doc.on.clipboard")
@@ -182,7 +195,7 @@ private struct ObservationResultBar: View {
             .accessibilityLabel("Copy")
             .accessibilityIdentifier("scanner-observation-copy")
         }
-        .frame(minHeight: 44)
+        .frame(height: 44)
         .foregroundStyle(.primary)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .sensoryFeedback(.success, trigger: copyCount)

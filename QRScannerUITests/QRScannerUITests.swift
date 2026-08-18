@@ -29,9 +29,11 @@ final class QRScannerUITests: XCTestCase {
 
         let payload = app.staticTexts.matching(identifier: "scanner-observation-payload").firstMatch
         let copy = app.buttons.matching(identifier: "scanner-observation-copy").firstMatch
+        let scannerTab = app.buttons["Scanner"].firstMatch
         XCTAssertLessThan(payload.frame.height, 56)
         XCTAssertLessThan(copy.frame.height, 56)
         XCTAssertLessThan(payload.frame.maxX, copy.frame.minX + 4)
+        XCTAssertLessThan(scannerTab.frame.minY - payload.frame.maxY, 80)
     }
 
     func testEdgeFixtureRecognizesCodesOutsideTheCenterGuide() {
