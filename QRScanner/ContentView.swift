@@ -7,23 +7,18 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $appState.selectedTab) {
-            NavigationStack {
-                ScannerView(session: appState.scannerSession)
-            }
-            .tabItem {
-                Label("Scanner", systemImage: "qrcode.viewfinder")
-            }
-            .tag(AppTab.scanner)
+            ScannerView(session: appState.scannerSession)
+                .tabItem {
+                    Label("Scanner", systemImage: "qrcode.viewfinder")
+                }
+                .tag(AppTab.scanner)
 
-            NavigationStack {
-                HistoryView(session: appState.scannerSession)
-            }
-            .tabItem {
-                Label("History", systemImage: "clock")
-            }
-            .tag(AppTab.history)
+            HistoryView(session: appState.scannerSession)
+                .tabItem {
+                    Label("History", systemImage: "clock")
+                }
+                .tag(AppTab.history)
         }
-        .tabViewStyle(.automatic)
         .onChange(of: scenePhase) { _, newPhase in
             switch newPhase {
             case .active:
@@ -84,7 +79,7 @@ private struct ScannerView: View {
             case .ready:
                 if let previewController = session.previewController {
                     ScannerCameraPreview(controller: previewController)
-                        .ignoresSafeArea(edges: .bottom)
+                        .ignoresSafeArea()
                         .onAppear {
                             session.handleLifecycle(.active)
                         }
@@ -111,7 +106,6 @@ private struct ScannerView: View {
                 }
             }
         }
-        .navigationTitle("Scanner")
         .task {
             await session.activateScanner()
         }
@@ -164,7 +158,6 @@ private struct HistoryView: View {
             systemImage: "clock",
             description: Text("Your scan history will appear here.")
         )
-        .navigationTitle("History")
     }
 }
 

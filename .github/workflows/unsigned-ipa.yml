@@ -21,6 +21,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Select iOS 26 SDK Xcode
+        run: |
+          set -euo pipefail
+          XCODE_APP="$(ls -d /Applications/Xcode_26*.app /Applications/Xcode_27*.app 2>/dev/null | sort -V | tail -1)"
+          if [[ -z "${XCODE_APP}" ]]; then
+            echo "error: no Xcode 26+ install found" >&2
+            ls /Applications/Xcode*.app >&2 || true
+            exit 1
+          fi
+          sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
       - name: Fingerprint Xcode toolchain
         id: xcode
         run: |

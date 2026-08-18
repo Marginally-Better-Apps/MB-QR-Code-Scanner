@@ -129,6 +129,14 @@ final class QRScannerTests: XCTestCase {
         )
     }
 
+    func testInfoPlistDoesNotOptOutOfSystemLiquidGlass() {
+        let compatibilityMode = Bundle.main.object(
+            forInfoDictionaryKey: "UIDesignRequiresCompatibility"
+        ) as? Bool
+
+        XCTAssertNotEqual(compatibilityMode, true)
+    }
+
     func testCameraPurposeStringIsLocalizedInSpanish() throws {
         let url = try XCTUnwrap(
             Bundle.main.url(
