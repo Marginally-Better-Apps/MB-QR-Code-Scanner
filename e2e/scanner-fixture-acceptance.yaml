@@ -5,12 +5,12 @@ appId: com.marginallybetter.qrscanner
     arguments:
       cameraFixture: "authorized"
       scannerFixture: "single-code"
-- assertVisible: "Observed QR Code"
 - assertVisible: "https://example.com/fixture"
+- assertVisible: "Copy"
 - startRecording: scanner-fixture-acceptance
 - tapOn: "History"
 - assertVisible: "Your scan history will appear here."
 - tapOn: "Scanner"
-- assertVisible: "Observed QR Code"
 - assertVisible: "https://example.com/fixture"
+- assertVisible: "Copy"
 - stopRecording

@@ -92,13 +92,9 @@ private struct ScannerView: View {
                         .overlay {
                             observationBoundsOverlay
                         }
-                        .overlay(alignment: .bottom) {
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
                             if !session.visibleObservations.isEmpty {
                                 observationList
-                                    .padding()
-                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                                    .padding()
-                                    .accessibilityIdentifier("scanner-result-tray")
                             }
                         }
                         .accessibilityElement(children: .contain)
@@ -142,29 +138,78 @@ private struct ScannerView: View {
     }
 
     private var observationList: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                Image(systemName: "qrcode.viewfinder")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
-                    .accessibilityHidden(true)
-
-                Text("Observed QR Code")
-                    .font(.title2.bold())
-
-                ForEach(
-                    Array(session.visibleObservations.enumerated()),
-                    id: \.offset
-                ) { _, observation in
-                    Text(observation.rawPayload)
-                        .font(.body.monospaced())
-                        .multilineTextAlignment(.center)
-                        .textSelection(.enabled)
-                        .accessibilityIdentifier("scanner-observation-payload")
-                }
+        VStack(spacing: 8) {
+            ForEach(
+                Array(session.visibleObservations.enumerated()),
+                id: \.offset
+            ) { _, observation in
+                ObservationResultBar(payload: observation.rawPayload)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+    }
+}
+
+private struct ObservationResultBar: View {
+    let payload: String
+    @State private var didCopy = false
+    @State private var copyCount = 0
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(payload)
+                .font(.subheadline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 14)
+                .padding(.trailing, 8)
+                .accessibilityIdentifier("scanner-observation-payload")
+
+            Rectangle()
+                .fill(.separator)
+                .frame(width: 1)
+                .padding(.vertical, 8)
+
+            Button(action: copyPayload) {
+                Image(systemName: didCopy ? "checkmark" : "doc.on.clipboard")
+                    .font(.body.weight(.medium))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Copy")
+            .accessibilityIdentifier("scanner-observation-copy")
+        }
+        .frame(minHeight: 44)
+        .foregroundStyle(.primary)
+        .background { ObservationResultBarBackground() }
+        .sensoryFeedback(.success, trigger: copyCount)
+    }
+
+    private func copyPayload() {
+        UIPasteboard.general.string = payload
+        copyCount += 1
+        didCopy = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            didCopy = false
+        }
+    }
+}
+
+private struct ObservationResultBarBackground: View {
+    private var shape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+    }
+
+    var body: some View {
+        if #available(iOS 26.0, *) {
+            shape.fill(.ultraThinMaterial)
+                .glassEffect(.regular, in: shape)
+        } else {
+            shape.fill(.ultraThinMaterial)
         }
     }
 }

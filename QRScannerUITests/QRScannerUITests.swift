@@ -22,26 +22,34 @@ final class QRScannerUITests: XCTestCase {
     func testNamedScannerFixtureDisplaysObservedPayload() {
         launch(scannerFixture: "single-code")
 
-        XCTAssertTrue(app.staticTexts["Observed QR Code"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["https://example.com/fixture"].exists)
+        XCTAssertTrue(app.staticTexts["https://example.com/fixture"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts.matching(identifier: "scanner-observation-payload").count, 1)
+        XCTAssertTrue(app.buttons["Copy"].exists)
+        XCTAssertFalse(app.staticTexts["Observed QR Code"].exists)
+
+        let payload = app.staticTexts.matching(identifier: "scanner-observation-payload").firstMatch
+        let copy = app.buttons.matching(identifier: "scanner-observation-copy").firstMatch
+        XCTAssertLessThan(payload.frame.height, 56)
+        XCTAssertLessThan(copy.frame.height, 56)
+        XCTAssertLessThan(payload.frame.maxX, copy.frame.minX + 4)
     }
 
     func testEdgeFixtureRecognizesCodesOutsideTheCenterGuide() {
         launch(scannerFixture: "edge-codes")
 
-        XCTAssertTrue(app.staticTexts["Observed QR Code"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["https://example.com/edge-left"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["https://example.com/edge-left"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["https://example.com/edge-right"].exists)
         XCTAssertTrue(app.staticTexts["https://example.com/edge-top"].exists)
         XCTAssertTrue(app.staticTexts["https://example.com/edge-bottom"].exists)
         XCTAssertEqual(app.staticTexts.matching(identifier: "scanner-observation-payload").count, 4)
+        XCTAssertEqual(app.buttons.matching(identifier: "scanner-observation-copy").count, 4)
+        XCTAssertFalse(app.staticTexts["Observed QR Code"].exists)
 
         app.buttons["History"].firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Your scan history will appear here."].waitForExistence(timeout: 2))
 
         app.buttons["Scanner"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Observed QR Code"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["https://example.com/edge-left"].waitForExistence(timeout: 5))
         XCTAssertEqual(app.staticTexts.matching(identifier: "scanner-observation-payload").count, 4)
     }
 
