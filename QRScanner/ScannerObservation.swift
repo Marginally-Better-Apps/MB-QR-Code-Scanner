@@ -1,6 +1,7 @@
 import CoreGraphics
 import Foundation
 import UIKit
+import VisionKit
 
 struct ScannerEngineID: RawRepresentable, Hashable, Sendable {
     let rawValue: String
@@ -50,6 +51,50 @@ extension ScannerObservationSource {
     func handleLifecycle(_ phase: ScannerLifecyclePhase) {}
 }
 
+enum ScannerEngineKind: Equatable {
+    case visionKit
+    case avFoundation
+}
+
+struct ScannerEngineDecision: Equatable {
+    var engine: ScannerEngineKind
+    var startsCapture: Bool
+}
+
+enum ScannerEngineSelector {
+    static func decide(
+        dataScannerSupported: Bool,
+        dataScannerAvailable: Bool,
+        authorization: CameraAuthorization
+    ) -> ScannerEngineDecision {
+        let engine: ScannerEngineKind = dataScannerSupported ? .visionKit : .avFoundation
+        let isAuthorized = authorization == .authorized
+        let startsCapture: Bool
+        switch engine {
+        case .visionKit:
+            startsCapture = isAuthorized && dataScannerAvailable
+        case .avFoundation:
+            startsCapture = isAuthorized
+        }
+        return ScannerEngineDecision(engine: engine, startsCapture: startsCapture)
+    }
+}
+
+enum ScannerPreviewCoordinates {
+    static func normalizedBounds(_ bounds: CGRect, in viewSize: CGSize) -> CGRect {
+        guard viewSize.width > 0, viewSize.height > 0 else {
+            return .zero
+        }
+
+        return CGRect(
+            x: bounds.origin.x / viewSize.width,
+            y: bounds.origin.y / viewSize.height,
+            width: bounds.size.width / viewSize.width,
+            height: bounds.size.height / viewSize.height
+        )
+    }
+}
+
 @MainActor
 final class IdleScannerObservationSource: ScannerObservationSource {
     let engineID = ScannerEngineID("idle")
@@ -64,8 +109,11 @@ enum ScannerObservationSourceFactory {
         arguments: [String] = ProcessInfo.processInfo.arguments,
         defaults: UserDefaults = .standard,
         fixturesEnabled: Bool = buildAllowsFixtures,
-        clock: ScannerClock = SystemScannerClock()
+        clock: ScannerClock = SystemScannerClock(),
+        dataScannerSupported: Bool? = nil,
+        authorization: CameraAuthorization? = nil
     ) -> ScannerObservationSource {
+        let dataScannerSupported = dataScannerSupported ?? DataScannerViewController.isSupported
 #if DEBUG
         let commandLineFixture: String? = if
             let flagIndex = arguments.firstIndex(of: "--scanner-fixture"),
@@ -80,7 +128,11 @@ enum ScannerObservationSourceFactory {
             fixturesEnabled,
             let fixture = commandLineFixture ?? defaults.string(forKey: "scannerFixture")
         else {
-            return VisionKitScannerObservationSource(clock: clock)
+            return makeLiveSource(
+                clock: clock,
+                dataScannerSupported: dataScannerSupported,
+                authorization: authorization
+            )
         }
 
         switch fixture {
@@ -96,11 +148,39 @@ enum ScannerObservationSourceFactory {
                 ]
             )
         default:
-            return VisionKitScannerObservationSource(clock: clock)
+            return makeLiveSource(
+                clock: clock,
+                dataScannerSupported: dataScannerSupported,
+                authorization: authorization
+            )
         }
 #else
-        return VisionKitScannerObservationSource(clock: clock)
+        return makeLiveSource(
+            clock: clock,
+            dataScannerSupported: dataScannerSupported,
+            authorization: authorization
+        )
 #endif
+    }
+
+    private static func makeLiveSource(
+        clock: ScannerClock,
+        dataScannerSupported: Bool,
+        authorization: CameraAuthorization?
+    ) -> ScannerObservationSource {
+        switch ScannerEngineSelector.decide(
+            dataScannerSupported: dataScannerSupported,
+            dataScannerAvailable: true,
+            authorization: authorization ?? .authorized
+        ).engine {
+        case .visionKit:
+            return VisionKitScannerObservationSource(clock: clock)
+        case .avFoundation:
+            return AVFoundationScannerObservationSource(
+                platform: SystemAVFoundationScannerPlatform(authorizationOverride: authorization),
+                clock: clock
+            )
+        }
     }
 
     nonisolated private static var buildAllowsFixtures: Bool {

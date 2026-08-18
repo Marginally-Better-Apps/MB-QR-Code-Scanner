@@ -37,6 +37,14 @@ class PullRequestWorkflowTests(unittest.TestCase):
         ios_job = text[text.index("  ios:") :]
         self.assertIn("runs-on: macos-14", ios_job)
 
+    def test_ipa_and_release_select_an_ios_26_sdk_xcode(self) -> None:
+        for name in ("unsigned-ipa.yml", "release.yml"):
+            with self.subTest(workflow=name):
+                text = workflow(name)
+                self.assertIn("xcode-select", text)
+                self.assertIn("Xcode_26", text)
+                self.assertLess(text.index("xcode-select"), text.index("xcodebuild archive"))
+
     def test_ci_cache_is_invalidated_by_toolchain_and_build_inputs(self) -> None:
         text = workflow("ci.yml")
         self.assertIn("id: xcode", text)

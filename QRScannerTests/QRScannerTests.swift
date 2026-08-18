@@ -112,7 +112,8 @@ final class QRScannerTests: XCTestCase {
         let source = ScannerObservationSourceFactory.make(
             arguments: ["QRScanner", "--scanner-fixture", "single-code"],
             defaults: defaults,
-            fixturesEnabled: false
+            fixturesEnabled: false,
+            dataScannerSupported: true
         )
         var receivedFrames: [[ScannerObservation]] = []
         source.start { receivedFrames.append($0) }
@@ -126,6 +127,14 @@ final class QRScannerTests: XCTestCase {
             Bundle.main.object(forInfoDictionaryKey: "NSCameraUsageDescription") as? String,
             "QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved."
         )
+    }
+
+    func testInfoPlistDoesNotOptOutOfSystemLiquidGlass() {
+        let compatibilityMode = Bundle.main.object(
+            forInfoDictionaryKey: "UIDesignRequiresCompatibility"
+        ) as? Bool
+
+        XCTAssertNotEqual(compatibilityMode, true)
     }
 
     func testCameraPurposeStringIsLocalizedInSpanish() throws {
@@ -221,10 +230,79 @@ final class QRScannerTests: XCTestCase {
     func testFactorySelectsVisionKitEngineWhenNoFixtureIsRequested() {
         let source = ScannerObservationSourceFactory.make(
             arguments: ["QRScanner"],
-            fixturesEnabled: true
+            fixturesEnabled: true,
+            dataScannerSupported: true
         )
 
         XCTAssertEqual(source.engineID, ScannerEngineID("visionkit"))
+    }
+
+    func testEngineSelectionUsesFallbackOnlyWhenDataScannerHardwareIsUnsupported() {
+        let supportedAvailable = ScannerEngineSelector.decide(
+            dataScannerSupported: true,
+            dataScannerAvailable: true,
+            authorization: .authorized
+        )
+        let supportedUnavailable = ScannerEngineSelector.decide(
+            dataScannerSupported: true,
+            dataScannerAvailable: false,
+            authorization: .authorized
+        )
+        let unsupported = ScannerEngineSelector.decide(
+            dataScannerSupported: false,
+            dataScannerAvailable: false,
+            authorization: .authorized
+        )
+        let deniedFallback = ScannerEngineSelector.decide(
+            dataScannerSupported: false,
+            dataScannerAvailable: false,
+            authorization: .denied
+        )
+        let restrictedFallback = ScannerEngineSelector.decide(
+            dataScannerSupported: false,
+            dataScannerAvailable: false,
+            authorization: .restricted
+        )
+        let deniedPrimary = ScannerEngineSelector.decide(
+            dataScannerSupported: true,
+            dataScannerAvailable: true,
+            authorization: .denied
+        )
+
+        XCTAssertEqual(
+            supportedAvailable,
+            ScannerEngineDecision(engine: .visionKit, startsCapture: true)
+        )
+        XCTAssertEqual(
+            supportedUnavailable,
+            ScannerEngineDecision(engine: .visionKit, startsCapture: false)
+        )
+        XCTAssertEqual(
+            unsupported,
+            ScannerEngineDecision(engine: .avFoundation, startsCapture: true)
+        )
+        XCTAssertEqual(
+            deniedFallback,
+            ScannerEngineDecision(engine: .avFoundation, startsCapture: false)
+        )
+        XCTAssertEqual(
+            restrictedFallback,
+            ScannerEngineDecision(engine: .avFoundation, startsCapture: false)
+        )
+        XCTAssertEqual(
+            deniedPrimary,
+            ScannerEngineDecision(engine: .visionKit, startsCapture: false)
+        )
+    }
+
+    func testFactorySelectsAVFoundationFallbackWhenDataScannerIsUnsupported() {
+        let source = ScannerObservationSourceFactory.make(
+            arguments: ["QRScanner"],
+            fixturesEnabled: true,
+            dataScannerSupported: false
+        )
+
+        XCTAssertEqual(source.engineID, ScannerEngineID("avfoundation"))
     }
 
     func testVisionKitEngineDoesNotConstructControllerUntilSupportedAndAvailable() {
@@ -387,6 +465,97 @@ final class QRScannerTests: XCTestCase {
         XCTAssertEqual(platform.makeControllerCount, 1)
     }
 
+    func testAVFoundationEngineRequestsQROnlyMetadataAndCanReportMultipleCodes() {
+        let timestamp = Date(timeIntervalSince1970: 1_728_000_400)
+        let platform = AVFoundationScannerPlatformStub(isAuthorized: true)
+        platform.viewSize = CGSize(width: 100, height: 200)
+        let source = AVFoundationScannerObservationSource(
+            platform: platform,
+            clock: TestScannerClock(now: timestamp)
+        )
+        var receivedFrames: [[ScannerObservation]] = []
+        source.start { receivedFrames.append($0) }
+
+        XCTAssertEqual(platform.lastMetadataObjectTypes, ["org.iso.QRCode"])
+        XCTAssertEqual(source.engineID, ScannerEngineID("avfoundation"))
+
+        let first = AVFoundationRecognizedBarcode(
+            payload: "https://example.com/one",
+            bounds: CGRect(x: 10, y: 40, width: 50, height: 20)
+        )
+        let second = AVFoundationRecognizedBarcode(
+            payload: "https://example.com/two",
+            bounds: CGRect(x: 20, y: 80, width: 40, height: 20)
+        )
+        let missingPayload = AVFoundationRecognizedBarcode(
+            payload: nil,
+            bounds: CGRect(x: 0, y: 0, width: 10, height: 10)
+        )
+
+        platform.eventSink?.avFoundationScannerDidOutput([first, missingPayload])
+        platform.eventSink?.avFoundationScannerDidOutput([first, second])
+        platform.eventSink?.avFoundationScannerDidOutput([])
+
+        XCTAssertEqual(receivedFrames.map { $0.map(\.rawPayload) }, [
+            ["https://example.com/one"],
+            ["https://example.com/one", "https://example.com/two"],
+            []
+        ])
+        XCTAssertEqual(
+            receivedFrames[0][0].displayBounds,
+            VisionKitScannerObservationSource.normalizedBounds(
+                CGRect(x: 10, y: 40, width: 50, height: 20),
+                in: CGSize(width: 100, height: 200)
+            )
+        )
+        XCTAssertEqual(
+            receivedFrames[1][1].displayBounds,
+            VisionKitScannerObservationSource.normalizedBounds(
+                CGRect(x: 20, y: 80, width: 40, height: 20),
+                in: CGSize(width: 100, height: 200)
+            )
+        )
+        XCTAssertTrue(receivedFrames.flatMap { $0 }.allSatisfy { $0.engineID == source.engineID })
+        XCTAssertTrue(receivedFrames.flatMap { $0 }.allSatisfy { $0.timestamp == timestamp })
+    }
+
+    func testDeniedAndRestrictedPermissionNeverStartAVFoundationCapture() {
+        let denied = AVFoundationScannerPlatformStub(isAuthorized: false)
+        AVFoundationScannerObservationSource(
+            platform: denied,
+            clock: TestScannerClock(now: .distantPast)
+        ).start { _ in }
+
+        XCTAssertEqual(denied.makeControllerCount, 0)
+        XCTAssertEqual(denied.startScanningCount, 0)
+
+        let restricted = AVFoundationScannerPlatformStub(isAuthorized: false)
+        AVFoundationScannerObservationSource(
+            platform: restricted,
+            clock: TestScannerClock(now: .distantPast)
+        ).start { _ in }
+
+        XCTAssertEqual(restricted.makeControllerCount, 0)
+        XCTAssertEqual(restricted.startScanningCount, 0)
+    }
+
+    func testFactoryDoesNotStartFallbackCaptureWhenPermissionIsDeniedOrRestricted() {
+        for authorization in [CameraAuthorization.denied, .restricted] {
+            let source = ScannerObservationSourceFactory.make(
+                arguments: ["QRScanner"],
+                fixturesEnabled: true,
+                dataScannerSupported: false,
+                authorization: authorization
+            )
+            var receivedFrames: [[ScannerObservation]] = []
+            source.start { receivedFrames.append($0) }
+
+            XCTAssertEqual(source.engineID, ScannerEngineID("avfoundation"))
+            XCTAssertTrue(receivedFrames.isEmpty)
+            XCTAssertNil(source.previewController)
+        }
+    }
+
     private func detection(_ rawPayload: String) -> ScannerFixtureDetection {
         ScannerFixtureDetection(
             rawPayload: rawPayload,
@@ -440,6 +609,55 @@ private final class VisionKitScannerControllerStub: VisionKitScannerControlling 
     var previewController: UIViewController? { nil }
 
     init(platform: VisionKitScannerPlatformStub) {
+        self.platform = platform
+    }
+
+    func startScanning() throws {
+        platform.startScanningCount += 1
+        platform.isScanning = true
+    }
+
+    func stopScanning() {
+        platform.stopScanningCount += 1
+        platform.isScanning = false
+    }
+}
+
+@MainActor
+private final class AVFoundationScannerPlatformStub: AVFoundationScannerPlatform {
+    var isAuthorized: Bool
+    var makeControllerCount = 0
+    var startScanningCount = 0
+    var stopScanningCount = 0
+    var isScanning = false
+    var viewSize = CGSize(width: 100, height: 200)
+    private(set) var lastMetadataObjectTypes: [String]?
+    private(set) weak var eventSink: AVFoundationScannerEventSink?
+
+    init(isAuthorized: Bool) {
+        self.isAuthorized = isAuthorized
+    }
+
+    func makeController(
+        metadataObjectTypes: [String],
+        eventSink: AVFoundationScannerEventSink
+    ) -> AVFoundationScannerControlling {
+        makeControllerCount += 1
+        lastMetadataObjectTypes = metadataObjectTypes
+        self.eventSink = eventSink
+        return AVFoundationScannerControllerStub(platform: self)
+    }
+}
+
+@MainActor
+private final class AVFoundationScannerControllerStub: AVFoundationScannerControlling {
+    private let platform: AVFoundationScannerPlatformStub
+
+    var isScanning: Bool { platform.isScanning }
+    var viewSize: CGSize { platform.viewSize }
+    var previewController: UIViewController? { nil }
+
+    init(platform: AVFoundationScannerPlatformStub) {
         self.platform = platform
     }
 

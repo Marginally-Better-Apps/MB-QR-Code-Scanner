@@ -35,13 +35,18 @@ final class QRScannerUITests: XCTestCase {
 
         XCTAssertTrue(scannerTab.waitForExistence(timeout: 5))
         XCTAssertTrue(historyTab.exists)
-        XCTAssertTrue(app.navigationBars["Scanner"].exists)
+        XCTAssertFalse(app.navigationBars["Scanner"].exists)
+        XCTAssertEqual(app.navigationBars.count, 0)
 
         historyTab.tap()
-        XCTAssertTrue(app.navigationBars["History"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Your scan history will appear here."].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.navigationBars["History"].exists)
+        XCTAssertEqual(app.navigationBars.count, 0)
 
         scannerTab.tap()
-        XCTAssertTrue(app.navigationBars["Scanner"].waitForExistence(timeout: 2))
+        XCTAssertTrue(scannerTab.waitForExistence(timeout: 2))
+        XCTAssertFalse(app.navigationBars["Scanner"].exists)
+        XCTAssertEqual(app.navigationBars.count, 0)
     }
 
     func testDestinationNamesAreLocalized() {
@@ -60,7 +65,11 @@ final class QRScannerUITests: XCTestCase {
         XCTAssertTrue(historyTab.exists)
 
         historyTab.tap()
-        XCTAssertTrue(app.navigationBars["Historial"].waitForExistence(timeout: 2))
+        XCTAssertTrue(
+            app.staticTexts["Tu historial de escaneos aparecerá aquí."].waitForExistence(timeout: 2)
+        )
+        XCTAssertFalse(app.navigationBars["Historial"].exists)
+        XCTAssertEqual(app.navigationBars.count, 0)
     }
 
     func testCameraUnavailableStateIsLocalized() {
@@ -85,8 +94,9 @@ final class QRScannerUITests: XCTestCase {
     func testFirstRunRequestsCameraAccessInScannerContext() {
         launch(cameraFixture: "not-determined")
 
-        XCTAssertTrue(app.navigationBars["Scanner"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Camera Access"].exists)
+        XCTAssertTrue(app.staticTexts["Camera Access"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["Scanner"].exists)
+        XCTAssertEqual(app.navigationBars.count, 0)
         XCTAssertTrue(
             app.staticTexts[
                 "QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved."
@@ -137,5 +147,7 @@ final class QRScannerUITests: XCTestCase {
             app.staticTexts["Point the camera at a QR code. Scanning starts automatically."].exists
         )
         XCTAssertFalse(app.buttons["Scan"].exists)
+        XCTAssertFalse(app.navigationBars["Scanner"].exists)
+        XCTAssertEqual(app.navigationBars.count, 0)
     }
 }

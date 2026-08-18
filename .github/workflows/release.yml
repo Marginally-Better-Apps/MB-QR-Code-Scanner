@@ -47,14 +47,38 @@ jobs:
         if: steps.release.outputs.build != 'true'
         run: echo "The main commit is not fix:, feat:, or feat!:; no release artifact will be built."
 
+      - name: Select iOS 26 SDK Xcode
+        if: steps.release.outputs.build == 'true'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          candidates=(/Applications/Xcode_26*.app /Applications/Xcode_27*.app)
+          if [[ ${#candidates[@]} -eq 0 ]]; then
+            echo "error: no Xcode 26+ install found" >&2
+            ls -d /Applications/Xcode*.app >&2 || true
+            exit 1
+          fi
+          XCODE_APP="$(printf '%s\n' "${candidates[@]}" | sort -V | tail -1)"
+          sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
+
+      - name: Fingerprint Xcode toolchain
+        if: steps.release.outputs.build == 'true'
+        id: xcode
+        run: |
+          set -euo pipefail
+          xcodebuild -version
+          echo "cache-key=$(xcodebuild -version | shasum -a 256 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+
       - name: Cache DerivedData
         if: steps.release.outputs.build == 'true'
         uses: actions/cache@v4
         with:
           path: DerivedData/Release
-          key: ios-release-${{ runner.os }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift') }}
+          key: ios-release-v2-${{ runner.os }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift') }}
           restore-keys: |
-            ios-release-${{ runner.os }}-
+            ios-release-v2-${{ runner.os }}-${{ steps.xcode.outputs.cache-key }}-
 
       - name: Archive without signing
         if: steps.release.outputs.build == 'true'
