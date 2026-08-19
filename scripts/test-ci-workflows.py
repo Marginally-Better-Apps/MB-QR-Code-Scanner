@@ -2,7 +2,6 @@
 """Regression tests for pull-request workflow performance and safeguards."""
 
 from pathlib import Path
-import re
 import unittest
 
 
@@ -52,39 +51,54 @@ class PullRequestWorkflowTests(unittest.TestCase):
         self.assertIn("id: test-build-cache", text)
         self.assertIn("steps.xcode.outputs.cache-key", text)
         for build_input in (
-            "QRScanner.xcodeproj/**",
-            "QRScanner/**/*.swift",
-            "QRScanner/**/*.xcassets/**",
-            "QRScannerTests/**/*.swift",
-            "QRScannerUITests/**/*.swift",
+            "package-lock.json",
+            "app.json",
+            "src/**",
+            "modules/**",
+            "plugins/**",
         ):
             with self.subTest(build_input=build_input):
                 self.assertIn(build_input, text)
 
+    def test_debug_builds_can_embed_the_js_bundle(self) -> None:
+        plugin = (ROOT / "plugins" / "withIosScanner.js").read_text()
+        self.assertIn("FORCE_BUNDLING", plugin)
+        self.assertIn("SKIP_BUNDLING", plugin)
+        self.assertIn("-z", plugin)
+        self.assertIn("jsbundle", plugin)
+        self.assertIn("bundleURL", plugin)
+
+    def test_ipa_archive_does_not_launch_metro(self) -> None:
+        for name in ("unsigned-ipa.yml", "release.yml"):
+            with self.subTest(workflow=name):
+                self.assertIn("RCT_NO_LAUNCH_PACKAGER", workflow(name))
+
     def test_cold_cache_builds_before_running_tests(self) -> None:
         text = workflow("ci.yml")
         self.assertIn("if: steps.test-build-cache.outputs.cache-hit != 'true'", text)
-        self.assertIn("xcodebuild build-for-testing", text)
+        self.assertIn("xcodebuild build", text)
+        self.assertIn("FORCE_BUNDLING", text)
+        self.assertIn("-configuration Release", text)
 
     def test_warm_cache_reuses_test_build_without_rebuilding(self) -> None:
         text = workflow("ci.yml")
-        self.assertIn("xcodebuild test-without-building", text)
-        self.assertNotRegex(text, r"xcodebuild test \\")
-
-    def test_single_test_bundle_does_not_create_parallel_simulator_clones(self) -> None:
-        text = workflow("ci.yml")
-        self.assertGreaterEqual(text.count("-parallel-testing-enabled NO"), 2)
+        self.assertIn("Verify bundled app without rebuilding", text)
+        self.assertNotRegex(text, r"xcodebuild test")
+        self.assertNotRegex(text, r"xcodebuild test-without-building")
 
     def test_existing_validation_and_device_support_are_preserved(self) -> None:
         ci = workflow("ci.yml")
         ipa = workflow("unsigned-ipa.yml")
         release = workflow("release.yml")
         self.assertIn("python3 scripts/test-semantic-version.py", ci)
+        self.assertIn("npm test", ci)
         self.assertIn('test "$FAMILY" = "1,2"', ci)
         self.assertIn("xcodebuild archive", ipa)
         self.assertIn("xcodebuild archive", release)
         self.assertIn("Package IPA", ipa)
         self.assertIn("Package IPA", release)
+        self.assertIn("assert-embedded-bundle.sh", ipa)
+        self.assertIn("assert-embedded-bundle.sh", release)
 
     def test_pr_ipa_publishes_a_tappable_autoloader_preview(self) -> None:
         ipa = workflow("unsigned-ipa.yml")

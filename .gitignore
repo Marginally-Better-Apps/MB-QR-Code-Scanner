@@ -18,3 +18,22 @@ __pycache__/
 # Maestro
 .maestro/
 artifacts/
+
+# Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.tsbuildinfo
+.env*.local
+
+# generated native folders
+/android
+/ios
+
+# Metro
+.metro-health-check*

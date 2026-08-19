@@ -16,7 +16,7 @@ jobs:
   release:
     name: Build semantic unsigned IPA
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,6 +63,16 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphoneos --show-sdk-version
 
+      - uses: actions/setup-node@v4
+        if: steps.release.outputs.build == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        if: steps.release.outputs.build == 'true'
+        run: npm ci
+
       - name: Fingerprint Xcode toolchain
         if: steps.release.outputs.build == 'true'
         id: xcode
@@ -71,23 +81,42 @@ jobs:
           xcodebuild -version
           echo "cache-key=$(xcodebuild -version | shasum -a 256 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
+      - name: Generate iOS project
+        if: steps.release.outputs.build == 'true'
+        run: CI=1 npx expo prebuild --platform ios --no-install
+
+      - name: Cache CocoaPods
+        if: steps.release.outputs.build == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: ios-pods-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'app.json', 'modules/**', 'plugins/**') }}
+          restore-keys: |
+            ios-pods-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install CocoaPods
+        if: steps.release.outputs.build == 'true'
+        working-directory: ios
+        run: pod install
+
       - name: Cache DerivedData
         if: steps.release.outputs.build == 'true'
         uses: actions/cache@v4
         with:
           path: DerivedData/Release
-          key: ios-release-v2-${{ runner.os }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift') }}
+          key: ios-release-v3-${{ runner.os }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('package-lock.json', 'app.json', 'package.json', 'src/**', 'modules/**') }}
           restore-keys: |
-            ios-release-v2-${{ runner.os }}-${{ steps.xcode.outputs.cache-key }}-
+            ios-release-v3-${{ runner.os }}-${{ steps.xcode.outputs.cache-key }}-
 
       - name: Archive without signing
         if: steps.release.outputs.build == 'true'
         env:
           VERSION: ${{ steps.release.outputs.version }}
+          RCT_NO_LAUNCH_PACKAGER: "1"
         run: |
           set -euo pipefail
           xcodebuild archive \
-            -project QRScanner.xcodeproj \
+            -workspace ios/QRScanner.xcworkspace \
             -scheme QRScanner \
             -configuration Release \
             -destination 'generic/platform=iOS' \
@@ -104,7 +133,10 @@ jobs:
         if: steps.release.outputs.build == 'true'
         env:
           VERSION: ${{ steps.release.outputs.version }}
-        run: ./scripts/package-ipa.sh build/QRScanner.xcarchive "artifacts/QR-Scanner-v${VERSION}-unsigned.ipa"
+        run: |
+          set -euo pipefail
+          ./scripts/package-ipa.sh build/QRScanner.xcarchive "artifacts/QR-Scanner-v${VERSION}-unsigned.ipa"
+          ./scripts/assert-embedded-bundle.sh "artifacts/QR-Scanner-v${VERSION}-unsigned.ipa"
 
       - name: Upload tagless release artifact
         if: steps.release.outputs.build == 'true'
