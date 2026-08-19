@@ -124,11 +124,44 @@ function withEmbeddedBundleURL(config) {
   });
 }
 
+function withExpoModulesJsiDateAbs(config) {
+  return withDangerousMod(config, [
+    'ios',
+    async (mod) => {
+      const file = path.join(
+        mod.modRequest.projectRoot,
+        'node_modules/expo-modules-jsi/apple/Sources/ExpoModulesJSI/Coding/JavaScriptCodable+Date.swift',
+      );
+      if (!fs.existsSync(file)) {
+        throw new Error(
+          'expo-modules-jsi Date.swift is missing; cannot apply the Xcode 26.3 abs() patch',
+        );
+      }
+      const source = fs.readFileSync(file, 'utf8');
+      if (source.includes('Swift.abs(milliseconds)')) {
+        return mod;
+      }
+      if (!source.includes('abs(milliseconds)')) {
+        throw new Error(
+          'expo-modules-jsi Date.swift no longer calls abs(milliseconds); drop the Xcode 26.3 patch',
+        );
+      }
+      fs.writeFileSync(
+        file,
+        source.replaceAll('abs(milliseconds)', 'Swift.abs(milliseconds)'),
+      );
+      return mod;
+    },
+  ]);
+}
+
 function withIosScanner(config) {
   config.ios = config.ios ?? {};
   config.ios.infoPlist = config.ios.infoPlist ?? {};
   delete config.ios.infoPlist.UIDesignRequiresCompatibility;
-  return withEmbeddedBundleURL(withForcedDebugBundle(withSpanishInfoPlist(config)));
+  return withEmbeddedBundleURL(
+    withForcedDebugBundle(withSpanishInfoPlist(withExpoModulesJsiDateAbs(config))),
+  );
 }
 
 module.exports = withIosScanner;

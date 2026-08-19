@@ -31,10 +31,13 @@ class PullRequestWorkflowTests(unittest.TestCase):
         self.assertNotIn("needs:", scripts_job)
         self.assertNotIn("needs:", ios_job)
 
-    def test_simulator_tests_use_the_faster_compatible_runner_image(self) -> None:
+    def test_simulator_tests_use_a_runner_with_xcode_16(self) -> None:
         text = workflow("ci.yml")
         ios_job = text[text.index("  ios:") :]
-        self.assertIn("runs-on: macos-14", ios_job)
+        self.assertIn("runs-on: macos-15", ios_job)
+        self.assertIn("xcode-select", ios_job)
+        self.assertIn("Xcode_26", ios_job)
+        self.assertLess(ios_job.index("xcode-select"), ios_job.index("xcodebuild build"))
 
     def test_ipa_and_release_select_an_ios_26_sdk_xcode(self) -> None:
         for name in ("unsigned-ipa.yml", "release.yml"):
@@ -43,6 +46,25 @@ class PullRequestWorkflowTests(unittest.TestCase):
                 self.assertIn("xcode-select", text)
                 self.assertIn("Xcode_26", text)
                 self.assertLess(text.index("xcode-select"), text.index("xcodebuild archive"))
+
+    def test_expo_modules_jsi_date_abs_is_disambiguated_for_xcode_26(self) -> None:
+        plugin = (ROOT / "plugins" / "withIosScanner.js").read_text()
+        self.assertIn("JavaScriptCodable+Date.swift", plugin)
+        self.assertIn("Swift.abs(milliseconds)", plugin)
+        date_swift = (
+            ROOT
+            / "node_modules"
+            / "expo-modules-jsi"
+            / "apple"
+            / "Sources"
+            / "ExpoModulesJSI"
+            / "Coding"
+            / "JavaScriptCodable+Date.swift"
+        )
+        self.assertTrue(date_swift.exists(), "npm ci must install expo-modules-jsi before this test")
+        source = date_swift.read_text()
+        if "Swift.abs(milliseconds)" not in source:
+            self.assertIn("abs(milliseconds)", source)
 
     def test_ci_cache_is_invalidated_by_toolchain_and_build_inputs(self) -> None:
         text = workflow("ci.yml")
