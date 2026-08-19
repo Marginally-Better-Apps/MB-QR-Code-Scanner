@@ -23,6 +23,18 @@ jest.mock('expo-glass-effect', () => ({
   isLiquidGlassAvailable: () => false,
 }));
 
+jest.mock('expo-symbols', () => {
+  const { Text } = require('react-native');
+  return {
+    SymbolView: ({ name }: { name: string }) => <Text>{name}</Text>,
+  };
+});
+
+jest.mock('react-native-safe-area-context', () => ({
+  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+  SafeAreaProvider: ({ children }: { children: unknown }) => children,
+}));
+
 jest.mock('@/components/ScannerPreview', () => ({
   ScannerPreview: () => null,
 }));
@@ -148,6 +160,40 @@ describe('scanner UI', () => {
     expect(screen.getByTestId('scanner-observation-overlay').props.pointerEvents).toBe('box-none');
   });
 
+  test('history is a top-right control, not a tab bar under the payload', async () => {
+    const onOpenHistory = jest.fn();
+    const store = session('authorized', 'single-code');
+    await store.activateScanner();
+    render(
+      <ScannerScreen
+        session={store}
+        engine="visionkit"
+        onOpenHistory={onOpenHistory}
+      />,
+    );
+
+    expect(screen.getByLabelText('History')).toBeTruthy();
+    expect(screen.getByTestId('open-history')).toBeTruthy();
+    expect(screen.queryByLabelText('Scanner')).toBeNull();
+    fireEvent.press(screen.getByTestId('open-history'));
+    expect(onOpenHistory).toHaveBeenCalledTimes(1);
+
+    const results = StyleSheet.flatten(
+      screen.getByTestId('scanner-observation-results').props.style,
+    );
+    expect(results.paddingBottom).toBe(42);
+  });
+
+  test('permission screens still offer history without a tab bar', async () => {
+    const store = session('denied');
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    expect(screen.getByText('Open Settings')).toBeTruthy();
+    expect(screen.getByTestId('open-history')).toBeTruthy();
+    expect(screen.queryByLabelText('Scanner')).toBeNull();
+  });
+
   test('edge fixture recognizes codes outside the center guide', async () => {
     const store = session('authorized', 'edge-codes');
     await store.activateScanner();
@@ -251,10 +297,14 @@ describe('scanner UI', () => {
     ).toBeTruthy();
   });
 
-  test('history placeholder is reachable', () => {
-    render(<HistoryScreen />);
+  test('history placeholder is reachable from a back control', () => {
+    const onBack = jest.fn();
+    render(<HistoryScreen onBack={onBack} />);
     expect(screen.getByText('History')).toBeTruthy();
     expect(screen.getByText('Your scan history will appear here.')).toBeTruthy();
+    expect(screen.getByLabelText('Back')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('history-back'));
+    expect(onBack).toHaveBeenCalledTimes(1);
   });
 
   test('destination names are localized', () => {
@@ -262,6 +312,7 @@ describe('scanner UI', () => {
     render(<HistoryScreen />);
     expect(screen.getByText('Historial')).toBeTruthy();
     expect(screen.getByText('Tu historial de escaneos aparecerá aquí.')).toBeTruthy();
+    expect(screen.getByLabelText('Atrás')).toBeTruthy();
   });
 
   test('camera unavailable state is localized', async () => {

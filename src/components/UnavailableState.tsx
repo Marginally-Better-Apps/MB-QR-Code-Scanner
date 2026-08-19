@@ -1,5 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, useColorScheme } from 'react-native';
 
+import { GlassControl } from '@/components/GlassControl';
 import { t, type MessageKey } from '@/i18n';
 
 type Props = {
@@ -18,19 +19,22 @@ export function UnavailableState({
   onAction,
   actionTestID,
 }: Props) {
+  const dark = useColorScheme() === 'dark';
+
   return (
     <View style={styles.container} testID="unavailable-state">
-      <Text style={styles.title}>{t(title)}</Text>
-      <Text style={styles.description}>{t(description)}</Text>
+      <Text style={[styles.title, dark && styles.lightText]}>{t(title)}</Text>
+      <Text style={[styles.description, dark && styles.lightText]}>{t(description)}</Text>
       {actionTitle && onAction ? (
-        <Pressable
-          accessibilityRole="button"
+        <GlassControl
           accessibilityLabel={t(actionTitle)}
-          testID={actionTestID}
+          testID={actionTestID ?? 'unavailable-action'}
           onPress={onAction}
-          style={styles.button}>
-          <Text style={styles.buttonLabel}>{t(actionTitle)}</Text>
-        </Pressable>
+          shape="pill"
+          tone={dark ? 'onMedia' : 'onCanvas'}
+          style={styles.action}>
+          <Text style={[styles.buttonLabel, dark && styles.lightText]}>{t(actionTitle)}</Text>
+        </GlassControl>
       ) : null}
     </View>
   );
@@ -55,15 +59,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.7,
   },
-  button: {
+  lightText: {
+    color: '#fff',
+  },
+  action: {
     marginTop: 8,
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
   },
   buttonLabel: {
-    color: '#fff',
     fontSize: 17,
     fontWeight: '600',
   },

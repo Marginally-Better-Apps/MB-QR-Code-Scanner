@@ -17,6 +17,7 @@ const en = {
   historyPlaceholder: 'Your scan history will appear here.',
   liveScanArea: 'Live camera scan area',
   copy: 'Copy',
+  back: 'Back',
 };
 
 const es: typeof en = {
@@ -39,6 +40,7 @@ const es: typeof en = {
   historyPlaceholder: 'Tu historial de escaneos aparecerá aquí.',
   liveScanArea: 'Área de escaneo con cámara en vivo',
   copy: 'Copiar',
+  back: 'Atrás',
 };
 
 export type MessageKey = keyof typeof en;

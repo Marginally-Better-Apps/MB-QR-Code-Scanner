@@ -1,5 +1,8 @@
+import { useRouter } from 'expo-router';
+
 import { HistoryScreen } from '@/components/HistoryScreen';
 
 export default function HistoryRoute() {
-  return <HistoryScreen />;
+  const router = useRouter();
+  return <HistoryScreen onBack={() => router.back()} />;
 }

@@ -2,11 +2,14 @@ appId: com.marginallybetter.qrscanner
 ---
 - launchApp:
     clearState: true
-- assertVisible: "Scanner"
-- assertVisible: "History"
+- assertVisible:
+    id: "open-history"
+- assertVisible: "Camera Unavailable"
 - startRecording: smoke
-- tapOn: "History"
+- tapOn:
+    id: "open-history"
 - assertVisible: "Your scan history will appear here."
-- tapOn: "Scanner"
+- tapOn:
+    id: "history-back"
 - assertVisible: "Camera Unavailable"
 - stopRecording

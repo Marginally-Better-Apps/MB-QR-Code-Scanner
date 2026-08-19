@@ -1,5 +1,8 @@
-import { Linking, StyleSheet, View } from 'react-native';
+import { Linking, StyleSheet, useColorScheme, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SymbolView } from 'expo-symbols';
 
+import { GlassControl } from '@/components/GlassControl';
 import { ObservationResultBar } from '@/components/ObservationResultBar';
 import { ScannerPreview } from '@/components/ScannerPreview';
 import { UnavailableState } from '@/components/UnavailableState';
@@ -11,18 +14,23 @@ import type { NativeEngineKind } from '@/components/ScannerPreview';
 type Props = {
   session: ScannerSessionStore;
   engine: NativeEngineKind;
+  onOpenHistory?: () => void;
 };
 
-export function ScannerScreen({ session, engine }: Props) {
+export function ScannerScreen({ session, engine, onOpenHistory }: Props) {
   useScannerSession(session);
+  const insets = useSafeAreaInsets();
+  const dark = useColorScheme() === 'dark';
+  const onMedia = session.cameraAccessState === 'ready';
+  const lightChrome = !onMedia && !dark;
 
+  let body;
   switch (session.cameraAccessState) {
     case 'notDetermined':
-      return (
-        <UnavailableState title="cameraAccess" description="cameraPurpose" />
-      );
+      body = <UnavailableState title="cameraAccess" description="cameraPurpose" />;
+      break;
     case 'denied':
-      return (
+      body = (
         <UnavailableState
           title="cameraAccessIsOff"
           description="allowCameraInSettings"
@@ -33,52 +41,78 @@ export function ScannerScreen({ session, engine }: Props) {
           }}
         />
       );
+      break;
     case 'restricted':
-      return (
+      body = (
         <UnavailableState
           title="cameraAccessIsRestricted"
           description="cameraAccessRestrictedDescription"
         />
       );
+      break;
     case 'hardwareUnavailable':
-      return (
+      body = (
         <UnavailableState
           title="cameraUnavailable"
           description="noCameraAvailable"
         />
       );
-    case 'ready':
       break;
+    case 'ready': {
+      const isLiveCamera = !session.engineID.startsWith('fixture');
+      body = (
+        <View
+          testID="live-scan-area"
+          style={styles.fill}
+          pointerEvents="box-none"
+          accessibilityLabel={t('liveScanArea')}>
+          {isLiveCamera ? (
+            <ScannerPreview
+              engine={engine}
+              running={session.isCapturing}
+              onReady={(ready) => session.setHasPreview(ready)}
+            />
+          ) : null}
+          {session.visibleObservations.length > 0 ? (
+            <ObservationHighlights
+              observations={session.visibleObservations}
+              bottomInset={insets.bottom}
+            />
+          ) : isLiveCamera ? null : (
+            <UnavailableState title="readyToScan" description="pointCamera" />
+          )}
+        </View>
+      );
+      break;
+    }
   }
 
-  const isLiveCamera = !session.engineID.startsWith('fixture');
-
   return (
-    <View
-      testID="live-scan-area"
-      style={styles.fill}
-      pointerEvents="box-none"
-      accessibilityLabel={t('liveScanArea')}>
-      {isLiveCamera ? (
-        <ScannerPreview
-          engine={engine}
-          running={session.isCapturing}
-          onReady={(ready) => session.setHasPreview(ready)}
+    <View style={[styles.fill, lightChrome && styles.canvasFill]}>
+      {body}
+      <GlassControl
+        accessibilityLabel={t('history')}
+        testID="open-history"
+        onPress={() => onOpenHistory?.()}
+        tone={onMedia || dark ? 'onMedia' : 'onCanvas'}
+        style={[styles.historyButton, { top: insets.top + 8 }]}>
+        <SymbolView
+          name="clock"
+          size={20}
+          tintColor={onMedia || dark ? '#fff' : '#000'}
+          pointerEvents="none"
         />
-      ) : null}
-      {session.visibleObservations.length > 0 ? (
-        <ObservationHighlights observations={session.visibleObservations} />
-      ) : isLiveCamera ? null : (
-        <UnavailableState title="readyToScan" description="pointCamera" />
-      )}
+      </GlassControl>
     </View>
   );
 }
 
 function ObservationHighlights({
   observations,
+  bottomInset,
 }: {
   observations: ScannerObservation[];
+  bottomInset: number;
 }) {
   return (
     <View
@@ -101,7 +135,10 @@ function ObservationHighlights({
           ]}
         />
       ))}
-      <View style={styles.results} pointerEvents="box-none">
+      <View
+        testID="scanner-observation-results"
+        style={[styles.results, { paddingBottom: Math.max(bottomInset, 8) + 8 }]}
+        pointerEvents="box-none">
         {observations.map((observation, index) => (
           <ObservationResultBar
             key={`bar-${observation.rawPayload}-${index}`}
@@ -118,6 +155,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  canvasFill: {
+    backgroundColor: '#fff',
+  },
   overlay: {
     ...StyleSheet.absoluteFill,
     zIndex: 1,
@@ -130,7 +170,12 @@ const styles = StyleSheet.create({
   },
   results: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingTop: 8,
     gap: 8,
+  },
+  historyButton: {
+    position: 'absolute',
+    right: 16,
+    zIndex: 3,
   },
 });

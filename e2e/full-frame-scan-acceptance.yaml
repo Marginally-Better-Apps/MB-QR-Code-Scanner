@@ -13,9 +13,11 @@ appId: com.marginallybetter.qrscanner
     id: "scanner-observation-bounds"
 - assertNotVisible: "Ready to Scan"
 - startRecording: full-frame-scan-acceptance
-- tapOn: "History"
+- tapOn:
+    id: "open-history"
 - assertVisible: "Your scan history will appear here."
-- tapOn: "Scanner"
+- tapOn:
+    id: "history-back"
 - assertVisible: "https://example.com/edge-left"
 - assertVisible: "https://example.com/edge-bottom"
 - assertVisible: "Copy"

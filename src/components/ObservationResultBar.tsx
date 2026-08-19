@@ -1,5 +1,6 @@
 import * as Clipboard from 'expo-clipboard';
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
+import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -11,8 +12,7 @@ type Props = {
 
 export function ObservationResultBar({ payload }: Props) {
   const [didCopy, setDidCopy] = useState(false);
-  const glass =
-    isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+  const glass = isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
 
   async function copyPayload() {
     await Clipboard.setStringAsync(payload);
@@ -37,14 +37,19 @@ export function ObservationResultBar({ payload }: Props) {
         onPress={copyPayload}
         style={styles.copyButton}
         hitSlop={8}>
-        <Text style={styles.copyLabel}>{didCopy ? '✓' : t('copy')}</Text>
+        <SymbolView
+          name={didCopy ? 'checkmark' : 'doc.on.clipboard'}
+          size={18}
+          tintColor="#000"
+          pointerEvents="none"
+        />
       </Pressable>
     </View>
   );
 
   if (glass) {
     return (
-      <GlassView style={styles.bar} glassEffectStyle="regular">
+      <GlassView style={styles.bar} glassEffectStyle="regular" isInteractive>
         {body}
       </GlassView>
     );
@@ -84,9 +89,5 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  copyLabel: {
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

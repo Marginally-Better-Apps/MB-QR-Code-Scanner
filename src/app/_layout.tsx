@@ -1,7 +1,6 @@
-import { ThemeProvider, DarkTheme, DefaultTheme } from 'expo-router';
+import { Stack, ThemeProvider, DarkTheme, DefaultTheme } from 'expo-router';
 import { useColorScheme } from 'react-native';
 
-import { AppTabs } from '@/components/AppTabs';
 import { AppProvider, TabPresentationSync } from '@/state/AppProvider';
 
 export default function RootLayout() {
@@ -10,7 +9,12 @@ export default function RootLayout() {
     <ThemeProvider value={scheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AppProvider>
         <TabPresentationSync />
-        <AppTabs />
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            animation: 'default',
+          }}
+        />
       </AppProvider>
     </ThemeProvider>
   );
