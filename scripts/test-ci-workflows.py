@@ -98,6 +98,7 @@ class PullRequestWorkflowTests(unittest.TestCase):
         self.assertIn("autoloader-pr-preview", ipa)
         self.assertIn("head.repo.full_name == github.repository", ipa)
         self.assertNotIn("nightly.link", ipa)
+        self.assertNotRegex(ipa, r"(?m)^EOF$")
 
     def test_closed_prs_delete_the_preview_release(self) -> None:
         text = workflow("pr-preview-cleanup.yml")

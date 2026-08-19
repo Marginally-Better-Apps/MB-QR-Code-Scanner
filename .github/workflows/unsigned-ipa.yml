@@ -128,10 +128,8 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/${GITHUB_REPOSITORY}/pages" >/dev/null 2>&1 || \
-            gh api --method POST "repos/${GITHUB_REPOSITORY}/pages" \
-              --input - >/dev/null <<'EOF'
-{"source":{"branch":"gh-pages","path":"/"}}
-EOF
+            echo '{"source":{"branch":"gh-pages","path":"/"}}' | \
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/pages" --input - >/dev/null
 
       - name: Update PR preview comment
         if: steps.preview.outputs.pages-url
