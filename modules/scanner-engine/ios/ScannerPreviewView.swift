@@ -1,7 +1,6 @@
 import AVFoundation
 import ExpoModulesCore
 import UIKit
-import Vision
 import VisionKit
 
 final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVCaptureMetadataOutputObjectsDelegate {
@@ -16,6 +15,7 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
     didSet { updateRunning() }
   }
 
+  private let hostView = UIView()
   private var visionKitController: DataScannerViewController?
   private var captureSession: AVCaptureSession?
   private var previewLayer: AVCaptureVideoPreviewLayer?
@@ -24,16 +24,18 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
   private let metadataQueue = DispatchQueue(label: "com.marginallybetter.qrscanner.metadata")
   private var pinchBaseZoomFactor: CGFloat = 1
   private var attachedEngine: String?
+  private var pinchRecognizer: UIPinchGestureRecognizer?
+  private var tapRecognizer: UITapGestureRecognizer?
+  private var lastPreviewReady: Bool?
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     backgroundColor = .black
     clipsToBounds = true
+    hostView.backgroundColor = .black
+    hostView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    addSubview(hostView)
 
-    let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
-    let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-    addGestureRecognizer(pinch)
-    addGestureRecognizer(tap)
     isAccessibilityElement = true
     accessibilityLabel = NSLocalizedString("Live camera scan area", comment: "")
   }
@@ -54,9 +56,13 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    previewLayer?.frame = bounds
-    visionKitController?.view.frame = bounds
+    hostView.frame = bounds
+    previewLayer?.frame = hostView.bounds
+    visionKitController?.view.frame = hostView.bounds
     updateVideoOrientation()
+    if running {
+      start()
+    }
   }
 
   private func rebuildIfNeeded() {
@@ -86,29 +92,56 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
       rebuildIfNeeded()
     }
     if engineName == "visionkit" {
-      guard DataScannerViewController.isSupported, DataScannerViewController.isAvailable else {
-        onPreviewReady(["ready": false])
-        return
-      }
-      try? visionKitController?.startScanning()
-      onPreviewReady(["ready": visionKitController?.isScanning == true])
+      startVisionKit()
       return
     }
+    startAVFoundation()
+  }
 
+  private func notifyPreviewReady(_ ready: Bool) {
+    if lastPreviewReady == ready {
+      return
+    }
+    lastPreviewReady = ready
+    onPreviewReady(["ready": ready])
+  }
+
+  private func startVisionKit() {
+    guard DataScannerViewController.isSupported else {
+      notifyPreviewReady(false)
+      return
+    }
+    if visionKitController == nil {
+      attachVisionKit()
+    }
+    embedVisionKitIfNeeded()
+    guard let controller = visionKitController, window != nil, bounds.width > 1, bounds.height > 1 else {
+      return
+    }
+    notifyPreviewReady(true)
+    guard DataScannerViewController.isAvailable, !controller.isScanning else {
+      return
+    }
+    do {
+      try controller.startScanning()
+    } catch {
+      // The view may not be considered visible until the next layout pass.
+    }
+  }
+
+  private func startAVFoundation() {
     guard
       AVCaptureDevice.authorizationStatus(for: .video) == .authorized,
       let session = captureSession,
       previewLayer != nil
     else {
-      onPreviewReady(["ready": false])
+      notifyPreviewReady(false)
       return
     }
+    notifyPreviewReady(true)
     sessionQueue.async {
       if !session.isRunning {
         session.startRunning()
-      }
-      DispatchQueue.main.async {
-        self.onPreviewReady(["ready": true])
       }
     }
   }
@@ -132,11 +165,20 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
     previewLayer = nil
     captureSession = nil
     captureDevice = nil
+    lastPreviewReady = nil
+    if let pinchRecognizer {
+      removeGestureRecognizer(pinchRecognizer)
+    }
+    if let tapRecognizer {
+      removeGestureRecognizer(tapRecognizer)
+    }
+    pinchRecognizer = nil
+    tapRecognizer = nil
   }
 
   private func attachVisionKit() {
     guard DataScannerViewController.isSupported else {
-      onPreviewReady(["ready": false])
+      notifyPreviewReady(false)
       return
     }
     let controller = DataScannerViewController(
@@ -155,18 +197,20 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
     guard let controller = visionKitController else {
       return
     }
-    controller.view.frame = bounds
+    controller.view.frame = hostView.bounds
     controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    if controller.view.superview !== self {
-      addSubview(controller.view)
+    controller.view.backgroundColor = .black
+    if controller.view.superview !== hostView {
+      hostView.insertSubview(controller.view, at: 0)
     }
-    if controller.parent == nil, let parent = nearestViewController() {
+    hostView.sendSubviewToBack(controller.view)
+    if controller.parent == nil, let parent = hostingViewController() {
       parent.addChild(controller)
       controller.didMove(toParent: parent)
     }
   }
 
-  private func nearestViewController() -> UIViewController? {
+  private func hostingViewController() -> UIViewController? {
     var responder: UIResponder? = self
     while let current = responder {
       if let controller = current as? UIViewController {
@@ -174,7 +218,17 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
       }
       responder = current.next
     }
-    return nil
+    var root = window?.rootViewController
+    while let presented = root?.presentedViewController {
+      root = presented
+    }
+    if let tabs = root as? UITabBarController {
+      return tabs.selectedViewController ?? tabs
+    }
+    if let nav = root as? UINavigationController {
+      return nav.visibleViewController ?? nav
+    }
+    return root
   }
 
   private func attachAVFoundation() {
@@ -183,7 +237,7 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
       let camera = AVCaptureDevice.default(for: .video),
       let input = try? AVCaptureDeviceInput(device: camera)
     else {
-      onPreviewReady(["ready": false])
+      notifyPreviewReady(false)
       return
     }
 
@@ -192,14 +246,14 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
     session.sessionPreset = .high
     guard session.canAddInput(input) else {
       session.commitConfiguration()
-      onPreviewReady(["ready": false])
+      notifyPreviewReady(false)
       return
     }
     session.addInput(input)
     let output = AVCaptureMetadataOutput()
     guard session.canAddOutput(output) else {
       session.commitConfiguration()
-      onPreviewReady(["ready": false])
+      notifyPreviewReady(false)
       return
     }
     session.addOutput(output)
@@ -210,12 +264,25 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
 
     let layer = AVCaptureVideoPreviewLayer(session: session)
     layer.videoGravity = .resizeAspectFill
-    layer.frame = bounds
-    self.layer.addSublayer(layer)
+    layer.frame = hostView.bounds
+    hostView.layer.insertSublayer(layer, at: 0)
     captureSession = session
     previewLayer = layer
     captureDevice = camera
+    installAVFoundationGestures()
     updateVideoOrientation()
+  }
+
+  private func installAVFoundationGestures() {
+    guard pinchRecognizer == nil else {
+      return
+    }
+    let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
+    let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+    addGestureRecognizer(pinch)
+    addGestureRecognizer(tap)
+    pinchRecognizer = pinch
+    tapRecognizer = tap
   }
 
   func dataScanner(
@@ -282,7 +349,7 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
   }
 
   private func observationPayload(payload: String?, bounds: CGRect) -> [String: Any]? {
-    let viewSize = self.bounds.size
+    let viewSize = hostView.bounds.size
     guard viewSize.width > 0, viewSize.height > 0 else {
       return nil
     }

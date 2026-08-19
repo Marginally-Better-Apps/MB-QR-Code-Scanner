@@ -2,7 +2,10 @@ import { requireNativeViewManager } from 'expo-modules-core';
 import type { StyleProp, ViewProps, ViewStyle } from 'react-native';
 import { StyleSheet, View } from 'react-native';
 
-import { publishNativeObservations } from '@/scanner/nativeSource';
+import {
+  nativeObservationItems,
+  publishNativeObservations,
+} from '@/scanner/nativeSource';
 import type { Rect } from '@/scanner';
 
 export type NativeEngineKind = 'visionkit' | 'avfoundation';
@@ -41,13 +44,18 @@ export function ScannerPreview({ engine, running, onReady }: Props) {
 
   return (
     <NativeView
+      collapsable={false}
       style={styles.fill}
       engine={engine}
       running={running}
       onObservations={(event) => {
-        publishNativeObservations(engine, event.nativeEvent.items);
+        publishNativeObservations(engine, nativeObservationItems(event));
       }}
-      onPreviewReady={(event) => onReady?.(event.nativeEvent.ready)}
+      onPreviewReady={(event) => {
+        const ready =
+          event.nativeEvent?.ready ?? (event as { ready?: boolean }).ready;
+        onReady?.(ready === true);
+      }}
     />
   );
 }

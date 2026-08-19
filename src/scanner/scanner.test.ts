@@ -34,6 +34,11 @@ import type {
   VisionKitScannerPlatform,
 } from '@/scanner/visionKit';
 import type { CameraAuthorization, Point, Rect, Size } from '@/scanner/types';
+import {
+  NativeEngineObservationSource,
+  nativeObservationItems,
+  publishNativeObservations,
+} from '@/scanner/nativeSource';
 import appJson from '../../app.json';
 import fs from 'fs';
 import path from 'path';
@@ -928,5 +933,47 @@ describe('full-frame scan, focus, and zoom', () => {
           item.displayBounds.y + item.displayBounds.height > centerGuide.y,
       ),
     ).toBe(false);
+  });
+});
+
+describe('native observation bridge', () => {
+  test('parses Expo view events with or without nativeEvent wrapping', () => {
+    const item = {
+      payload: 'https://survey.example/qr',
+      displayBounds: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 },
+    };
+    expect(nativeObservationItems({ nativeEvent: { items: [item] } })).toEqual([item]);
+    expect(nativeObservationItems({ items: [item] })).toEqual([item]);
+    expect(nativeObservationItems({})).toEqual([]);
+    expect(nativeObservationItems(null)).toEqual([]);
+  });
+
+  test('native engine treats the camera view as the preview and publishes detections', async () => {
+    const source = new NativeEngineObservationSource('visionkit');
+    const session = new ScannerSessionStore({
+      cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
+      observationSource: source,
+    });
+
+    expect(source.hasPreview).toBe(true);
+    await session.activateScanner();
+    expect(session.hasPreview).toBe(true);
+
+    publishNativeObservations('visionkit', [
+      {
+        payload: 'https://survey.walmart.com/logo-qr',
+        displayBounds: { x: 0.18, y: 0.22, width: 0.31, height: 0.2 },
+      },
+    ]);
+
+    expect(session.visibleObservations.map((item) => item.rawPayload)).toEqual([
+      'https://survey.walmart.com/logo-qr',
+    ]);
+    expect(session.visibleObservations[0].displayBounds).toEqual({
+      x: 0.18,
+      y: 0.22,
+      width: 0.31,
+      height: 0.2,
+    });
   });
 });

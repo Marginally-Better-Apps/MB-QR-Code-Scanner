@@ -42,9 +42,21 @@ export function publishNativeObservations(
   }
 }
 
+export function nativeObservationItems(event: unknown): NativeBarcodeEvent[] {
+  if (event == null || typeof event !== 'object') {
+    return [];
+  }
+  const record = event as {
+    nativeEvent?: { items?: NativeBarcodeEvent[] };
+    items?: NativeBarcodeEvent[];
+  };
+  const items = record.nativeEvent?.items ?? record.items;
+  return Array.isArray(items) ? items : [];
+}
+
 export class NativeEngineObservationSource implements ScannerObservationSource {
   readonly engineID: ScannerEngineID;
-  hasPreview = false;
+  hasPreview = true;
   private receiveFrame: ObservationListener | null = null;
   private unsubscribe: (() => void) | null = null;
 

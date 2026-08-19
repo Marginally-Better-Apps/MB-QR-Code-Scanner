@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
 import { HistoryScreen } from '@/components/HistoryScreen';
 import { ScannerScreen } from '@/components/ScannerScreen';
@@ -6,6 +7,11 @@ import { setLocale } from '@/i18n';
 import { ScannerSessionStore } from '@/scanner';
 import { CameraAccessFixtureProvider } from '@/scanner/cameraFixtures';
 import { makeObservationSource } from '@/scanner/factory';
+import { ScannerObservationFixtureSource } from '@/scanner/fixtures';
+import {
+  NativeEngineObservationSource,
+  publishNativeObservations,
+} from '@/scanner/nativeSource';
 
 jest.mock('expo-clipboard', () => ({
   setStringAsync: jest.fn(async () => {}),
@@ -76,6 +82,70 @@ describe('scanner UI', () => {
     expect(screen.getAllByTestId('scanner-observation-payload')).toHaveLength(1);
     expect(screen.getByLabelText('Copy')).toBeTruthy();
     expect(screen.queryByText('Observed QR Code')).toBeNull();
+    expect(screen.queryByText('Ready to Scan')).toBeNull();
+    expect(screen.queryByText('Point the camera at a QR code. Scanning starts automatically.')).toBeNull();
+
+    const bounds = StyleSheet.flatten(screen.getByTestId('scanner-observation-bounds').props.style);
+    expect(bounds).toEqual(
+      expect.objectContaining({
+        left: '20%',
+        top: '30%',
+        width: '60%',
+        height: '25%',
+        borderColor: '#FFE500',
+      }),
+    );
+  });
+
+  test('live camera does not cover the preview with Ready to Scan', async () => {
+    const store = session('authorized');
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    expect(screen.getByLabelText('Live camera scan area')).toBeTruthy();
+    expect(screen.getByTestId('live-scan-area')).toBeTruthy();
+    expect(screen.queryByText('Ready to Scan')).toBeNull();
+    expect(screen.queryByText('Point the camera at a QR code. Scanning starts automatically.')).toBeNull();
+    expect(screen.queryByTestId('unavailable-state')).toBeNull();
+    expect(screen.queryByTestId('scanner-observation-overlay')).toBeNull();
+  });
+
+  test('native detections draw highlight boxes over the live camera', async () => {
+    const source = new NativeEngineObservationSource('visionkit');
+    const store = new ScannerSessionStore({
+      cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
+      observationSource: source,
+    });
+    await store.activateScanner();
+    publishNativeObservations('visionkit', [
+      {
+        payload: 'https://survey.walmart.com/logo-qr',
+        displayBounds: { x: 0.18, y: 0.22, width: 0.31, height: 0.2 },
+      },
+      {
+        payload: 'https://survey.walmart.com/logo-qr-bottom',
+        displayBounds: { x: 0.18, y: 0.52, width: 0.31, height: 0.2 },
+      },
+    ]);
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    expect(screen.queryByText('Ready to Scan')).toBeNull();
+    expect(screen.getByText('https://survey.walmart.com/logo-qr')).toBeTruthy();
+    expect(screen.getByText('https://survey.walmart.com/logo-qr-bottom')).toBeTruthy();
+    expect(screen.getAllByTestId('scanner-observation-bounds')).toHaveLength(2);
+
+    const firstBounds = StyleSheet.flatten(
+      screen.getAllByTestId('scanner-observation-bounds')[0].props.style,
+    );
+    expect(firstBounds).toEqual(
+      expect.objectContaining({
+        left: '18%',
+        top: '22%',
+        width: '31%',
+        height: '20%',
+      }),
+    );
+    expect(screen.getByTestId('scanner-observation-overlay').props.pointerEvents).toBe('box-none');
   });
 
   test('edge fixture recognizes codes outside the center guide', async () => {
@@ -156,11 +226,29 @@ describe('scanner UI', () => {
       store.handleLifecycle('active');
     });
 
-    expect(view.getByText('Ready to Scan')).toBeTruthy();
+    expect(view.queryByText('Ready to Scan')).toBeNull();
     expect(
-      view.getByText('Point the camera at a QR code. Scanning starts automatically.'),
-    ).toBeTruthy();
+      view.queryByText('Point the camera at a QR code. Scanning starts automatically.'),
+    ).toBeNull();
+    expect(view.getByLabelText('Live camera scan area')).toBeTruthy();
+    expect(view.getByTestId('live-scan-area')).toBeTruthy();
     expect(view.queryByText('Scan')).toBeNull();
+  });
+
+  test('fixture without detections still shows the empty scan prompt', async () => {
+    const store = new ScannerSessionStore({
+      cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
+      observationSource: new ScannerObservationFixtureSource({
+        engineID: 'fixture.empty',
+      }),
+    });
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    expect(screen.getByText('Ready to Scan')).toBeTruthy();
+    expect(
+      screen.getByText('Point the camera at a QR code. Scanning starts automatically.'),
+    ).toBeTruthy();
   });
 
   test('history placeholder is reachable', () => {

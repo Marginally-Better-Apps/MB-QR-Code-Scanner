@@ -5,7 +5,7 @@ import { ScannerPreview } from '@/components/ScannerPreview';
 import { UnavailableState } from '@/components/UnavailableState';
 import { useScannerSession } from '@/hooks/useScanner';
 import { t } from '@/i18n';
-import type { ScannerSessionStore } from '@/scanner';
+import type { ScannerObservation, ScannerSessionStore } from '@/scanner';
 import type { NativeEngineKind } from '@/components/ScannerPreview';
 
 type Props = {
@@ -51,45 +51,64 @@ export function ScannerScreen({ session, engine }: Props) {
       break;
   }
 
+  const isLiveCamera = !session.engineID.startsWith('fixture');
+
   return (
-    <View style={styles.fill} accessibilityLabel={t('liveScanArea')}>
-      {session.engineID.startsWith('fixture') ? null : (
+    <View
+      testID="live-scan-area"
+      style={styles.fill}
+      pointerEvents="box-none"
+      accessibilityLabel={t('liveScanArea')}>
+      {isLiveCamera ? (
         <ScannerPreview
           engine={engine}
           running={session.isCapturing}
           onReady={(ready) => session.setHasPreview(ready)}
         />
-      )}
+      ) : null}
       {session.visibleObservations.length > 0 ? (
-        <View style={styles.overlay} pointerEvents="box-none">
-          {session.visibleObservations.map((observation, index) => (
-            <View
-              key={`${observation.rawPayload}-${index}`}
-              testID="scanner-observation-bounds"
-              pointerEvents="none"
-              style={[
-                styles.bounds,
-                {
-                  left: `${observation.displayBounds.x * 100}%`,
-                  top: `${observation.displayBounds.y * 100}%`,
-                  width: `${observation.displayBounds.width * 100}%`,
-                  height: `${observation.displayBounds.height * 100}%`,
-                },
-              ]}
-            />
-          ))}
-          <View style={styles.results}>
-            {session.visibleObservations.map((observation, index) => (
-              <ObservationResultBar
-                key={`bar-${observation.rawPayload}-${index}`}
-                payload={observation.rawPayload}
-              />
-            ))}
-          </View>
-        </View>
-      ) : session.hasPreview ? null : (
+        <ObservationHighlights observations={session.visibleObservations} />
+      ) : isLiveCamera ? null : (
         <UnavailableState title="readyToScan" description="pointCamera" />
       )}
+    </View>
+  );
+}
+
+function ObservationHighlights({
+  observations,
+}: {
+  observations: ScannerObservation[];
+}) {
+  return (
+    <View
+      testID="scanner-observation-overlay"
+      style={styles.overlay}
+      pointerEvents="box-none">
+      {observations.map((observation, index) => (
+        <View
+          key={`${observation.rawPayload}-${index}`}
+          testID="scanner-observation-bounds"
+          pointerEvents="none"
+          style={[
+            styles.bounds,
+            {
+              left: `${observation.displayBounds.x * 100}%`,
+              top: `${observation.displayBounds.y * 100}%`,
+              width: `${observation.displayBounds.width * 100}%`,
+              height: `${observation.displayBounds.height * 100}%`,
+            },
+          ]}
+        />
+      ))}
+      <View style={styles.results} pointerEvents="box-none">
+        {observations.map((observation, index) => (
+          <ObservationResultBar
+            key={`bar-${observation.rawPayload}-${index}`}
+            payload={observation.rawPayload}
+          />
+        ))}
+      </View>
     </View>
   );
 }
@@ -101,6 +120,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFill,
+    zIndex: 1,
     justifyContent: 'flex-end',
   },
   bounds: {

@@ -4,19 +4,15 @@ appId: com.marginallybetter.qrscanner
     clearState: true
     arguments:
       cameraFixture: "authorized"
-      scannerFixture: "single-code"
-- assertVisible: "https://example.com/fixture"
-- assertVisible: "Copy"
 - assertVisible:
-    id: "scanner-observation-bounds"
+    id: "live-scan-area"
 - assertNotVisible: "Ready to Scan"
-- startRecording: scanner-fixture-acceptance
+- startRecording: live-preview
+- assertNotVisible: "Point the camera at a QR code. Scanning starts automatically."
 - tapOn: "History"
 - assertVisible: "Your scan history will appear here."
 - tapOn: "Scanner"
-- assertVisible: "https://example.com/fixture"
-- assertVisible: "Copy"
 - assertVisible:
-    id: "scanner-observation-bounds"
+    id: "live-scan-area"
 - assertNotVisible: "Ready to Scan"
 - stopRecording

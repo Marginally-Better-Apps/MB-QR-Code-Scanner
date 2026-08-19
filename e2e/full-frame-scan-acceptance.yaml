@@ -9,6 +9,9 @@ appId: com.marginallybetter.qrscanner
 - assertVisible: "https://example.com/edge-right"
 - assertVisible: "https://example.com/edge-top"
 - assertVisible: "https://example.com/edge-bottom"
+- assertVisible:
+    id: "scanner-observation-bounds"
+- assertNotVisible: "Ready to Scan"
 - startRecording: full-frame-scan-acceptance
 - tapOn: "History"
 - assertVisible: "Your scan history will appear here."
