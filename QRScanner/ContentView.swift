@@ -23,11 +23,16 @@ struct ContentView: View {
             switch newPhase {
             case .active:
                 appState.scannerSession.handleLifecycle(.active)
+            case .inactive:
+                appState.scannerSession.handleLifecycle(.inactive)
             case .background:
                 appState.scannerSession.handleLifecycle(.background)
             default:
                 break
             }
+        }
+        .onChange(of: appState.selectedTab) { _, tab in
+            appState.scannerSession.handlePresentation(tab == .scanner ? .visible : .obscured)
         }
     }
 }
@@ -78,21 +83,30 @@ private struct ScannerView: View {
                 )
             case .ready:
                 if let previewController = session.previewController {
-                    ScannerCameraPreview(controller: previewController)
-                        .ignoresSafeArea()
-                        .onAppear {
-                            session.handleLifecycle(.active)
-                        }
-                        .overlay(alignment: .bottom) {
+                    GeometryReader { geometry in
+                        ZStack(alignment: .bottom) {
+                            ScannerCameraPreview(controller: previewController)
+                                .ignoresSafeArea()
+                                .onAppear {
+                                    session.handleLifecycle(.active)
+                                    session.handlePresentation(.visible)
+                                }
+                                .overlay {
+                                    observationBoundsOverlay
+                                }
+                                .accessibilityElement(children: .contain)
+                                .accessibilityLabel("Live camera scan area")
+
                             if !session.visibleObservations.isEmpty {
                                 observationList
-                                    .padding()
-                                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
-                                    .padding()
                             }
                         }
-                        .accessibilityElement(children: .contain)
-                        .accessibilityLabel("Live camera scan area")
+                        .frame(
+                            width: geometry.size.width,
+                            height: geometry.size.height,
+                            alignment: .bottom
+                        )
+                    }
                 } else if session.visibleObservations.isEmpty {
                     ContentUnavailableView(
                         "Ready to Scan",
@@ -102,39 +116,98 @@ private struct ScannerView: View {
                         )
                     )
                 } else {
-                    observationList
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+                        observationList
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task {
             await session.activateScanner()
         }
     }
 
-    private var observationList: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                Image(systemName: "qrcode.viewfinder")
-                    .font(.largeTitle)
-                    .foregroundStyle(.secondary)
+    private var observationBoundsOverlay: some View {
+        GeometryReader { geometry in
+            ForEach(Array(session.visibleObservations.enumerated()), id: \.offset) { _, observation in
+                let rect = CGRect(
+                    x: observation.displayBounds.origin.x * geometry.size.width,
+                    y: observation.displayBounds.origin.y * geometry.size.height,
+                    width: observation.displayBounds.width * geometry.size.width,
+                    height: observation.displayBounds.height * geometry.size.height
+                )
+                Rectangle()
+                    .stroke(.yellow, lineWidth: 2)
+                    .frame(width: rect.width, height: rect.height)
+                    .position(x: rect.midX, y: rect.midY)
+                    .accessibilityIdentifier("scanner-observation-bounds")
                     .accessibilityHidden(true)
-
-                Text("Observed QR Code")
-                    .font(.title2.bold())
-
-                ForEach(
-                    Array(session.visibleObservations.enumerated()),
-                    id: \.offset
-                ) { _, observation in
-                    Text(observation.rawPayload)
-                        .font(.body.monospaced())
-                        .multilineTextAlignment(.center)
-                        .textSelection(.enabled)
-                        .accessibilityIdentifier("scanner-observation-payload")
-                }
             }
-            .frame(maxWidth: .infinity)
-            .padding()
+        }
+        .allowsHitTesting(false)
+    }
+
+    private var observationList: some View {
+        VStack(spacing: 8) {
+            ForEach(
+                Array(session.visibleObservations.enumerated()),
+                id: \.offset
+            ) { _, observation in
+                ObservationResultBar(payload: observation.rawPayload)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct ObservationResultBar: View {
+    let payload: String
+    @State private var didCopy = false
+    @State private var copyCount = 0
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Text(payload)
+                .font(.subheadline)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 14)
+                .padding(.trailing, 8)
+                .accessibilityIdentifier("scanner-observation-payload")
+
+            Rectangle()
+                .fill(.separator)
+                .frame(width: 1, height: 20)
+
+            Button(action: copyPayload) {
+                Image(systemName: didCopy ? "checkmark" : "doc.on.clipboard")
+                    .font(.body.weight(.medium))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Copy")
+            .accessibilityIdentifier("scanner-observation-copy")
+        }
+        .frame(height: 44)
+        .foregroundStyle(.primary)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .sensoryFeedback(.success, trigger: copyCount)
+    }
+
+    private func copyPayload() {
+        UIPasteboard.general.string = payload
+        copyCount += 1
+        didCopy = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.5))
+            didCopy = false
         }
     }
 }
@@ -146,7 +219,9 @@ private struct ScannerCameraPreview: UIViewControllerRepresentable {
         controller
     }
 
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
+    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {
+        uiViewController.view.setNeedsLayout()
+    }
 }
 
 private struct HistoryView: View {

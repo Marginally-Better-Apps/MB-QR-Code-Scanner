@@ -16,9 +16,15 @@ final class ScannerSessionStore: ObservableObject {
         cameraAccessState == .ready
     }
 
+    var usesCustomCameraGestures: Bool {
+        (observationSource as? AVFoundationScannerObservationSource)?.usesCustomCameraGestures == true
+    }
+
     private let cameraAccess: CameraAccessProviding
     private let observationSource: ScannerObservationSource
     private var isObservationSourceRunning = false
+    private var scenePhase: ScannerLifecyclePhase = .active
+    private var presentation: ScannerPresentation = .visible
 
     init(
         cameraAccess: CameraAccessProviding? = nil,
@@ -53,15 +59,60 @@ final class ScannerSessionStore: ObservableObject {
     }
 
     func handleLifecycle(_ phase: ScannerLifecyclePhase) {
+        scenePhase = phase
         switch phase {
-        case .background:
-            observationSource.handleLifecycle(.background)
+        case .background, .inactive:
+            observationSource.handleLifecycle(phase)
         case .active:
             cameraAccess.refreshAuthorization()
             refreshCameraAccess()
             updateObservationSourceActivity()
-            observationSource.handleLifecycle(.active)
+            if shouldCapture {
+                observationSource.handleLifecycle(.active)
+            }
         }
+    }
+
+    func handlePresentation(_ presentation: ScannerPresentation) {
+        self.presentation = presentation
+        switch presentation {
+        case .obscured:
+            observationSource.handleLifecycle(.inactive)
+        case .visible:
+            updateObservationSourceActivity()
+            if shouldCapture {
+                observationSource.handleLifecycle(.active)
+            }
+        }
+    }
+
+    func handlePreviewLayoutChange() {
+        (observationSource as? AVFoundationScannerObservationSource)?.handlePreviewLayoutChange()
+    }
+
+    func beginPinchZoom() {
+        (observationSource as? AVFoundationScannerObservationSource)?.beginPinchZoom()
+    }
+
+    func updatePinchZoom(scale: CGFloat, atNormalizedPoint point: CGPoint, resultActionRect: CGRect?) {
+        (observationSource as? AVFoundationScannerObservationSource)?.updatePinchZoom(
+            scale: scale,
+            atNormalizedPoint: point,
+            resultActionRect: resultActionRect,
+            onResultAction: {}
+        )
+    }
+
+    func focus(atNormalizedPoint point: CGPoint, resultActionRect: CGRect?) {
+        (observationSource as? AVFoundationScannerObservationSource)?.focus(
+            atNormalizedPoint: point,
+            resultActionRect: resultActionRect,
+            onResultAction: {}
+        )
+    }
+
+    private var shouldCapture: Bool {
+        cameraAccessState == .ready && scenePhase == .active && presentation == .visible
     }
 
     private func refreshCameraAccess() {
@@ -72,7 +123,7 @@ final class ScannerSessionStore: ObservableObject {
     }
 
     private func updateObservationSourceActivity() {
-        guard cameraAccessState == .ready else {
+        guard shouldCapture else {
             observationSource.stop()
             isObservationSourceRunning = false
             return

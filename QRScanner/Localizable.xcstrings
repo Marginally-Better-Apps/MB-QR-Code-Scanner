@@ -111,12 +111,12 @@
         }
       }
     },
-    "Observed QR Code" : {
+    "Copy" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Código QR observado"
+            "value" : "Copiar"
           }
         }
       }
