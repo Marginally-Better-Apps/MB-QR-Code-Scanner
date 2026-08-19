@@ -86,6 +86,27 @@ class PullRequestWorkflowTests(unittest.TestCase):
         self.assertIn("Package IPA", ipa)
         self.assertIn("Package IPA", release)
 
+    def test_pr_ipa_publishes_a_tappable_autoloader_preview(self) -> None:
+        ipa = workflow("unsigned-ipa.yml")
+        self.assertIn("contents: write", ipa)
+        self.assertIn("pull-requests: write", ipa)
+        self.assertIn("gh release create", ipa)
+        self.assertIn('TAG="pr-${PR_NUMBER}"', ipa)
+        self.assertIn("target-folder: pr/", ipa)
+        self.assertIn("write-autoloader-page.py", ipa)
+        self.assertIn("github.io", ipa)
+        self.assertIn("autoloader-pr-preview", ipa)
+        self.assertIn("head.repo.full_name == github.repository", ipa)
+        self.assertNotIn("nightly.link", ipa)
+        self.assertNotRegex(ipa, r"(?m)^EOF$")
+
+    def test_closed_prs_delete_the_preview_release(self) -> None:
+        text = workflow("pr-preview-cleanup.yml")
+        self.assertIn("types: [closed]", text)
+        self.assertIn("gh release delete", text)
+        self.assertIn("--cleanup-tag", text)
+        self.assertIn("TAG: pr-", text)
+
 
 if __name__ == "__main__":
     unittest.main()

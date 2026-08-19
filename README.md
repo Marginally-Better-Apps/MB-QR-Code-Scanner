@@ -52,7 +52,7 @@ The Maestro flow launches the app and asserts that its first screen is loaded be
 
 ## CI and tagless releases
 
-Pull requests run the Swift/XCTest suite, test the semantic-version calculator, verify universal iPhone/iPad support, and produce a cached unsigned IPA artifact. On `main`, only these commit/PR titles produce a semantic release artifact:
+Pull requests run the Swift/XCTest suite, test the semantic-version calculator, verify universal iPhone/iPad support, and publish an unsigned IPA as GitHub prerelease `pr-<number>` plus a tappable Autoloader link. See [docs/AUTOLOADER_DEV_CYCLE.md](docs/AUTOLOADER_DEV_CYCLE.md). On `main`, only these commit/PR titles produce a semantic release artifact:
 
 - `fix: ...` → patch
 - `feat: ...` → minor
