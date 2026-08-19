@@ -18,4 +18,4 @@ The PR title controls tagless releases when this PR lands on `main`:
 - `feat!: ...` (or `feat(scope)!: ...`) bumps the major version.
 - Every other title creates no release.
 
-Use squash merge so the PR title becomes the commit subject. Releases are unsigned IPA workflow artifacts; this repository does not create Git tags.
+Use squash merge so the PR title becomes the commit subject. Product releases are unsigned IPA workflow artifacts and do not use version tags. Open PRs also publish an ephemeral `pr-<number>` preview for Autoloader; that tag is deleted when the PR closes.

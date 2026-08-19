@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   ipa:
@@ -77,3 +78,96 @@ jobs:
           path: artifacts/QR-Scanner-unsigned.ipa
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish Autoloader preview
+        id: preview
+        if: github.event.pull_request && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          TAG="pr-${PR_NUMBER}"
+          IPA_NAME="QR-Scanner-unsigned.ipa"
+          IPA_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/${TAG}/${IPA_NAME}"
+          OWNER_HOST="$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          REPO_NAME="${GITHUB_REPOSITORY#*/}"
+          PAGES_URL="https://${OWNER_HOST}.github.io/${REPO_NAME}/pr/${PR_NUMBER}/"
+
+          gh release delete "${TAG}" --yes --cleanup-tag || true
+          gh release create "${TAG}" "artifacts/${IPA_NAME}" \
+            --prerelease \
+            --latest=false \
+            --target "${HEAD_SHA}" \
+            --title "PR #${PR_NUMBER} unsigned IPA" \
+            --notes "Autoloader preview for https://github.com/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
+
+          python3 scripts/write-autoloader-page.py \
+            --ipa-url "${IPA_URL}" \
+            --output autoloader-page/index.html \
+            --title "QR Scanner"
+
+          echo "ipa-url=${IPA_URL}" >> "${GITHUB_OUTPUT}"
+          echo "pages-url=${PAGES_URL}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish GitHub Pages trampoline
+        if: steps.preview.outputs.pages-url
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: autoloader-page
+          target-folder: pr/${{ github.event.pull_request.number }}
+          clean: false
+          branch: gh-pages
+          commit-message: "preview: Autoloader trampoline for PR ${{ github.event.pull_request.number }}"
+
+      - name: Enable GitHub Pages if needed
+        if: steps.preview.outputs.pages-url
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/pages" >/dev/null 2>&1 || \
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/pages" \
+              --input - >/dev/null <<'EOF'
+{"source":{"branch":"gh-pages","path":"/"}}
+EOF
+
+      - name: Update PR preview comment
+        if: steps.preview.outputs.pages-url
+        uses: actions/github-script@v7
+        env:
+          PAGES_URL: ${{ steps.preview.outputs.pages-url }}
+          IPA_URL: ${{ steps.preview.outputs.ipa-url }}
+        with:
+          script: |
+            const marker = '<!-- autoloader-pr-preview -->';
+            const body = `${marker}
+            ## Install on a phone
+
+            [Open in Autoloader](${process.env.PAGES_URL})
+
+            GitHub will not make \`autoloader://\` tappable, so that link is HTTPS and bounces into Autoloader. If you are in the GitHub app and nothing happens, open the page in Safari.
+
+            The unsigned IPA is also at [the PR preview release](${process.env.IPA_URL}). Sign it with your own certificate. Autoloader does that for you after the first setup.
+
+            _Built from \`${context.payload.pull_request.head.sha.slice(0, 7)}\`._`;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const previous = comments.find((comment) =>
+              comment.user?.type === 'Bot' && comment.body.includes(marker)
+            );
+            const params = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            };
+            if (previous) {
+              await github.rest.issues.updateComment({ ...params, comment_id: previous.id });
+            } else {
+              await github.rest.issues.createComment({ ...params, issue_number: context.issue.number });
+            }
