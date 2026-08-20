@@ -8,9 +8,11 @@ export function decideScannerEngine(
   dataScannerAvailable: boolean,
   authorization: CameraAuthorization,
 ): ScannerEngineDecision {
-  const engine = dataScannerSupported ? 'visionKit' : 'avFoundation';
+  const engine =
+    dataScannerSupported && dataScannerAvailable
+      ? 'visionKit'
+      : 'avFoundation';
   const isAuthorized = authorization === 'authorized';
-  const startsCapture =
-    engine === 'visionKit' ? isAuthorized && dataScannerAvailable : isAuthorized;
+  const startsCapture = isAuthorized;
   return { engine, startsCapture };
 }

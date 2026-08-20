@@ -27,6 +27,8 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
   private var pinchRecognizer: UIPinchGestureRecognizer?
   private var tapRecognizer: UITapGestureRecognizer?
   private var lastPreviewReady: Bool?
+  private var visionKitStartWorkItem: DispatchWorkItem?
+  private var visionKitStartAttempts = 0
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -107,7 +109,7 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
   }
 
   private func startVisionKit() {
-    guard DataScannerViewController.isSupported else {
+    guard DataScannerViewController.isSupported, DataScannerViewController.isAvailable else {
       notifyPreviewReady(false)
       return
     }
@@ -115,18 +117,52 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
       attachVisionKit()
     }
     embedVisionKitIfNeeded()
-    guard let controller = visionKitController, window != nil, bounds.width > 1, bounds.height > 1 else {
+    guard
+      let controller = visionKitController,
+      window != nil,
+      controller.parent != nil,
+      controller.view.window != nil,
+      bounds.width > 1,
+      bounds.height > 1
+    else {
+      notifyPreviewReady(false)
+      scheduleVisionKitStartRetry()
       return
     }
-    notifyPreviewReady(true)
-    guard DataScannerViewController.isAvailable, !controller.isScanning else {
+    if controller.isScanning {
+      visionKitStartAttempts = 0
+      notifyPreviewReady(true)
       return
     }
     do {
       try controller.startScanning()
+      if controller.isScanning {
+        visionKitStartAttempts = 0
+        notifyPreviewReady(true)
+      } else {
+        notifyPreviewReady(false)
+        scheduleVisionKitStartRetry()
+      }
     } catch {
-      // The view may not be considered visible until the next layout pass.
+      notifyPreviewReady(false)
+      scheduleVisionKitStartRetry()
     }
+  }
+
+  private func scheduleVisionKitStartRetry() {
+    guard running, window != nil, visionKitStartAttempts < 12 else {
+      return
+    }
+    visionKitStartWorkItem?.cancel()
+    visionKitStartAttempts += 1
+    let workItem = DispatchWorkItem { [weak self] in
+      guard let self, self.running, self.engineName == "visionkit" else {
+        return
+      }
+      self.startVisionKit()
+    }
+    visionKitStartWorkItem = workItem
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: workItem)
   }
 
   private func startAVFoundation() {
@@ -138,15 +174,23 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
       notifyPreviewReady(false)
       return
     }
-    notifyPreviewReady(true)
     sessionQueue.async {
       if !session.isRunning {
         session.startRunning()
+      }
+      DispatchQueue.main.async { [weak self] in
+        guard let self, self.captureSession === session else {
+          return
+        }
+        self.notifyPreviewReady(session.isRunning)
       }
     }
   }
 
   private func stop() {
+    visionKitStartWorkItem?.cancel()
+    visionKitStartWorkItem = nil
+    visionKitStartAttempts = 0
     visionKitController?.stopScanning()
     sessionQueue.async { [captureSession] in
       if captureSession?.isRunning == true {
@@ -183,6 +227,7 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
     }
     let controller = DataScannerViewController(
       recognizedDataTypes: [.barcode(symbologies: [.qr])],
+      qualityLevel: .accurate,
       recognizesMultipleItems: true,
       isHighFrameRateTrackingEnabled: true,
       isGuidanceEnabled: false,
@@ -197,6 +242,11 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
     guard let controller = visionKitController else {
       return
     }
+    let parent = controller.parent ?? hostingViewController()
+    let needsContainment = controller.parent == nil
+    if needsContainment {
+      parent?.addChild(controller)
+    }
     controller.view.frame = hostView.bounds
     controller.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     controller.view.backgroundColor = .black
@@ -204,8 +254,7 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
       hostView.insertSubview(controller.view, at: 0)
     }
     hostView.sendSubviewToBack(controller.view)
-    if controller.parent == nil, let parent = hostingViewController() {
-      parent.addChild(controller)
+    if needsContainment, parent != nil {
       controller.didMove(toParent: parent)
     }
   }
@@ -258,9 +307,28 @@ final class ScannerPreviewView: ExpoView, DataScannerViewControllerDelegate, AVC
     }
     session.addOutput(output)
     output.setMetadataObjectsDelegate(self, queue: metadataQueue)
-    output.metadataObjectTypes = output.availableMetadataObjectTypes.filter { $0 == .qr }
+    guard output.availableMetadataObjectTypes.contains(.qr) else {
+      session.commitConfiguration()
+      notifyPreviewReady(false)
+      return
+    }
+    output.metadataObjectTypes = [.qr]
     output.rectOfInterest = CGRect(x: 0, y: 0, width: 1, height: 1)
     session.commitConfiguration()
+
+    do {
+      try camera.lockForConfiguration()
+      defer { camera.unlockForConfiguration() }
+      if camera.isFocusModeSupported(.continuousAutoFocus) {
+        camera.focusMode = .continuousAutoFocus
+      }
+      if camera.isExposureModeSupported(.continuousAutoExposure) {
+        camera.exposureMode = .continuousAutoExposure
+      }
+      camera.isSubjectAreaChangeMonitoringEnabled = true
+    } catch {
+      // The capture session can still scan with the camera's current settings.
+    }
 
     let layer = AVCaptureVideoPreviewLayer(session: session)
     layer.videoGravity = .resizeAspectFill

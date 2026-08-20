@@ -68,10 +68,12 @@ export function bootstrapApp(input?: {
     engine = 'fixture';
   } else {
     const dataScannerSupported = capabilities?.dataScannerSupported ?? false;
+    const dataScannerAvailable = capabilities?.dataScannerAvailable ?? false;
+    const useVisionKit = dataScannerSupported && dataScannerAvailable;
     observationSource = new NativeEngineObservationSource(
-      dataScannerSupported ? 'visionkit' : 'avfoundation',
+      useVisionKit ? 'visionkit' : 'avfoundation',
     );
-    engine = dataScannerSupported ? 'visionkit' : 'avfoundation';
+    engine = useVisionKit ? 'visionkit' : 'avfoundation';
   }
 
   const scannerSession = new ScannerSessionStore({

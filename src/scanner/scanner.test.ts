@@ -392,13 +392,13 @@ describe('engine selection', () => {
     expect(source.engineID).toBe('visionkit');
   });
 
-  test('engine selection uses fallback only when Data Scanner hardware is unsupported', () => {
+  test('engine selection falls back when Data Scanner cannot scan', () => {
     expect(
       decideScannerEngine(true, true, 'authorized'),
     ).toEqual({ engine: 'visionKit', startsCapture: true });
     expect(
       decideScannerEngine(true, false, 'authorized'),
-    ).toEqual({ engine: 'visionKit', startsCapture: false });
+    ).toEqual({ engine: 'avFoundation', startsCapture: true });
     expect(
       decideScannerEngine(false, false, 'authorized'),
     ).toEqual({ engine: 'avFoundation', startsCapture: true });

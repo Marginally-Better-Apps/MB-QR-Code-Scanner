@@ -1,17 +1,18 @@
 # Scanner engine support
 
-QR Scanner selects one live camera engine at process start. The choice is hardware-based: **VisionKit Data Scanner is used only when `DataScannerViewController.isSupported` is true.** The AVFoundation metadata fallback is used only when that hardware flag is false. A temporarily unavailable Data Scanner session never switches engines.
+QR Scanner selects one live camera engine at process start. VisionKit Data Scanner is used only when `DataScannerViewController.isSupported` and `DataScannerViewController.isAvailable` are both true. Otherwise the app uses AVFoundation metadata scanning. This keeps QR detection working when VisionKit supports the hardware but cannot start a scanner session.
 
 ## Decision table
 
 | Data Scanner `isSupported` | Data Scanner `isAvailable` | Camera authorization | Engine | Starts capture |
 | --- | --- | --- | --- | --- |
 | true | true | authorized | VisionKit | yes |
-| true | false | authorized | VisionKit | no; wait for availability |
+| true | false | authorized | AVFoundation | yes |
 | false | any | authorized | AVFoundation | yes |
-| true | any | denied or restricted | VisionKit | no |
+| true | true | denied or restricted | VisionKit | no |
+| any | false | denied or restricted | AVFoundation | no |
 | false | any | denied or restricted | AVFoundation | no |
-| any | any | not determined | hardware-selected engine | no |
+| any | any | not determined | available engine | no |
 
 Denied and restricted states never construct or start an AVFoundation capture session as a way around the system prompt. The session store also refuses to start any observation source until camera access is `.ready`.
 
