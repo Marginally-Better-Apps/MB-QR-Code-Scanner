@@ -4,14 +4,11 @@ import type {
 } from './types';
 
 export function decideScannerEngine(
-  dataScannerSupported: boolean,
-  dataScannerAvailable: boolean,
+  _dataScannerSupported: boolean,
+  _dataScannerAvailable: boolean,
   authorization: CameraAuthorization,
 ): ScannerEngineDecision {
-  const engine =
-    dataScannerSupported && dataScannerAvailable
-      ? 'visionKit'
-      : 'avFoundation';
+  const engine = 'avFoundation';
   const isAuthorized = authorization === 'authorized';
   const startsCapture = isAuthorized;
   return { engine, startsCapture };

@@ -18,12 +18,14 @@ type NativeObservation = {
 type Props = {
   engine: NativeEngineKind;
   running: boolean;
+  imageFixture?: string;
   onReady?: (ready: boolean) => void;
 };
 
 type NativeProps = ViewProps & {
   engine: NativeEngineKind;
   running: boolean;
+  imageFixture?: string;
   style?: StyleProp<ViewStyle>;
   onObservations?: (event: { nativeEvent: { items: NativeObservation[] } }) => void;
   onPreviewReady?: (event: { nativeEvent: { ready: boolean } }) => void;
@@ -37,7 +39,7 @@ const NativeView = (() => {
   }
 })();
 
-export function ScannerPreview({ engine, running, onReady }: Props) {
+export function ScannerPreview({ engine, running, imageFixture, onReady }: Props) {
   if (!NativeView) {
     return <View style={styles.fill} />;
   }
@@ -48,6 +50,7 @@ export function ScannerPreview({ engine, running, onReady }: Props) {
       style={styles.fill}
       engine={engine}
       running={running}
+      imageFixture={imageFixture}
       onObservations={(event) => {
         publishNativeObservations(engine, nativeObservationItems(event));
       }}

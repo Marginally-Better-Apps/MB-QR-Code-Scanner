@@ -58,25 +58,23 @@ function session(cameraFixture: string, scannerFixture?: string) {
         authorizationAfterRefresh: 'authorized',
         refreshesBeforeRecovery: 1,
       }),
-      observationSource: makeObservationSource({
-        arguments: scannerFixture
-          ? ['QRScanner', '--scanner-fixture', scannerFixture]
-          : ['QRScanner'],
-        fixturesEnabled: true,
-        dataScannerSupported: true,
-      }),
+      observationSource: scannerFixture
+        ? makeObservationSource({
+            arguments: ['QRScanner', '--scanner-fixture', scannerFixture],
+            fixturesEnabled: true,
+          })
+        : new NativeEngineObservationSource('avfoundation'),
     });
   }
 
   return new ScannerSessionStore({
     cameraAccess,
-    observationSource: makeObservationSource({
-      arguments: scannerFixture
-        ? ['QRScanner', '--scanner-fixture', scannerFixture]
-        : ['QRScanner'],
-      fixturesEnabled: true,
-      dataScannerSupported: true,
-    }),
+    observationSource: scannerFixture
+      ? makeObservationSource({
+          arguments: ['QRScanner', '--scanner-fixture', scannerFixture],
+          fixturesEnabled: true,
+        })
+      : new NativeEngineObservationSource('avfoundation'),
   });
 }
 

@@ -14,6 +14,7 @@ export type NativeCapabilities = {
   allowsFixtures: boolean;
   cameraFixture?: string;
   scannerFixture?: string;
+  nativeImageFixture?: string;
 };
 
 type ScannerEngineNativeModule = {
@@ -87,6 +88,7 @@ export function nativeAVFoundationPlatform(): AVFoundationScannerPlatform {
 export type ScannerPreviewNativeProps = ViewProps & {
   engine: 'visionkit' | 'avfoundation';
   running: boolean;
+  imageFixture?: string;
   onObservations?: (event: {
     nativeEvent: {
       items: {

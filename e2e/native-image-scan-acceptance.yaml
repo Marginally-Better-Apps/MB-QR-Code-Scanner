@@ -1,0 +1,14 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      nativeImageFixture: "damaged-distant-qr"
+- assertVisible: "https://example.com/native-image-fixture"
+- assertVisible:
+    id: "scanner-observation-bounds"
+- startRecording: native-image-scan-acceptance
+- assertVisible: "Copy"
+- assertNotVisible: "Ready to Scan"
+- stopRecording

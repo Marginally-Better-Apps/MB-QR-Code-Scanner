@@ -12,5 +12,8 @@ Pod::Spec.new do |s|
   s.swift_version = '5.9'
   s.dependency 'ExpoModulesCore'
   s.source_files = '*.swift'
+  s.resource_bundles = {
+    'ScannerEngineResources' => ['Fixtures/*.png']
+  }
   s.frameworks = 'AVFoundation', 'Vision', 'VisionKit', 'UIKit'
 end

@@ -1,39 +1,27 @@
 # Scanner engine support
 
-QR Scanner selects one live camera engine at process start. VisionKit Data Scanner is used only when `DataScannerViewController.isSupported` and `DataScannerViewController.isAvailable` are both true. Otherwise the app uses AVFoundation metadata scanning. This keeps QR detection working when VisionKit supports the hardware but cannot start a scanner session.
+QR Scanner uses one live camera pipeline on every supported iPhone and iPad: AVFoundation supplies full-resolution video frames and an `AVCaptureVideoPreviewLayer`, then the native module recognizes QR codes with Vision. Core Image is used if Vision does not return a barcode for a frame. Avoiding an embedded `DataScannerViewController` also means cold launch does not depend on a child view-controller appearance transition.
 
 ## Decision table
 
-| Data Scanner `isSupported` | Data Scanner `isAvailable` | Camera authorization | Engine | Starts capture |
-| --- | --- | --- | --- | --- |
-| true | true | authorized | VisionKit | yes |
-| true | false | authorized | AVFoundation | yes |
-| false | any | authorized | AVFoundation | yes |
-| true | true | denied or restricted | VisionKit | no |
-| any | false | denied or restricted | AVFoundation | no |
-| false | any | denied or restricted | AVFoundation | no |
-| any | any | not determined | available engine | no |
-
-Denied and restricted states never construct or start an AVFoundation capture session as a way around the system prompt. The session store also refuses to start any observation source until camera access is `.ready`.
-
-Both engines emit the same `ScannerObservation` contract: QR payload string, preview-normalized bounds in `0...1` preview coordinates, timestamp, and engine identity. Both request QR symbology only and can report every visible QR code in a frame. Recognition uses the full usable preview (`rectOfInterest` / Data Scanner region remain edge-to-edge); the center guide is visual coaching, not a crop. Preview layers use aspect-fill gravity, and observation bounds are remapped after rotation and layout changes. AVFoundation installs pinch-to-zoom and tap-to-focus on the preview; VisionKit keeps its native camera gestures. Scanning pauses while the scene is inactive, the app is backgrounded, or History fully obscures Scanner, then resumes once when the scanner is visible and active again. Live capture stays in the `scanner-engine` native module. Session state, engine selection, fixtures, and UI live in TypeScript.
-
-## Supported-device matrix (iOS 17+)
-
-VisionKit Data Scanner requires iOS 16 or later **and** an A12 Bionic or newer device. This app’s minimum is iOS 17, so the remaining split is silicon, not OS.
-
-| Family | VisionKit primary (A12+) | AVFoundation fallback |
+| Camera authorization | Engine | Starts capture |
 | --- | --- | --- |
-| iPhone | iPhone XS / XR and later | none remaining on iOS 17 |
-| iPad | iPad mini (5th generation) and later A12+ models, including iPad (8th generation)+, iPad Air (3rd generation)+, iPad Pro (11-inch, all), iPad Pro 12.9-inch (3rd generation)+ | iPad (6th and 7th generation), iPad Pro 10.5-inch, iPad Pro 12.9-inch (2nd generation) |
-| Simulator | treated as unsupported | selected; capture starts only if the simulated camera and video authorization exist |
+| authorized | AVFoundation | yes |
+| denied or restricted | AVFoundation | no |
+| not determined | AVFoundation | after authorization succeeds |
 
-## Device-lab plan
+Denied and restricted states never construct or start a capture session as a way around the system prompt. If the native view mounted while camera permission was unresolved, it builds the session when capture starts. The TypeScript session snapshot also carries the first activation into the React render, so the camera starts on cold launch without a navigation cycle.
 
-Fallback-eligible hardware is not assumed to be attached to CI. When a physical fallback device is available, install an unsigned IPA on one of:
+The native pipeline emits the shared `ScannerObservation` contract: QR payload string, preview-normalized bounds in `0...1` coordinates, timestamp, and engine identity. Recognition covers the complete usable preview. The center guide is visual coaching, not a crop. The preview and video output share rotation, observation bounds are mapped through the aspect-fill preview layer, and the camera supports pinch zoom and tap focus. Scanning pauses while the scene is inactive, the app is backgrounded, or History obscures Scanner, then resumes when Scanner is visible and active again.
 
-- iPad (6th generation) or iPad (7th generation)
-- iPad Pro 10.5-inch
-- iPad Pro 12.9-inch (2nd generation)
+Live capture stays in the `scanner-engine` native module. Session state, fixtures, and product UI live in TypeScript. VisionKit capability reporting remains in the module for device diagnostics, but it does not select the live view-controller path.
 
-Then confirm: camera permission still gates preview, two printed QR codes produce two payloads, and `engineID` is `avfoundation`. Until that device is in the lab, automated unit tests cover selection and metadata translation, and Simulator/UI evidence covers the shell when Data Scanner support is false.
+## Image acceptance coverage
+
+`scripts/generate-qr-fixtures.swift` creates a normal QR image and a distant, center-obscured QR image with high error correction. `scripts/test-native-qr-decoder.sh` compiles the production decoder on macOS and verifies that both images decode to the expected URL. CI runs this test on its macOS iOS job.
+
+The Release Simulator flow `e2e/native-image-scan-acceptance.yaml` bundles and displays the damaged image, starts Scanner from a cleared app state, and verifies the native observation bridge, highlight, payload, and Copy action. Apple’s Simulator barcode frameworks do not return static-image observations, so the explicit Simulator-only fixture path supplies the expected observation after the macOS pixel-decoder test has covered recognition. Production devices never use that fallback.
+
+## Physical-device verification
+
+Before shipping, install the embedded-bundle Release archive on an iPhone and an iPad running iOS 17 or later. Confirm that the camera is visible immediately after permission is granted, the normal and damaged fixture images scan at several distances, two visible QR codes produce two payloads, and rotation, pinch zoom, tap focus, backgrounding, and the History round trip preserve scanning.

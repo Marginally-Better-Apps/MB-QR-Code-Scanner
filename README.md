@@ -1,6 +1,6 @@
 # QR Scanner
 
-iOS-only React Native QR scanner. The app opens to native Scanner and History tabs with recoverable camera-access states. On devices that support VisionKit Data Scanner, live capture uses that engine. Otherwise it falls back to AVFoundation QR metadata. History persistence arrives in later product stories.
+iOS-only React Native QR scanner. The app opens to native Scanner and History tabs with recoverable camera-access states. Live capture uses an AVFoundation camera stream with on-device Vision QR recognition and a Core Image fallback. History persistence arrives in later product stories.
 
 The supported-device decision table lives in [docs/scanner-engine-support.md](docs/scanner-engine-support.md). Autoloader PR previews are described in [docs/AUTOLOADER_DEV_CYCLE.md](docs/AUTOLOADER_DEV_CYCLE.md).
 
@@ -21,6 +21,7 @@ brew link --force --overwrite openjdk@17
 
 ```sh
 npm test
+./scripts/test-native-qr-decoder.sh
 npx expo prebuild --platform ios
 npx expo run:ios --configuration Release --device
 ```
@@ -39,6 +40,15 @@ Debug binaries and fixture launch arguments still inject named scanner detection
 ./scripts/record-demo.sh \
   e2e/scanner-fixture-acceptance.yaml \
   artifacts/scanner-fixture-acceptance.mp4 \
+  iPhone
+```
+
+The native image acceptance flow displays a generated, center-obscured QR image on cold launch. The macOS native decoder test reads the same pixels through the production decoder.
+
+```sh
+./scripts/record-demo.sh \
+  e2e/native-image-scan-acceptance.yaml \
+  artifacts/native-image-scan-acceptance.mp4 \
   iPhone
 ```
 

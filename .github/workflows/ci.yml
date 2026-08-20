@@ -69,6 +69,9 @@ jobs:
           xcodebuild -version
           xcrun --sdk iphonesimulator --show-sdk-version
 
+      - name: Test native QR image decoder
+        run: ./scripts/test-native-qr-decoder.sh
+
       - name: Fingerprint Xcode toolchain
         id: xcode
         run: |

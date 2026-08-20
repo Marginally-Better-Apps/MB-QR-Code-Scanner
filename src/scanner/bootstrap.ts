@@ -10,6 +10,7 @@ export type BootstrapResult = {
   appState: AppState;
   engine: 'visionkit' | 'avfoundation' | 'fixture';
   fixturesEnabled: boolean;
+  nativeImageFixture?: string;
 };
 
 function argumentValue(argv: string[], flag: string): string | undefined {
@@ -33,12 +34,15 @@ export function bootstrapApp(input?: {
   const defaults = {
     cameraFixture: capabilities?.cameraFixture,
     scannerFixture: capabilities?.scannerFixture,
+    nativeImageFixture: capabilities?.nativeImageFixture,
     ...input?.defaults,
   };
   const cameraFixture =
     argumentValue(argv, '--camera-fixture') ?? defaults.cameraFixture;
   const scannerFixture =
     argumentValue(argv, '--scanner-fixture') ?? defaults.scannerFixture;
+  const nativeImageFixture =
+    argumentValue(argv, '--native-image-fixture') ?? defaults.nativeImageFixture;
 
   const cameraAccess: CameraAccessProviding =
     (fixturesEnabled ? cameraAccessFromFixture(cameraFixture) : null) ??
@@ -67,13 +71,8 @@ export function bootstrapApp(input?: {
     });
     engine = 'fixture';
   } else {
-    const dataScannerSupported = capabilities?.dataScannerSupported ?? false;
-    const dataScannerAvailable = capabilities?.dataScannerAvailable ?? false;
-    const useVisionKit = dataScannerSupported && dataScannerAvailable;
-    observationSource = new NativeEngineObservationSource(
-      useVisionKit ? 'visionkit' : 'avfoundation',
-    );
-    engine = useVisionKit ? 'visionkit' : 'avfoundation';
+    observationSource = new NativeEngineObservationSource('avfoundation');
+    engine = 'avfoundation';
   }
 
   const scannerSession = new ScannerSessionStore({
@@ -85,5 +84,6 @@ export function bootstrapApp(input?: {
     appState: new AppState({ scannerSession }),
     engine,
     fixturesEnabled,
+    nativeImageFixture: fixturesEnabled ? nativeImageFixture : undefined,
   };
 }

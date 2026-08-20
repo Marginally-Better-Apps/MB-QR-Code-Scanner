@@ -37,6 +37,9 @@ public class ScannerEngineModule: Module {
       Prop("running") { (view: ScannerPreviewView, running: Bool) in
         view.running = running
       }
+      Prop("imageFixture") { (view: ScannerPreviewView, imageFixture: String?) in
+        view.imageFixtureName = imageFixture
+      }
     }
   }
 }
@@ -68,6 +71,12 @@ enum LaunchConfiguration {
     if let scannerFixture = stringValue(flag: "--scanner-fixture", defaultsKey: "scannerFixture") {
       payload["scannerFixture"] = scannerFixture
     }
+    if let nativeImageFixture = stringValue(
+      flag: "--native-image-fixture",
+      defaultsKey: "nativeImageFixture"
+    ) {
+      payload["nativeImageFixture"] = nativeImageFixture
+    }
     return payload
   }
 
@@ -93,8 +102,10 @@ enum LaunchConfiguration {
     let arguments = ProcessInfo.processInfo.arguments
     return arguments.contains("--scanner-fixture")
       || arguments.contains("--camera-fixture")
+      || arguments.contains("--native-image-fixture")
       || arguments.contains("-scannerFixture")
       || arguments.contains("-cameraFixture")
+      || arguments.contains("-nativeImageFixture")
 #endif
   }
 

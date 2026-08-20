@@ -19,6 +19,7 @@ import {
 } from '@/scanner';
 import { CAMERA_USAGE_DESCRIPTION, CAMERA_USAGE_DESCRIPTION_ES } from '@/constants/privacy';
 import { CameraAccessFixtureProvider } from '@/scanner/cameraFixtures';
+import { bootstrapApp } from '@/scanner/bootstrap';
 import type {
   AVFoundationRecognizedBarcode,
   AVFoundationScannerConfiguration,
@@ -282,11 +283,12 @@ describe('scanner observation protocol', () => {
       defaults: { scannerFixture: 'single-code' },
       fixturesEnabled: false,
       dataScannerSupported: true,
+      authorization: 'denied',
     });
     const receivedFrames: unknown[] = [];
     source.start((frame) => receivedFrames.push(frame));
 
-    expect(source.engineID).toBe('visionkit');
+    expect(source.engineID).toBe('avfoundation');
     expect(receivedFrames).toEqual([]);
   });
 });
@@ -383,19 +385,37 @@ describe('camera access and app shell', () => {
 });
 
 describe('engine selection', () => {
-  test('factory selects VisionKit when no fixture is requested', () => {
+  test('bootstrap forwards an allowed native image fixture to the live preview', () => {
+    expect(
+      bootstrapApp({
+        defaults: { nativeImageFixture: 'damaged-distant-qr' },
+        fixturesEnabled: true,
+      }),
+    ).toMatchObject({
+      engine: 'avfoundation',
+      nativeImageFixture: 'damaged-distant-qr',
+    });
+    expect(
+      bootstrapApp({
+        defaults: { nativeImageFixture: 'damaged-distant-qr' },
+        fixturesEnabled: false,
+      }).nativeImageFixture,
+    ).toBeUndefined();
+  });
+
+  test('factory selects the image-testable camera pipeline without a fixture', () => {
     const source = makeObservationSource({
       arguments: ['QRScanner'],
       fixturesEnabled: true,
       dataScannerSupported: true,
     });
-    expect(source.engineID).toBe('visionkit');
+    expect(source.engineID).toBe('avfoundation');
   });
 
-  test('engine selection falls back when Data Scanner cannot scan', () => {
+  test('engine selection uses the camera pipeline that can be image-tested', () => {
     expect(
       decideScannerEngine(true, true, 'authorized'),
-    ).toEqual({ engine: 'visionKit', startsCapture: true });
+    ).toEqual({ engine: 'avFoundation', startsCapture: true });
     expect(
       decideScannerEngine(true, false, 'authorized'),
     ).toEqual({ engine: 'avFoundation', startsCapture: true });
@@ -410,7 +430,7 @@ describe('engine selection', () => {
     ).toEqual({ engine: 'avFoundation', startsCapture: false });
     expect(
       decideScannerEngine(true, true, 'denied'),
-    ).toEqual({ engine: 'visionKit', startsCapture: false });
+    ).toEqual({ engine: 'avFoundation', startsCapture: false });
   });
 
   test('factory selects AVFoundation fallback when Data Scanner is unsupported', () => {

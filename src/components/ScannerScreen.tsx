@@ -14,18 +14,24 @@ import type { NativeEngineKind } from '@/components/ScannerPreview';
 type Props = {
   session: ScannerSessionStore;
   engine: NativeEngineKind;
+  nativeImageFixture?: string;
   onOpenHistory?: () => void;
 };
 
-export function ScannerScreen({ session, engine, onOpenHistory }: Props) {
-  useScannerSession(session);
+export function ScannerScreen({
+  session,
+  engine,
+  nativeImageFixture,
+  onOpenHistory,
+}: Props) {
+  const scanner = useScannerSession(session);
   const insets = useSafeAreaInsets();
   const dark = useColorScheme() === 'dark';
-  const onMedia = session.cameraAccessState === 'ready';
+  const onMedia = scanner.cameraAccessState === 'ready';
   const lightChrome = !onMedia && !dark;
 
   let body;
-  switch (session.cameraAccessState) {
+  switch (scanner.cameraAccessState) {
     case 'notDetermined':
       body = <UnavailableState title="cameraAccess" description="cameraPurpose" />;
       break;
@@ -59,7 +65,7 @@ export function ScannerScreen({ session, engine, onOpenHistory }: Props) {
       );
       break;
     case 'ready': {
-      const isLiveCamera = !session.engineID.startsWith('fixture');
+      const isLiveCamera = !scanner.engineID.startsWith('fixture');
       body = (
         <View
           testID="live-scan-area"
@@ -69,13 +75,14 @@ export function ScannerScreen({ session, engine, onOpenHistory }: Props) {
           {isLiveCamera ? (
             <ScannerPreview
               engine={engine}
-              running={session.isCapturing}
+              running={scanner.isCapturing}
+              imageFixture={nativeImageFixture}
               onReady={(ready) => session.setHasPreview(ready)}
             />
           ) : null}
-          {session.visibleObservations.length > 0 ? (
+          {scanner.visibleObservations.length > 0 ? (
             <ObservationHighlights
-              observations={session.visibleObservations}
+              observations={scanner.visibleObservations}
               bottomInset={insets.bottom}
             />
           ) : isLiveCamera ? null : (

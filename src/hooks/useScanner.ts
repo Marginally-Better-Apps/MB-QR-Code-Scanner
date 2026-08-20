@@ -12,12 +12,17 @@ export function useAppState(appState: AppState): AppState {
   return appState;
 }
 
-export function useScannerSession(session: ScannerSessionStore): ScannerSessionStore {
+export function useScannerSession(session: ScannerSessionStore) {
   const revision = useSyncExternalStore(
     (listener) => session.subscribe(listener),
     () => session.revision,
     () => session.revision,
   );
-  void revision;
-  return session;
+  return {
+    revision,
+    cameraAccessState: session.cameraAccessState,
+    engineID: session.engineID,
+    isCapturing: session.isCapturing,
+    visibleObservations: session.visibleObservations,
+  };
 }
