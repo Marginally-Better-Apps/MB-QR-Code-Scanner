@@ -1,4 +1,8 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  isGlassEffectAPIAvailable,
+  isLiquidGlassAvailable,
+} from 'expo-glass-effect';
 import { StyleSheet } from 'react-native';
 
 import { HistoryScreen } from '@/components/HistoryScreen';
@@ -18,15 +22,20 @@ jest.mock('expo-clipboard', () => ({
 }));
 
 jest.mock('expo-glass-effect', () => ({
-  GlassView: ({ children }: { children: unknown }) => children,
-  isGlassEffectAPIAvailable: () => false,
-  isLiquidGlassAvailable: () => false,
+  GlassView: ({ children, ...props }: { children: unknown }) => {
+    const { View } = require('react-native');
+    return <View {...props}>{children}</View>;
+  },
+  isGlassEffectAPIAvailable: jest.fn(() => false),
+  isLiquidGlassAvailable: jest.fn(() => false),
 }));
 
 jest.mock('expo-symbols', () => {
   const { Text } = require('react-native');
   return {
-    SymbolView: ({ name }: { name: string }) => <Text>{name}</Text>,
+    SymbolView: ({ name, ...props }: { name: string }) => (
+      <Text {...props}>{name}</Text>
+    ),
   };
 });
 
@@ -81,6 +90,8 @@ function session(cameraFixture: string, scannerFixture?: string) {
 describe('scanner UI', () => {
   beforeEach(() => {
     setLocale('en');
+    (isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(false);
+    (isLiquidGlassAvailable as jest.Mock).mockReturnValue(false);
   });
 
   test('named scanner fixture displays observed payload', async () => {
@@ -105,6 +116,21 @@ describe('scanner UI', () => {
         borderColor: '#FFE500',
       }),
     );
+  });
+
+  test('result bar keeps payload and copy action readable over the camera', async () => {
+    (isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(true);
+    (isLiquidGlassAvailable as jest.Mock).mockReturnValue(true);
+    const store = session('authorized', 'single-code');
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="avfoundation" />);
+
+    const payload = screen.getByTestId('scanner-observation-payload');
+    expect(StyleSheet.flatten(payload.props.style)).toEqual(
+      expect.objectContaining({ color: '#fff' }),
+    );
+    expect(screen.getByText('doc.on.clipboard').props.tintColor).toBe('#fff');
+    expect(screen.getByTestId('scanner-observation-bar').props.colorScheme).toBe('dark');
   });
 
   test('live camera does not cover the preview with Ready to Scan', async () => {

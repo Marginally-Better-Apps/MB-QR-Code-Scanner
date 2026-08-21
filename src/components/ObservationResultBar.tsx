@@ -40,7 +40,7 @@ export function ObservationResultBar({ payload }: Props) {
         <SymbolView
           name={didCopy ? 'checkmark' : 'doc.on.clipboard'}
           size={18}
-          tintColor="#000"
+          tintColor="#fff"
           pointerEvents="none"
         />
       </Pressable>
@@ -49,13 +49,22 @@ export function ObservationResultBar({ payload }: Props) {
 
   if (glass) {
     return (
-      <GlassView style={styles.bar} glassEffectStyle="regular" isInteractive>
+      <GlassView
+        testID="scanner-observation-bar"
+        style={styles.bar}
+        glassEffectStyle="regular"
+        colorScheme="dark"
+        isInteractive>
         {body}
       </GlassView>
     );
   }
 
-  return <View style={[styles.bar, styles.fallback]}>{body}</View>;
+  return (
+    <View testID="scanner-observation-bar" style={[styles.bar, styles.fallback]}>
+      {body}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -65,7 +74,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   fallback: {
-    backgroundColor: 'rgba(245,245,247,0.86)',
+    backgroundColor: 'rgba(28,28,30,0.88)',
   },
   row: {
     flex: 1,
@@ -78,11 +87,12 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 8,
     fontSize: 15,
+    color: '#fff',
   },
   separator: {
     width: StyleSheet.hairlineWidth,
     height: 20,
-    backgroundColor: 'rgba(60,60,67,0.36)',
+    backgroundColor: 'rgba(235,235,245,0.36)',
   },
   copyButton: {
     width: 44,
