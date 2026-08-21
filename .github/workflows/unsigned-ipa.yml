@@ -18,9 +18,16 @@ jobs:
   ipa:
     name: Build unsigned IPA
     runs-on: macos-15
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
 
       - name: Select iOS 26 SDK Xcode
         run: |
@@ -44,19 +51,34 @@ jobs:
           xcodebuild -version
           echo "cache-key=$(xcodebuild -version | shasum -a 256 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
+      - name: Generate iOS project
+        run: CI=1 npx expo prebuild --platform ios --no-install
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: ios-pods-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'app.json', 'modules/**', 'plugins/**') }}
+          restore-keys: |
+            ios-pods-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install CocoaPods
+        working-directory: ios
+        run: pod install
+
       - name: Cache DerivedData
         uses: actions/cache@v4
         with:
           path: DerivedData/Archive
-          key: ios-archive-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('QRScanner.xcodeproj/**', 'QRScanner/**/*.swift', 'QRScanner/**/*.xcassets/**') }}
+          key: ios-archive-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('package-lock.json', 'app.json', 'package.json', 'src/**', 'modules/**', 'plugins/**', 'locales/**', 'assets/**') }}
           restore-keys: |
-            ios-archive-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-
+            ios-archive-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-
 
       - name: Archive without signing
         run: |
           set -euo pipefail
-          xcodebuild archive \
-            -project QRScanner.xcodeproj \
+          RCT_NO_LAUNCH_PACKAGER=1 xcodebuild archive \
+            -workspace ios/QRScanner.xcworkspace \
             -scheme QRScanner \
             -configuration Release \
             -destination 'generic/platform=iOS' \
@@ -69,7 +91,10 @@ jobs:
             CURRENT_PROJECT_VERSION="${{ github.run_number }}"
 
       - name: Package IPA
-        run: ./scripts/package-ipa.sh build/QRScanner.xcarchive artifacts/QR-Scanner-unsigned.ipa
+        run: |
+          set -euo pipefail
+          ./scripts/package-ipa.sh build/QRScanner.xcarchive artifacts/QR-Scanner-unsigned.ipa
+          ./scripts/assert-embedded-bundle.sh artifacts/QR-Scanner-unsigned.ipa
 
       - name: Upload unsigned IPA
         uses: actions/upload-artifact@v4

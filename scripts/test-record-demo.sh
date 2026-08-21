@@ -12,7 +12,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$TEST_BIN"
+mkdir -p "$TEST_BIN" "$ROOT_DIR/ios/QRScanner.xcworkspace"
 export TEST_LOG ROOT_DIR
 
 cat > "$TEST_BIN/java" <<'EOF'

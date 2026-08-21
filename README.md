@@ -1,36 +1,32 @@
 # QR Scanner
 
-A native SwiftUI iPhone and iPad QR code scanner. The app opens to a system Scanner/History tab shell with recoverable camera-access states. On devices that support VisionKit Data Scanner, the live camera uses that engine; otherwise it falls back to AVFoundation QR metadata. Both engines share the scanner observation protocol. History persistence arrives in subsequent product stories.
+iOS-only React Native QR scanner. The app opens to native Scanner and History tabs with recoverable camera-access states. Live capture uses an AVFoundation camera stream with on-device Vision QR recognition and a Core Image fallback. History persistence arrives in later product stories.
 
-The supported-device decision table and fallback device-lab plan live in [docs/scanner-engine-support.md](docs/scanner-engine-support.md).
+The supported-device decision table lives in [docs/scanner-engine-support.md](docs/scanner-engine-support.md). Autoloader PR previews are described in [docs/AUTOLOADER_DEV_CYCLE.md](docs/AUTOLOADER_DEV_CYCLE.md).
 
 ## Requirements
 
+- Node 22+
 - Xcode with an iOS 17 or newer Simulator runtime
+- CocoaPods
 - Maestro CLI and Java 17+ only when running or recording end-to-end flows
 
-Install the recording dependencies once with Homebrew. `openjdk@17` is keg-only, so the explicit link makes `java` available to non-interactive agent shells as well as normal Terminal sessions:
-
 ```sh
+npm ci
 brew install maestro openjdk@17
 brew link --force --overwrite openjdk@17
-java -version
-maestro --version
 ```
 
 ## Run and test
 
-Open `QRScanner.xcodeproj` in Xcode, select an iPhone or iPad Simulator, and run the `QRScanner` scheme.
-
 ```sh
-DEVICE_ID="$(./scripts/select-simulator.py iPhone)"
-xcodebuild test \
-  -project QRScanner.xcodeproj \
-  -scheme QRScanner \
-  -destination "platform=iOS Simulator,id=${DEVICE_ID}" \
-  -derivedDataPath DerivedData/Local \
-  CODE_SIGNING_ALLOWED=NO
+npm test
+./scripts/test-native-qr-decoder.sh
+npx expo prebuild --platform ios
+npx expo run:ios --configuration Release --device
 ```
+
+Release archives embed the JS bundle. The IPA does not talk to Metro.
 
 Record the default Maestro smoke flow with:
 
@@ -38,8 +34,7 @@ Record the default Maestro smoke flow with:
 ./scripts/record-demo.sh
 ```
 
-Debug builds also accept named scanner fixtures without a camera feed. For example,
-the `single-code` fixture drives the same observation protocol used by scanner engines:
+Debug binaries and fixture launch arguments still inject named scanner detections without a camera feed:
 
 ```sh
 ./scripts/record-demo.sh \
@@ -48,14 +43,21 @@ the `single-code` fixture drives the same observation protocol used by scanner e
   iPhone
 ```
 
-The Maestro flow launches the app and asserts that its first screen is loaded before its native `startRecording` command. Put user interactions and their final-state assertion between `startRecording` and `stopRecording`; this keeps build, driver, and launch delays out of the MP4 and ends capture as soon as the acceptance path settles. Pass `iPad` as the third argument to record on an iPad Simulator.
+The native image acceptance flow displays a generated, center-obscured QR image on cold launch. The macOS native decoder test reads the same pixels through the production decoder.
+
+```sh
+./scripts/record-demo.sh \
+  e2e/native-image-scan-acceptance.yaml \
+  artifacts/native-image-scan-acceptance.mp4 \
+  iPhone
+```
 
 ## CI and tagless releases
 
-Pull requests run the Swift/XCTest suite, test the semantic-version calculator, verify universal iPhone/iPad support, and publish an unsigned IPA as GitHub prerelease `pr-<number>` plus a tappable Autoloader link. See [docs/AUTOLOADER_DEV_CYCLE.md](docs/AUTOLOADER_DEV_CYCLE.md). On `main`, only these commit/PR titles produce a semantic release artifact:
+Pull requests run the Jest suite, policy scripts, an iOS Simulator Release build with an embedded bundle, and publish an unsigned IPA as GitHub prerelease `pr-<number>` plus a tappable Autoloader link. On `main`, only these commit/PR titles produce a semantic release artifact:
 
 - `fix: ...` → patch
 - `feat: ...` → minor
 - `feat!: ...` or `feat(scope)!: ...` → major
 
-Other titles do not release. Versions are calculated deterministically from first-parent commit messages, so no Git tags or automated version commits are created. Squash-merging is recommended so the PR title is retained as the commit subject. Unsigned IPAs must be signed separately before physical-device installation.
+Other titles do not release. Versions are calculated from first-parent commit messages. Squash-merging is recommended so the PR title is retained as the commit subject. Unsigned IPAs must be signed separately before physical-device installation.

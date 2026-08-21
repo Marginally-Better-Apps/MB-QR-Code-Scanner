@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build, launch, drive, and record the SwiftUI app on an iOS Simulator.
+# Build, launch, drive, and record the iOS app on a Simulator.
 # Usage: ./scripts/record-demo.sh [e2e/flow.yaml] [artifacts/demo.mp4] [iPhone|iPad]
 set -euo pipefail
 
@@ -24,14 +24,18 @@ fi
 cd "$ROOT_DIR"
 DEVICE_ID="$(./scripts/select-simulator.py "$DEVICE_FAMILY")"
 
+if [[ ! -d ios/QRScanner.xcworkspace ]]; then
+  CI=1 npx expo prebuild --platform ios
+fi
+
 xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
 xcrun simctl bootstatus "$DEVICE_ID" -b
 open -a Simulator --args -CurrentDeviceUDID "$DEVICE_ID"
 
-xcodebuild \
-  -project QRScanner.xcodeproj \
+FORCE_BUNDLING=1 RCT_NO_LAUNCH_PACKAGER=1 xcodebuild \
+  -workspace ios/QRScanner.xcworkspace \
   -scheme QRScanner \
-  -configuration Debug \
+  -configuration Release \
   -destination "platform=iOS Simulator,id=${DEVICE_ID}" \
   -derivedDataPath "$DERIVED_DATA" \
   CODE_SIGNING_ALLOWED=NO \

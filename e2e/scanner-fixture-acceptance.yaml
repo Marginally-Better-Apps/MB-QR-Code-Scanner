@@ -7,10 +7,18 @@ appId: com.marginallybetter.qrscanner
       scannerFixture: "single-code"
 - assertVisible: "https://example.com/fixture"
 - assertVisible: "Copy"
+- assertVisible:
+    id: "scanner-observation-bounds"
+- assertNotVisible: "Ready to Scan"
 - startRecording: scanner-fixture-acceptance
-- tapOn: "History"
+- tapOn:
+    id: "open-history"
 - assertVisible: "Your scan history will appear here."
-- tapOn: "Scanner"
+- tapOn:
+    id: "history-back"
 - assertVisible: "https://example.com/fixture"
 - assertVisible: "Copy"
+- assertVisible:
+    id: "scanner-observation-bounds"
+- assertNotVisible: "Ready to Scan"
 - stopRecording

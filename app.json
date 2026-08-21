@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "QRScanner",
+    "slug": "qr-scanner",
+    "version": "0.0.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "qrscanner",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios"],
+    "ios": {
+      "bundleIdentifier": "com.marginallybetter.qrscanner",
+      "buildNumber": "0",
+      "supportsTablet": true,
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "CFBundleDisplayName": "QR Scanner",
+        "CFBundleLocalizations": ["en", "es"],
+        "LSApplicationCategoryType": "public.app-category.utilities",
+        "NSCameraUsageDescription": "QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved."
+      },
+      "bitcode": false
+    },
+    "plugins": [
+      "expo-router",
+      "expo-localization",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "17.0"
+          }
+        }
+      ],
+      "./plugins/withIosScanner.js",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

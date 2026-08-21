@@ -10,6 +10,7 @@ appId: com.marginallybetter.qrscanner
 - tapOn: "Open Settings"
 - launchApp:
     stopApp: false
-- assertVisible: "Ready to Scan"
-- assertVisible: "Point the camera at a QR code. Scanning starts automatically."
+- assertVisible:
+    id: "live-scan-area"
+- assertNotVisible: "Ready to Scan"
 - stopRecording
