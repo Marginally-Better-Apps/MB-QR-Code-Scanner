@@ -382,13 +382,19 @@ final class ScannerPreviewView: ExpoView, AVCaptureVideoDataOutputSampleBufferDe
       return
     }
     let observations = (try? QRVisionDetector.detect(in: pixelBuffer)) ?? []
+    let pixelBufferSize = CGSize(
+      width: CVPixelBufferGetWidth(pixelBuffer),
+      height: CVPixelBufferGetHeight(pixelBuffer)
+    )
     DispatchQueue.main.async { [weak self] in
-      guard let self, self.running, let previewLayer = self.previewLayer else {
+      guard let self, self.running, self.previewLayer != nil else {
         return
       }
       let items = observations.compactMap { observation in
-        let displayedBounds = previewLayer.layerRectConverted(
-          fromMetadataOutputRect: observation.normalizedBounds
+        let displayedBounds = QRPreviewGeometry.aspectFillBounds(
+          normalizedImageBounds: observation.normalizedBounds,
+          pixelBufferSize: pixelBufferSize,
+          previewSize: self.hostView.bounds.size
         )
         return self.observationPayload(
           payload: observation.payload,

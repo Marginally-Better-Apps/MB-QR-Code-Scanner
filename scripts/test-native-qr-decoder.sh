@@ -16,3 +16,11 @@ xcrun swiftc \
 "$TEST_DIR/native-qr-decoder-test" \
   "$ROOT_DIR/modules/scanner-engine/ios/Fixtures/normal-qr.png" \
   "$ROOT_DIR/modules/scanner-engine/ios/Fixtures/damaged-distant-qr.png"
+
+xcrun swiftc \
+  "$ROOT_DIR/modules/scanner-engine/ios/QRPreviewGeometry.swift" \
+  "$ROOT_DIR/scripts/native-preview-geometry-test.swift" \
+  -parse-as-library \
+  -o "$TEST_DIR/native-preview-geometry-test"
+
+"$TEST_DIR/native-preview-geometry-test"
