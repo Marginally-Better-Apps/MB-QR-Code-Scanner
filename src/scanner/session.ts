@@ -16,6 +16,7 @@ export class ScannerSessionStore {
   cameraAccessState: CameraAccessState;
   visibleObservations: ScannerObservation[] = [];
   hasPreview = false;
+  hasAcceptedScan = false;
   revision = 0;
 
   private readonly cameraAccess: CameraAccessProviding;
@@ -189,6 +190,9 @@ export class ScannerSessionStore {
     this.isObservationSourceRunning = true;
     this.observationSource.start((frame) => {
       this.visibleObservations = frame;
+      if (frame.length > 0) {
+        this.hasAcceptedScan = true;
+      }
       this.emit();
     });
     this.hasPreview = this.observationSource.hasPreview;

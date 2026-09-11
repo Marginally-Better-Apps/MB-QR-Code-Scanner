@@ -997,3 +997,57 @@ describe('native observation bridge', () => {
     });
   });
 });
+
+describe('center scan target session (SCN-02)', () => {
+  test('tracks the first accepted scan so coaching never returns in the session', async () => {
+    const source = new ScannerObservationFixtureSource({
+      engineID: 'fixture.coaching',
+    });
+    const session = new ScannerSessionStore({
+      cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
+      observationSource: source,
+    });
+
+    expect(session.hasAcceptedScan).toBe(false);
+    await session.activateScanner();
+    expect(session.hasAcceptedScan).toBe(false);
+
+    source.emit([
+      {
+        rawPayload: 'https://example.com/first',
+        displayBounds: { x: 0.4, y: 0.4, width: 0.2, height: 0.2 },
+      },
+    ]);
+    expect(session.hasAcceptedScan).toBe(true);
+
+    source.emit([]);
+    expect(session.visibleObservations).toEqual([]);
+    expect(session.hasAcceptedScan).toBe(true);
+  });
+
+  test('preserves coaching dismissal across presentation and lifecycle transitions', async () => {
+    const source = new ScannerObservationFixtureSource({
+      engineID: 'fixture.coaching-persist',
+    });
+    const session = new ScannerSessionStore({
+      cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
+      observationSource: source,
+    });
+    await session.activateScanner();
+
+    source.emit([
+      {
+        rawPayload: 'https://example.com/first',
+        displayBounds: { x: 0.4, y: 0.4, width: 0.2, height: 0.2 },
+      },
+    ]);
+    expect(session.hasAcceptedScan).toBe(true);
+
+    session.handlePresentation('obscured');
+    session.handlePresentation('visible');
+    session.handleLifecycle('inactive');
+    session.handleLifecycle('active');
+
+    expect(session.hasAcceptedScan).toBe(true);
+  });
+});
