@@ -42,6 +42,20 @@ export { makeCameraAccess, makeObservationSource } from './factory';
 export { CameraAccessFixtureProvider, cameraAccessFromFixture } from './cameraFixtures';
 export { AppState, ScannerSessionStore } from './session';
 export {
+  createInitialScanAcceptanceState,
+  normalizeScanPayload,
+  SCAN_RESET_MS,
+  SCAN_STABLE_MS,
+  updateScanAcceptance,
+} from './acceptance';
+export type {
+  AcceptedScan,
+  ScanAcceptanceInput,
+  ScanAcceptanceResult,
+  ScanAcceptanceState,
+  ScanAcceptanceTrack,
+} from './acceptance';
+export {
   ASPECT_FILL_GRAVITY,
   CameraAuthorizationAll,
   QR_BARCODE_SYMBOLOGY,
