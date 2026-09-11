@@ -100,8 +100,10 @@ describe('scanner UI', () => {
     render(<ScannerScreen session={store} engine="visionkit" />);
 
     expect(screen.getByText('https://example.com/fixture')).toBeTruthy();
-    expect(screen.getAllByTestId('scanner-observation-payload')).toHaveLength(1);
+    expect(screen.getAllByTestId('sticky-result-accessory')).toHaveLength(1);
+    expect(screen.getAllByTestId('sticky-result-payload')).toHaveLength(1);
     expect(screen.getByLabelText('Copy')).toBeTruthy();
+    expect(screen.getByLabelText('Clear')).toBeTruthy();
     expect(screen.queryByText('Observed QR Code')).toBeNull();
     expect(screen.queryByText('Ready to Scan')).toBeNull();
     expect(screen.queryByText('Point the camera at a QR code. Scanning starts automatically.')).toBeNull();
@@ -125,12 +127,12 @@ describe('scanner UI', () => {
     await store.activateScanner();
     render(<ScannerScreen session={store} engine="avfoundation" />);
 
-    const payload = screen.getByTestId('scanner-observation-payload');
+    const payload = screen.getByTestId('sticky-result-payload');
     expect(StyleSheet.flatten(payload.props.style)).toEqual(
       expect.objectContaining({ color: '#fff' }),
     );
     expect(screen.getByText('doc.on.clipboard').props.tintColor).toBe('#fff');
-    expect(screen.getByTestId('scanner-observation-bar').props.colorScheme).toBe('dark');
+    expect(screen.getByTestId('sticky-result-accessory').props.colorScheme).toBe('dark');
   });
 
   test('live camera does not cover the preview with Ready to Scan', async () => {
@@ -167,7 +169,7 @@ describe('scanner UI', () => {
 
     expect(screen.queryByText('Ready to Scan')).toBeNull();
     expect(screen.getByText('https://survey.walmart.com/logo-qr')).toBeTruthy();
-    expect(screen.getByText('https://survey.walmart.com/logo-qr-bottom')).toBeTruthy();
+    expect(screen.getAllByTestId('sticky-result-accessory')).toHaveLength(1);
     expect(screen.getAllByTestId('scanner-observation-bounds')).toHaveLength(2);
 
     const firstBounds = StyleSheet.flatten(
@@ -203,7 +205,7 @@ describe('scanner UI', () => {
     expect(onOpenHistory).toHaveBeenCalledTimes(1);
 
     const results = StyleSheet.flatten(
-      screen.getByTestId('scanner-observation-results').props.style,
+      screen.getByTestId('sticky-result-container').props.style,
     );
     expect(results.paddingBottom).toBe(42);
   });
@@ -224,11 +226,9 @@ describe('scanner UI', () => {
     render(<ScannerScreen session={store} engine="visionkit" />);
 
     expect(screen.getByText('https://example.com/edge-left')).toBeTruthy();
-    expect(screen.getByText('https://example.com/edge-right')).toBeTruthy();
-    expect(screen.getByText('https://example.com/edge-top')).toBeTruthy();
-    expect(screen.getByText('https://example.com/edge-bottom')).toBeTruthy();
-    expect(screen.getAllByTestId('scanner-observation-payload')).toHaveLength(4);
-    expect(screen.getAllByTestId('scanner-observation-copy')).toHaveLength(4);
+    expect(screen.getAllByTestId('scanner-observation-bounds')).toHaveLength(4);
+    expect(screen.getAllByTestId('sticky-result-accessory')).toHaveLength(1);
+    expect(screen.getAllByTestId('sticky-result-payload')).toHaveLength(1);
     expect(screen.queryByText('Observed QR Code')).toBeNull();
   });
 

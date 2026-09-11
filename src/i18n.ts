@@ -18,6 +18,10 @@ const en = {
   liveScanArea: 'Live camera scan area',
   copy: 'Copy',
   back: 'Back',
+  clear: 'Clear',
+  showDetails: 'Show details',
+  hideDetails: 'Hide details',
+  scanResult: 'Scan result',
 };
 
 const es: typeof en = {
@@ -41,6 +45,10 @@ const es: typeof en = {
   liveScanArea: 'Área de escaneo con cámara en vivo',
   copy: 'Copiar',
   back: 'Atrás',
+  clear: 'Borrar',
+  showDetails: 'Mostrar detalles',
+  hideDetails: 'Ocultar detalles',
+  scanResult: 'Resultado del escaneo',
 };
 
 export type MessageKey = keyof typeof en;
