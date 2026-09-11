@@ -24,5 +24,6 @@ export function useScannerSession(session: ScannerSessionStore) {
     engineID: session.engineID,
     isCapturing: session.isCapturing,
     visibleObservations: session.visibleObservations,
+    hasAcceptedScan: session.hasAcceptedScan,
   };
 }
