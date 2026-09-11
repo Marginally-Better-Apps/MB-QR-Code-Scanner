@@ -15,6 +15,7 @@ import type {
 export class ScannerSessionStore {
   cameraAccessState: CameraAccessState;
   visibleObservations: ScannerObservation[] = [];
+  currentResult: ScannerObservation | null = null;
   hasPreview = false;
   revision = 0;
 
@@ -129,6 +130,14 @@ export class ScannerSessionStore {
     this.emit();
   }
 
+  clearCurrentResult(): void {
+    if (this.currentResult === null) {
+      return;
+    }
+    this.currentResult = null;
+    this.emit();
+  }
+
   beginPinchZoom(): void {
     if (this.observationSource instanceof AVFoundationScannerObservationSource) {
       this.observationSource.beginPinchZoom();
@@ -189,6 +198,19 @@ export class ScannerSessionStore {
     this.isObservationSourceRunning = true;
     this.observationSource.start((frame) => {
       this.visibleObservations = frame;
+      // SCN-04 sticky session: the first accepted observation becomes current.
+      // Empty frames never clear. A different payload replaces in one emit.
+      // NOTE: when the SCN-03 acceptance reducer lands, feed its accepted
+      // events here instead of the raw first frame.
+      if (frame.length > 0) {
+        const first = frame[0];
+        if (
+          this.currentResult === null ||
+          this.currentResult.rawPayload !== first.rawPayload
+        ) {
+          this.currentResult = first;
+        }
+      }
       this.emit();
     });
     this.hasPreview = this.observationSource.hasPreview;

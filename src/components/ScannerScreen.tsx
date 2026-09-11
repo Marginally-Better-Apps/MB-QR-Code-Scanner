@@ -3,8 +3,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
 import { GlassControl } from '@/components/GlassControl';
-import { ObservationResultBar } from '@/components/ObservationResultBar';
 import { ScannerPreview } from '@/components/ScannerPreview';
+import { StickyResultBar } from '@/components/StickyResultBar';
 import { UnavailableState } from '@/components/UnavailableState';
 import { useScannerSession } from '@/hooks/useScanner';
 import { t } from '@/i18n';
@@ -66,6 +66,7 @@ export function ScannerScreen({
       break;
     case 'ready': {
       const isLiveCamera = !scanner.engineID.startsWith('fixture');
+      const sticky = scanner.currentResult;
       body = (
         <View
           testID="live-scan-area"
@@ -81,13 +82,22 @@ export function ScannerScreen({
             />
           ) : null}
           {scanner.visibleObservations.length > 0 ? (
-            <ObservationHighlights
-              observations={scanner.visibleObservations}
-              bottomInset={insets.bottom}
-            />
-          ) : isLiveCamera ? null : (
+            <ObservationHighlights observations={scanner.visibleObservations} />
+          ) : isLiveCamera ? null : sticky ? null : (
             <UnavailableState title="readyToScan" description="pointCamera" />
           )}
+          {sticky ? (
+            <View
+              testID="sticky-result-container"
+              style={[styles.stickyResults, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}
+              pointerEvents="box-none">
+              <StickyResultBar
+                key="sticky-current-result"
+                payload={sticky.rawPayload}
+                onClear={() => session.clearCurrentResult()}
+              />
+            </View>
+          ) : null}
         </View>
       );
       break;
@@ -116,10 +126,8 @@ export function ScannerScreen({
 
 function ObservationHighlights({
   observations,
-  bottomInset,
 }: {
   observations: ScannerObservation[];
-  bottomInset: number;
 }) {
   return (
     <View
@@ -142,17 +150,6 @@ function ObservationHighlights({
           ]}
         />
       ))}
-      <View
-        testID="scanner-observation-results"
-        style={[styles.results, { paddingBottom: Math.max(bottomInset, 8) + 8 }]}
-        pointerEvents="box-none">
-        {observations.map((observation, index) => (
-          <ObservationResultBar
-            key={`bar-${observation.rawPayload}-${index}`}
-            payload={observation.rawPayload}
-          />
-        ))}
-      </View>
     </View>
   );
 }
@@ -175,10 +172,12 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FFE500',
   },
-  results: {
+  stickyResults: {
+    ...StyleSheet.absoluteFill,
+    justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingTop: 8,
-    gap: 8,
+    zIndex: 2,
   },
   historyButton: {
     position: 'absolute',
