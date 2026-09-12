@@ -27,6 +27,12 @@ export type {
   HistoryRowPresentation,
   PresentHistoryRowOptions,
 } from './historyRowPresentation';
+export { presentHistoryDetailTime, replayHistoryEvent } from './historyReplay';
+export type {
+  HistoryReplay,
+  HistoryReplayUnavailableReason,
+  PresentHistoryDetailTimeOptions,
+} from './historyReplay';
 export { seedGroupedHistoryFixture } from './historyFixtures';
 export { hydrateHistoryForSession } from './historyHydration';
 export type { HistoryHydrationInput } from './historyHydration';
