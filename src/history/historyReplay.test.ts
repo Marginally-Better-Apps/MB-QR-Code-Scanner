@@ -114,6 +114,28 @@ describe('presentHistoryDetailTime', () => {
     expect(presented.exact).toMatch(/5:04/);
   });
 
+  test('formats relative time when Intl.RelativeTimeFormat is missing', () => {
+    const Original = Intl.RelativeTimeFormat;
+    // Hermes in the Release app does not ship RelativeTimeFormat.
+    // @ts-expect-error -- delete to match the device runtime
+    delete Intl.RelativeTimeFormat;
+    try {
+      const presented = presentHistoryDetailTime('2026-09-12T17:04:00.000Z', {
+        now: new Date('2026-09-12T18:00:00.000Z'),
+        locale: 'en-US',
+        timeZone: 'UTC',
+      });
+      expect(presented.relative).toMatch(/56 minutes ago/);
+      expect(presented.exact).toMatch(/5:04/);
+    } finally {
+      Object.defineProperty(Intl, 'RelativeTimeFormat', {
+        configurable: true,
+        writable: true,
+        value: Original,
+      });
+    }
+  });
+
   test('formats relative and exact time for Spanish', () => {
     const presented = presentHistoryDetailTime('2026-09-12T17:04:00.000Z', {
       now: new Date('2026-09-12T18:00:00.000Z'),

@@ -74,23 +74,63 @@ export function presentHistoryDetailTime(
   };
 }
 
+type RelativeUnit = 'second' | 'minute' | 'hour' | 'day';
+
 function formatRelativeTime(instant: Date, now: Date, locale: string): string {
   const diffMs = instant.getTime() - now.getTime();
   const absMs = Math.abs(diffMs);
-  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: 'always' });
 
   const minute = 60_000;
   const hour = 60 * minute;
   const day = 24 * hour;
 
+  let value: number;
+  let unit: RelativeUnit;
   if (absMs < minute) {
-    return formatter.format(Math.round(diffMs / 1000), 'second');
+    value = Math.round(diffMs / 1000);
+    unit = 'second';
+  } else if (absMs < hour) {
+    value = Math.round(diffMs / minute);
+    unit = 'minute';
+  } else if (absMs < day) {
+    value = Math.round(diffMs / hour);
+    unit = 'hour';
+  } else {
+    value = Math.round(diffMs / day);
+    unit = 'day';
   }
-  if (absMs < hour) {
-    return formatter.format(Math.round(diffMs / minute), 'minute');
+
+  if (typeof Intl.RelativeTimeFormat === 'function') {
+    return new Intl.RelativeTimeFormat(locale, { numeric: 'always' }).format(value, unit);
   }
-  if (absMs < day) {
-    return formatter.format(Math.round(diffMs / hour), 'hour');
+  return formatRelativeTimeFallback(value, unit, locale);
+}
+
+const EN_UNITS: Record<RelativeUnit, [string, string]> = {
+  second: ['second', 'seconds'],
+  minute: ['minute', 'minutes'],
+  hour: ['hour', 'hours'],
+  day: ['day', 'days'],
+};
+
+const ES_UNITS: Record<RelativeUnit, [string, string]> = {
+  second: ['segundo', 'segundos'],
+  minute: ['minuto', 'minutos'],
+  hour: ['hora', 'horas'],
+  day: ['día', 'días'],
+};
+
+function formatRelativeTimeFallback(
+  value: number,
+  unit: RelativeUnit,
+  locale: string,
+): string {
+  const abs = Math.abs(value);
+  const spanish = locale.toLowerCase().startsWith('es');
+  const words = spanish ? ES_UNITS[unit] : EN_UNITS[unit];
+  const word = abs === 1 ? words[0] : words[1];
+  if (spanish) {
+    return value <= 0 ? `hace ${abs} ${word}` : `en ${abs} ${word}`;
   }
-  return formatter.format(Math.round(diffMs / day), 'day');
+  return value <= 0 ? `${abs} ${word} ago` : `in ${abs} ${word}`;
 }

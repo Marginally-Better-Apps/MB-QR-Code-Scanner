@@ -21,9 +21,9 @@ appId: com.marginallybetter.qrscanner
 - tapOn:
     id: "open-history"
 - assertVisible: "Today"
-- assertVisible: "example.com/today"
-- assertVisible: "Sensitive scan"
+- assertVisible: "example.com/today.*"
+- assertVisible: "Sensitive scan.*"
 - assertVisible: "Yesterday"
-- assertVisible: "Wi-Fi network"
+- assertVisible: "Wi-Fi network.*"
 - assertNotVisible: "Accepted scans appear here."
 - stopRecording

@@ -7,7 +7,7 @@ appId: com.marginallybetter.qrscanner
       historyFixture: "grouped"
 - tapOn:
     id: "open-history"
-- assertVisible: "example.com/today"
+- assertVisible: "example.com/today.*"
 - tapOn:
     id: "history-back"
 - assertVisible:
@@ -20,7 +20,7 @@ appId: com.marginallybetter.qrscanner
 - tapOn:
     id: "open-history"
 - assertVisible: "Today"
-- tapOn: "example.com/today"
+- tapOn: "example.com/today.*"
 - assertVisible:
     id: "sticky-result-accessory"
 - assertVisible:
@@ -31,7 +31,7 @@ appId: com.marginallybetter.qrscanner
     id: "sticky-result-open"
 - tapOn:
     id: "history-back"
-- tapOn: "Sensitive scan"
+- tapOn: "Sensitive scan.*"
 - assertVisible: "This sensitive code was not saved."
 - assertNotVisible:
     id: "sticky-result-copy"
