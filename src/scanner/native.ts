@@ -15,6 +15,7 @@ export type NativeCapabilities = {
   cameraFixture?: string;
   scannerFixture?: string;
   nativeImageFixture?: string;
+  historyFixture?: string;
 };
 
 type ScannerEngineNativeModule = {

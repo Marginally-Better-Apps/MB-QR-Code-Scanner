@@ -1,0 +1,29 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: "open-history"
+- startRecording: history-grouped-acceptance
+- tapOn:
+    id: "open-history"
+- assertVisible: "Accepted scans appear here."
+- assertVisible: "Scan a QR code"
+- tapOn:
+    id: "history-scan-cta"
+- assertVisible:
+    id: "open-history"
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      historyFixture: "grouped"
+- tapOn:
+    id: "open-history"
+- assertVisible: "Today"
+- assertVisible: "example.com/today"
+- assertVisible: "Sensitive scan"
+- assertVisible: "Yesterday"
+- assertVisible: "Wi-Fi network"
+- assertNotVisible: "Accepted scans appear here."
+- stopRecording

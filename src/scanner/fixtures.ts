@@ -20,22 +20,29 @@ export class ScannerObservationFixtureSource
 
   private readonly clock: ScannerClock;
   private readonly startupFrame: ScannerFixtureDetection[] | undefined;
+  private readonly stabilizeStartup: boolean;
   private receiveFrame: ((frame: ScannerObservation[]) => void) | null = null;
 
   constructor(input: {
     engineID: ScannerEngineID;
     clock?: ScannerClock;
     startupFrame?: ScannerFixtureDetection[];
+    /** Emit the startup frame twice so a single-code fixture can pass the acceptance gate. */
+    stabilizeStartup?: boolean;
   }) {
     this.engineID = input.engineID;
     this.clock = input.clock ?? SystemScannerClock;
     this.startupFrame = input.startupFrame;
+    this.stabilizeStartup = input.stabilizeStartup === true;
   }
 
   start(receiveFrame: (frame: ScannerObservation[]) => void): void {
     this.receiveFrame = receiveFrame;
     if (this.startupFrame) {
       this.emit(this.startupFrame);
+      if (this.stabilizeStartup) {
+        this.emit(this.startupFrame);
+      }
     }
   }
 
