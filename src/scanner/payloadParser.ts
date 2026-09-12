@@ -62,7 +62,7 @@ export type StructuredParser = {
   parse: (raw: string) => QRContent | null;
 };
 
-const CONTROL_RE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/;
+const CONTROL_RE = /[\x00-\x1F\x7F]/;
 const MAX_DISPLAY_LENGTH = 120;
 
 function hasControls(value: string): boolean {
@@ -70,7 +70,7 @@ function hasControls(value: string): boolean {
 }
 
 function sanitizeForDisplay(value: string): string {
-  return value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '�');
+  return value.replace(/[\x00-\x1F\x7F]/g, '�');
 }
 
 function toSafeSummary(value: string, max = MAX_DISPLAY_LENGTH): string {
@@ -425,9 +425,9 @@ function vcardUnescape(value: string): string {
 
 function tryParseContact(raw: string): QRContent | null {
   const trimmed = raw.trim();
-  if (hasControls(trimmed.replace(/\r/g, '').replace(/\n/g, '')) && /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(trimmed)) {
+  if (hasControls(trimmed.replace(/\r/g, '').replace(/\n/g, '')) && /[\x00-\x1F\x7F]/.test(trimmed)) {
     // Allow newlines/CR which are structural for vCard, reject other controls.
-    if (/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(trimmed.replace(/\r/g, '').replace(/\n/g, '').replace(/\t/g, ''))) {
+    if (/[\x00-\x1F\x7F]/.test(trimmed.replace(/\r/g, '').replace(/\n/g, '').replace(/\t/g, ''))) {
       return null;
     }
   }

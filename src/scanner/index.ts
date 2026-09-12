@@ -55,6 +55,10 @@ export type {
 } from './payloadParser';
 export { PAYLOAD_FIXTURE_CORPUS } from './payloadFixtures';
 export type { PayloadEdgeCategory, PayloadFixture } from './payloadFixtures';
+export { dispatchResultAction, defaultResultActionDeps } from './actionRouter';
+export type { ResultActionDeps } from './actionRouter';
+export { describeResultForDisplay, sanitizeVisibleText } from './webTextPresentation';
+export type { ResultViewModel } from './webTextPresentation';
 export {
   createInitialScanAcceptanceState,
   normalizeScanPayload,
