@@ -1,12 +1,16 @@
+import { useState } from 'react';
 import { Pressable, SectionList, StyleSheet, Text, View, useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
 import { GlassControl } from '@/components/GlassControl';
+import { StickyResultBar } from '@/components/StickyResultBar';
 import { groupHistoryEvents } from '@/history/historyGrouping';
 import { presentHistoryRow } from '@/history/historyRowPresentation';
 import type { StoredHistoryEvent } from '@/history/historyPolicy';
+import { presentHistoryDetailTime, replayHistoryEvent } from '@/history/historyReplay';
 import { getLocale, t } from '@/i18n';
+import type { ResultActionDeps } from '@/scanner/actionRouter';
 import { useHistoryEvents } from '@/state/historyEvents';
 
 type Props = {
@@ -15,6 +19,7 @@ type Props = {
   now?: Date;
   timeZone?: string;
   locale?: string;
+  actionDeps?: ResultActionDeps;
 };
 
 export function HistoryScreen({
@@ -23,6 +28,7 @@ export function HistoryScreen({
   now,
   timeZone,
   locale,
+  actionDeps,
 }: Props) {
   const contextEvents = useHistoryEvents();
   const events = eventsProp ?? contextEvents;
@@ -32,6 +38,7 @@ export function HistoryScreen({
   const resolvedTimeZone =
     timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
   const resolvedNow = now ?? new Date();
+  const [selected, setSelected] = useState<StoredHistoryEvent | null>(null);
 
   const sections = groupHistoryEvents(events, {
     now: resolvedNow,
@@ -44,12 +51,37 @@ export function HistoryScreen({
   const textColor = dark ? styles.lightText : null;
   const empty = events.length === 0;
 
+  function handleBack() {
+    if (selected) {
+      setSelected(null);
+      return;
+    }
+    onBack?.();
+  }
+
+  const replay = selected ? replayHistoryEvent(selected) : null;
+  const selectedTime = selected
+    ? presentHistoryDetailTime(selected.acceptedAt, {
+        now: resolvedNow,
+        locale: resolvedLocale,
+        timeZone: resolvedTimeZone,
+      })
+    : null;
+  const selectedRow = selected
+    ? presentHistoryRow(selected, {
+        locale: resolvedLocale,
+        timeZone: resolvedTimeZone,
+        redactedTitle: t('historyRedactedTitle'),
+        wifiTitle: t('historyWifiTitle'),
+      })
+    : null;
+
   return (
     <View style={[styles.container, dark && styles.darkContainer]}>
       <GlassControl
         accessibilityLabel={t('back')}
         testID="history-back"
-        onPress={() => onBack?.()}
+        onPress={handleBack}
         tone={dark ? 'onMedia' : 'onCanvas'}
         style={[styles.backButton, { top: insets.top + 8 }]}>
         <SymbolView
@@ -60,7 +92,39 @@ export function HistoryScreen({
         />
       </GlassControl>
 
-      {empty ? (
+      {selected && replay && selectedTime && selectedRow ? (
+        <View
+          testID="history-detail"
+          style={[
+            styles.detail,
+            { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 24 },
+          ]}>
+          <Text style={[styles.title, textColor]}>
+            {replay.status === 'replayable'
+              ? replay.parsed.displaySummary
+              : selectedRow.title}
+          </Text>
+          <Text testID="history-detail-relative" style={[styles.relative, textColor]}>
+            {selectedTime.relative}
+          </Text>
+          <Text testID="history-detail-exact" style={[styles.exact, textColor]}>
+            {selectedTime.exact}
+          </Text>
+          {replay.status === 'replayable' ? (
+            <StickyResultBar
+              payload={replay.parsed.originalPayload}
+              onClear={() => setSelected(null)}
+              actionDeps={actionDeps}
+            />
+          ) : (
+            <Text testID="history-detail-not-saved" style={[styles.notSaved, textColor]}>
+              {replay.reason === 'wifi'
+                ? t('historyWifiNotSaved')
+                : t('historySensitiveNotSaved')}
+            </Text>
+          )}
+        </View>
+      ) : empty ? (
         <View testID="history-empty" style={styles.empty}>
           <Text style={[styles.title, textColor]}>{t('history')}</Text>
           <Text style={[styles.description, textColor]}>{t('historyPlaceholder')}</Text>
@@ -108,9 +172,11 @@ export function HistoryScreen({
               wifiTitle: t('historyWifiTitle'),
             });
             return (
-              <View
+              <Pressable
                 testID="history-row"
+                accessibilityRole="button"
                 accessibilityLabel={`${row.title}, ${row.timeLabel}`}
+                onPress={() => setSelected(item)}
                 style={[styles.row, dark && styles.rowDark]}>
                 <View style={[styles.iconWell, dark && styles.iconWellDark]}>
                   <SymbolView
@@ -124,7 +190,7 @@ export function HistoryScreen({
                   {row.title}
                 </Text>
                 <Text style={[styles.rowTime, textColor]}>{row.timeLabel}</Text>
-              </View>
+              </Pressable>
             );
           }}
         />
@@ -237,5 +303,24 @@ const styles = StyleSheet.create({
   },
   lightText: {
     color: '#fff',
+  },
+  detail: {
+    flex: 1,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  relative: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  exact: {
+    fontSize: 14,
+    opacity: 0.6,
+    marginBottom: 16,
+  },
+  notSaved: {
+    fontSize: 16,
+    lineHeight: 22,
+    opacity: 0.8,
   },
 });

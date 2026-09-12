@@ -20,6 +20,8 @@ const en = {
   historyYesterday: 'Yesterday',
   historyRedactedTitle: 'Sensitive scan',
   historyWifiTitle: 'Wi-Fi network',
+  historySensitiveNotSaved: 'This sensitive code was not saved.',
+  historyWifiNotSaved: 'The Wi-Fi network was not saved.',
   liveScanArea: 'Live camera scan area',
   scanTargetCoaching: 'Place code near here. Codes anywhere in view are recognized.',
   copy: 'Copy',
@@ -63,6 +65,8 @@ const es: typeof en = {
   historyYesterday: 'Ayer',
   historyRedactedTitle: 'Escaneo confidencial',
   historyWifiTitle: 'Red Wi-Fi',
+  historySensitiveNotSaved: 'Este código confidencial no se guardó.',
+  historyWifiNotSaved: 'La red Wi-Fi no se guardó.',
   liveScanArea: 'Área de escaneo con cámara en vivo',
   scanTargetCoaching:
     'Coloca el código cerca de aquí. Se reconocen los códigos en cualquier parte de la vista.',
