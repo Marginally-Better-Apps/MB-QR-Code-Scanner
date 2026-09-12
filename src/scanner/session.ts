@@ -2,6 +2,12 @@ import { AVFoundationScannerObservationSource } from './avFoundation';
 import { resolveCameraAccessState } from './cameraAccess';
 import { CameraAccessFixtureProvider } from './cameraFixtures';
 import { makeObservationSource } from './factory';
+import {
+  rankMultiCodeCandidates,
+  resolveMultiCodeWinner,
+  stableCandidateId,
+  type ScoredMultiCodeCandidate,
+} from './multiCode';
 import type {
   AppTab,
   CameraAccessProviding,
@@ -16,6 +22,8 @@ export class ScannerSessionStore {
   cameraAccessState: CameraAccessState;
   visibleObservations: ScannerObservation[] = [];
   currentResult: ScannerObservation | null = null;
+  multiCodeCandidates: ScoredMultiCodeCandidate[] = [];
+  isMultiCodeAmbiguous = false;
   hasPreview = false;
   hasAcceptedScan = false;
   revision = 0;
@@ -26,6 +34,9 @@ export class ScannerSessionStore {
   private scenePhase: ScannerLifecyclePhase = 'active';
   private presentation: ScannerPresentation = 'visible';
   private readonly listeners = new Set<() => void>();
+  private stabilityById = new Map<string, number>();
+  private lastCandidateIds = new Set<string>();
+  private manualCandidateId: string | null = null;
 
   constructor(input: {
     cameraAccess: CameraAccessProviding;
@@ -132,11 +143,31 @@ export class ScannerSessionStore {
   }
 
   clearCurrentResult(): void {
-    if (this.currentResult === null) {
+    if (this.currentResult === null && this.manualCandidateId === null) {
       return;
     }
     this.currentResult = null;
+    this.manualCandidateId = null;
     this.emit();
+  }
+
+  /**
+   * Accept exactly the chosen candidate payload (SCN-05 chooser).
+   * Returns true when the id matches a currently visible candidate.
+   * The choice sticks across ambiguous updates until cleared or a
+   * clearly dominant candidate auto-wins.
+   */
+  selectCandidate(candidateId: string): boolean {
+    const match = this.visibleObservations.find(
+      (observation) => stableCandidateId(observation.rawPayload) === candidateId,
+    );
+    if (!match) {
+      return false;
+    }
+    this.manualCandidateId = candidateId;
+    this.currentResult = match;
+    this.emit();
+    return true;
   }
 
   beginPinchZoom(): void {
@@ -201,22 +232,79 @@ export class ScannerSessionStore {
       this.visibleObservations = frame;
       if (frame.length > 0) {
         this.hasAcceptedScan = true;
-        // SCN-04 sticky session: the first accepted observation becomes current.
-        // Empty frames never clear. A different payload replaces in one emit.
-        // NOTE: when the SCN-03 acceptance reducer lands, feed its accepted
-        // events here instead of the raw first frame.
-        const first = frame[0];
-        if (
-          this.currentResult === null ||
-          this.currentResult.rawPayload !== first.rawPayload
-        ) {
-          this.currentResult = first;
-        }
       }
+      this.updateMultiCodeState(frame);
       this.emit();
     });
     this.hasPreview = this.observationSource.hasPreview;
     this.emit();
+  }
+
+  private updateMultiCodeState(frame: ScannerObservation[]): void {
+    if (frame.length === 0) {
+      // Empty frames never clear the sticky result; keep candidates empty.
+      this.multiCodeCandidates = [];
+      this.isMultiCodeAmbiguous = false;
+      this.lastCandidateIds = new Set();
+      return;
+    }
+
+    // Track consecutive-frame stability per stable id.
+    const nextCounts = new Map<string, number>();
+    const seenInFrame = new Set<string>();
+    const deduped: { id: string; observation: ScannerObservation }[] = [];
+    for (const observation of frame) {
+      const id = stableCandidateId(observation.rawPayload);
+      if (id === '' || seenInFrame.has(id)) {
+        continue;
+      }
+      seenInFrame.add(id);
+      const prev = this.stabilityById.get(id) ?? 0;
+      const count = this.lastCandidateIds.has(id) ? prev + 1 : 1;
+      nextCounts.set(id, count);
+      deduped.push({ id, observation });
+    }
+    this.stabilityById = nextCounts;
+    this.lastCandidateIds = seenInFrame;
+
+    const ranked = rankMultiCodeCandidates(
+      deduped.map(({ observation }) => ({
+        rawPayload: observation.rawPayload,
+        bounds: observation.displayBounds,
+        stability: nextCounts.get(stableCandidateId(observation.rawPayload)) ?? 1,
+      })),
+    );
+    this.multiCodeCandidates = ranked;
+
+    if (ranked.length <= 1) {
+      this.isMultiCodeAmbiguous = false;
+      if (ranked.length === 1) {
+        const sole = deduped.find((entry) => entry.id === ranked[0].id)?.observation ?? frame[0];
+        const currentId =
+          this.currentResult != null ? stableCandidateId(this.currentResult.rawPayload) : null;
+        if (currentId !== ranked[0].id) {
+          this.currentResult = sole;
+          this.manualCandidateId = null;
+        }
+      }
+      return;
+    }
+
+    const currentId =
+      this.currentResult != null ? stableCandidateId(this.currentResult.rawPayload) : null;
+    const resolution = resolveMultiCodeWinner({ ranked, currentId });
+    this.isMultiCodeAmbiguous = resolution.isAmbiguous;
+    if (!resolution.isAmbiguous && resolution.winnerId != null) {
+      if (currentId !== resolution.winnerId) {
+        const winner = deduped.find((entry) => entry.id === resolution.winnerId)?.observation;
+        if (winner) {
+          this.currentResult = winner;
+          this.manualCandidateId = null;
+        }
+      }
+      return;
+    }
+    // Ambiguous: preserve the current result object identity (never round-robin).
   }
 
   private emit(): void {

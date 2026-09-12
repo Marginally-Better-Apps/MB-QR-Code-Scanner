@@ -169,8 +169,9 @@ describe('scanner UI', () => {
     render(<ScannerScreen session={store} engine="visionkit" />);
 
     expect(screen.queryByText('Ready to Scan')).toBeNull();
-    expect(screen.getByText('https://survey.walmart.com/logo-qr')).toBeTruthy();
-    expect(screen.getAllByTestId('sticky-result-accessory')).toHaveLength(1);
+    // SCN-05: two ambiguous codes never auto-pick; the chooser owns the choice.
+    expect(screen.getByText('2 codes found · Choose')).toBeTruthy();
+    expect(screen.queryByTestId('sticky-result-accessory')).toBeNull();
     expect(screen.getAllByTestId('scanner-observation-bounds')).toHaveLength(2);
 
     const firstBounds = StyleSheet.flatten(
@@ -226,10 +227,10 @@ describe('scanner UI', () => {
     await store.activateScanner();
     render(<ScannerScreen session={store} engine="visionkit" />);
 
-    expect(screen.getByText('https://example.com/edge-left')).toBeTruthy();
+    // SCN-05: four ambiguous edge codes surface the chooser, not an auto-pick.
+    expect(screen.getByText('4 codes found · Choose')).toBeTruthy();
     expect(screen.getAllByTestId('scanner-observation-bounds')).toHaveLength(4);
-    expect(screen.getAllByTestId('sticky-result-accessory')).toHaveLength(1);
-    expect(screen.getAllByTestId('sticky-result-payload')).toHaveLength(1);
+    expect(screen.queryByTestId('sticky-result-accessory')).toBeNull();
     expect(screen.queryByText('Observed QR Code')).toBeNull();
   });
 
@@ -510,9 +511,10 @@ describe('center scan target (SCN-02)', () => {
     });
 
     expect(screen.getByTestId('center-scan-guide')).toBeTruthy();
-    expect(screen.getByText('https://example.com/edge-left')).toBeTruthy();
+    // SCN-05: ambiguous edge pair shows the chooser instead of auto-picking.
+    expect(screen.getByText('2 codes found · Choose')).toBeTruthy();
     expect(screen.getAllByTestId('scanner-observation-bounds')).toHaveLength(2);
-    expect(screen.getAllByTestId('sticky-result-accessory')).toHaveLength(1);
+    expect(screen.queryByTestId('sticky-result-accessory')).toBeNull();
 
     const {
       AVFoundationScannerObservationSource,

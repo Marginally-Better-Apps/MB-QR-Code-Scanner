@@ -26,5 +26,7 @@ export function useScannerSession(session: ScannerSessionStore) {
     visibleObservations: session.visibleObservations,
     currentResult: session.currentResult,
     hasAcceptedScan: session.hasAcceptedScan,
+    multiCodeCandidates: session.multiCodeCandidates,
+    isMultiCodeAmbiguous: session.isMultiCodeAmbiguous,
   };
 }
