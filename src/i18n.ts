@@ -29,6 +29,10 @@ const en = {
   showDetails: 'Show details',
   hideDetails: 'Hide details',
   scanResult: 'Scan result',
+  codesFoundChoose: 'codes found · Choose',
+  chooseCode: 'Choose',
+  selectCode: 'Select a QR code',
+  candidateCodes: 'Candidate QR codes',
 };
 
 const es: typeof en = {
@@ -64,6 +68,10 @@ const es: typeof en = {
   showDetails: 'Mostrar detalles',
   hideDetails: 'Ocultar detalles',
   scanResult: 'Resultado del escaneo',
+  codesFoundChoose: 'códigos encontrados · Elegir',
+  chooseCode: 'Elegir',
+  selectCode: 'Selecciona un código QR',
+  candidateCodes: 'Códigos QR candidatos',
 };
 
 export type MessageKey = keyof typeof en;

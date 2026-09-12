@@ -6,6 +6,8 @@ import {
   EDGE_CODE_FIXTURE,
   ScannerObservationFixtureSource,
   SINGLE_CODE_FIXTURE,
+  THREE_CODE_FIXTURE,
+  TWO_CODE_FIXTURE,
 } from './fixtures';
 import type {
   CameraAccessProviding,
@@ -60,6 +62,18 @@ export function makeObservationSource(
           engineID: 'fixture.edge-codes',
           clock,
           startupFrame: EDGE_CODE_FIXTURE,
+        });
+      case 'two-codes':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.two-codes',
+          clock,
+          startupFrame: TWO_CODE_FIXTURE,
+        });
+      case 'three-codes':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.three-codes',
+          clock,
+          startupFrame: THREE_CODE_FIXTURE,
         });
       default:
         break;

@@ -36,6 +36,8 @@ export {
   EDGE_CODE_FIXTURE,
   ScannerObservationFixtureSource,
   SINGLE_CODE_FIXTURE,
+  THREE_CODE_FIXTURE,
+  TWO_CODE_FIXTURE,
 } from './fixtures';
 export type { ScannerFixtureDetection } from './fixtures';
 export { makeCameraAccess, makeObservationSource } from './factory';
@@ -73,6 +75,21 @@ export type {
   ScanAcceptanceState,
   ScanAcceptanceTrack,
 } from './acceptance';
+export {
+  DEFAULT_MULTI_CODE_WEIGHTS,
+  MULTI_CODE_AUTO_WIN_RATIO,
+  MULTI_CODE_GUIDE_RECT,
+  rankMultiCodeCandidates,
+  resolveMultiCodeWinner,
+  scoreMultiCodeCandidate,
+  stableCandidateId,
+} from './multiCode';
+export type {
+  MultiCodeCandidate,
+  MultiCodeWeights,
+  MultiCodeWinnerResolution,
+  ScoredMultiCodeCandidate,
+} from './multiCode';
 export {
   ASPECT_FILL_GRAVITY,
   CameraAuthorizationAll,

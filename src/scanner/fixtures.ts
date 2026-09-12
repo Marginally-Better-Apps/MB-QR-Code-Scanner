@@ -83,3 +83,31 @@ export const EDGE_CODE_FIXTURE: ScannerFixtureDetection[] = [
     displayBounds: { x: 0.44, y: 0.87, width: 0.12, height: 0.12 },
   },
 ];
+
+/** Two simultaneous codes: symmetric sizes so neither dominates (ambiguous). */
+export const TWO_CODE_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload: 'https://example.com/two-left',
+    displayBounds: { x: 0.05, y: 0.4, width: 0.15, height: 0.15 },
+  },
+  {
+    rawPayload: 'Hello from the right code',
+    displayBounds: { x: 0.8, y: 0.4, width: 0.15, height: 0.15 },
+  },
+];
+
+/** Three simultaneous codes in top→bottom spatial order with varied kinds. */
+export const THREE_CODE_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload: 'https://example.com/three-top',
+    displayBounds: { x: 0.3, y: 0.08, width: 0.16, height: 0.16 },
+  },
+  {
+    rawPayload: 'Hello middle code',
+    displayBounds: { x: 0.3, y: 0.42, width: 0.16, height: 0.16 },
+  },
+  {
+    rawPayload: 'myapp://pay?amount=10',
+    displayBounds: { x: 0.3, y: 0.74, width: 0.16, height: 0.16 },
+  },
+];

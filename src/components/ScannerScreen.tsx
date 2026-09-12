@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import {
   AccessibilityInfo,
   Linking,
+  Pressable,
   StyleSheet,
+  Text,
   useColorScheme,
   View,
 } from 'react-native';
@@ -10,12 +12,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
 import { GlassControl } from '@/components/GlassControl';
+import { MultiCodeChooser } from '@/components/MultiCodeChooser';
 import { ScannerPreview } from '@/components/ScannerPreview';
 import { ScanTargetGuide } from '@/components/ScanTargetGuide';
 import { StickyResultBar } from '@/components/StickyResultBar';
 import { UnavailableState } from '@/components/UnavailableState';
 import { useScannerSession } from '@/hooks/useScanner';
 import { t } from '@/i18n';
+import { stableCandidateId } from '@/scanner/multiCode';
 import type { ScannerObservation, ScannerSessionStore } from '@/scanner';
 import type { NativeEngineKind } from '@/components/ScannerPreview';
 
@@ -42,6 +46,7 @@ export function ScannerScreen({
     scanner.cameraAccessState === 'ready' &&
     !scanner.engineID.startsWith('fixture');
   const [coachingExpired, setCoachingExpired] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
 
   useEffect(() => {
     if (!isLiveForGuide || scanner.hasAcceptedScan) {
@@ -93,6 +98,9 @@ export function ScannerScreen({
     case 'ready': {
       const isLiveCamera = !scanner.engineID.startsWith('fixture');
       const sticky = scanner.currentResult;
+      const candidates = scanner.multiCodeCandidates;
+      const showChooserTrigger = candidates.length >= 2;
+      const chooserLabel = `${candidates.length} ${t('codesFoundChoose')}`;
       body = (
         <View
           testID="live-scan-area"
@@ -115,19 +123,37 @@ export function ScannerScreen({
           ) : null}
           {scanner.visibleObservations.length > 0 ? (
             <ObservationHighlights observations={scanner.visibleObservations} />
-          ) : isLiveCamera ? null : sticky ? null : (
+          ) : isLiveCamera ? null : sticky || showChooserTrigger ? null : (
             <UnavailableState title="readyToScan" description="pointCamera" />
           )}
-          {sticky ? (
+          {sticky || showChooserTrigger ? (
             <View
               testID="sticky-result-container"
               style={[styles.stickyResults, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}
               pointerEvents="box-none">
-              <StickyResultBar
-                key="sticky-current-result"
-                payload={sticky.rawPayload}
-                onClear={() => session.clearCurrentResult()}
-              />
+              {showChooserTrigger ? (
+                <Pressable
+                  testID="multi-code-chooser-trigger"
+                  accessibilityRole="button"
+                  accessibilityLabel={chooserLabel}
+                  onPress={() => setChooserOpen((open) => !open)}
+                  style={styles.chooserTrigger}>
+                  <Text style={styles.chooserTriggerText}>{chooserLabel}</Text>
+                </Pressable>
+              ) : null}
+              {showChooserTrigger && chooserOpen ? (
+                <MultiCodeChooser
+                  candidates={candidates}
+                  onSelect={(id) => session.selectCandidate(id)}
+                />
+              ) : null}
+              {sticky ? (
+                <StickyResultBar
+                  key="sticky-current-result"
+                  payload={sticky.rawPayload}
+                  onClear={() => session.clearCurrentResult()}
+                />
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -210,22 +236,26 @@ function ObservationHighlights({
       testID="scanner-observation-overlay"
       style={styles.overlay}
       pointerEvents="box-none">
-      {observations.map((observation, index) => (
-        <View
-          key={`${observation.rawPayload}-${index}`}
-          testID="scanner-observation-bounds"
-          pointerEvents="none"
-          style={[
-            styles.bounds,
-            {
-              left: `${observation.displayBounds.x * 100}%`,
-              top: `${observation.displayBounds.y * 100}%`,
-              width: `${observation.displayBounds.width * 100}%`,
-              height: `${observation.displayBounds.height * 100}%`,
-            },
-          ]}
-        />
-      ))}
+      {observations.map((observation) => {
+        const stableId = stableCandidateId(observation.rawPayload);
+        return (
+          <View
+            key={stableId}
+            testID="scanner-observation-bounds"
+            nativeID={stableId}
+            pointerEvents="none"
+            style={[
+              styles.bounds,
+              {
+                left: `${observation.displayBounds.x * 100}%`,
+                top: `${observation.displayBounds.y * 100}%`,
+                width: `${observation.displayBounds.width * 100}%`,
+                height: `${observation.displayBounds.height * 100}%`,
+              },
+            ]}
+          />
+        );
+      })}
     </View>
   );
 }
@@ -254,6 +284,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     zIndex: 2,
+  },
+  chooserTrigger: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: 'rgba(28,28,30,0.92)',
+    paddingHorizontal: 14,
+    marginBottom: 8,
+  },
+  chooserTriggerText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
   },
   historyButton: {
     position: 'absolute',
