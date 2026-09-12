@@ -1,0 +1,39 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "email-code"
+- assertVisible: "To alice@example.com"
+- assertVisible: "Subject Hello"
+- assertVisible: "Compose"
+- startRecording: comms-payload-acceptance
+- tapOn:
+    id: "sticky-result-open"
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "phone-code"
+- assertVisible: "+1 415 555 2671"
+- tapOn:
+    id: "sticky-result-open"
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "sms-code"
+- assertVisible: "Running late"
+- tapOn:
+    id: "sticky-result-open"
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "geo-code"
+- assertVisible: "37.7749, -122.4194"
+- assertVisible: "Ferry Building"
+- tapOn:
+    id: "sticky-result-open"
+- stopRecording

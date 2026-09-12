@@ -247,6 +247,28 @@ describe('scanner observation protocol', () => {
     expect(receivedFrames[0].map((item) => item.timestamp)).toEqual([timestamp]);
   });
 
+  test('named comms fixtures emit email, phone, SMS, and geo payloads', () => {
+    const cases: Array<{ name: string; payload: string }> = [
+      {
+        name: 'email-code',
+        payload: 'mailto:alice@example.com?subject=Hello&body=See%20you%20at%208',
+      },
+      { name: 'phone-code', payload: 'tel:+1 (415) 555-2671' },
+      { name: 'sms-code', payload: 'sms:+14155552671?body=Running%20late' },
+      { name: 'geo-code', payload: 'geo:37.7749,-122.4194?q=Ferry+Building' },
+    ];
+    for (const { name, payload } of cases) {
+      const source = makeObservationSource({
+        arguments: ['QRScanner', '--scanner-fixture', name],
+        fixturesEnabled: true,
+      });
+      const frames: string[][] = [];
+      source.start((frame) => frames.push(frame.map((item) => item.rawPayload)));
+      expect(source.engineID).toBe(`fixture.${name}`);
+      expect(frames[0]).toEqual([payload]);
+    }
+  });
+
   test('fixture source deterministically emits loss, repeat, replacement, and simultaneous codes', () => {
     const clock = new TestScannerClock(new Date(10 * 1000));
     const engineID = 'fixture.sequence';

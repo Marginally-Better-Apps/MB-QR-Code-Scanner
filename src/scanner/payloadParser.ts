@@ -152,7 +152,7 @@ function tryParseEmail(raw: string): QRContent | null {
       return null;
     }
     const inner = trimmed.slice('MATMSG:'.length).replace(/;;\s*$/, '');
-    const parts = inner.split(';');
+    const parts = splitUnescaped(inner, ';');
     let to: string | null = null;
     let subject = '';
     let body = '';
@@ -162,17 +162,17 @@ function tryParseEmail(raw: string): QRContent | null {
       if (upper.startsWith('TO:')) {
         if (!seen.has('TO')) {
           seen.add('TO');
-          to = part.slice('TO:'.length);
+          to = unescapeWifiValue(part.slice('TO:'.length));
         }
       } else if (upper.startsWith('SUB:')) {
         if (!seen.has('SUB')) {
           seen.add('SUB');
-          subject = part.slice('SUB:'.length);
+          subject = unescapeWifiValue(part.slice('SUB:'.length));
         }
       } else if (upper.startsWith('BODY:')) {
         if (!seen.has('BODY')) {
           seen.add('BODY');
-          body = part.slice('BODY:'.length);
+          body = unescapeWifiValue(part.slice('BODY:'.length));
         }
       }
     }
@@ -247,6 +247,10 @@ function tryParseSms(raw: string): QRContent | null {
     if (sep >= 0) {
       number = remainder.slice(0, sep);
       message = remainder.slice(sep + 1);
+      const field = /^(?:body|text)=/i.exec(message);
+      if (field) {
+        message = message.slice(field[0].length);
+      }
     } else {
       number = remainder;
       message = '';
