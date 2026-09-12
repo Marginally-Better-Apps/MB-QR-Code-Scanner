@@ -3,6 +3,8 @@ import { AppState as RNAppState } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 
 import { bootstrapApp, type BootstrapResult } from '@/scanner/bootstrap';
+import { openProductionHistoryStore } from '@/history/historyExpoFileIO';
+import { recordAcceptedScan } from '@/history/historyStore';
 import { setLocale } from '@/i18n';
 import * as Localization from 'expo-localization';
 
@@ -25,6 +27,30 @@ export function AppProvider({
   useEffect(() => {
     void value.appState.scannerSession.activateScanner();
     value.appState.scannerSession.handleLifecycle('active');
+  }, [value]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Relaunch re-fetch: opening the store reads the persisted envelope, so
+    // previously accepted safe/redacted events are available immediately.
+    // Recording stays downstream of the acceptance gate via the session.
+    void openProductionHistoryStore()
+      .then((store) => {
+        if (cancelled || store == null) {
+          return;
+        }
+        value.appState.scannerSession.setAcceptedScanListener((accepted) => {
+          void recordAcceptedScan(store, accepted).catch(() => {
+            // History must never interrupt scanning; a failed write simply
+            // leaves the in-memory session running without persistence.
+          });
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      value.appState.scannerSession.setAcceptedScanListener(null);
+    };
   }, [value]);
 
   useEffect(() => {

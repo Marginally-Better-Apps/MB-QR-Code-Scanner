@@ -13,6 +13,9 @@
       "buildNumber": "0",
       "supportsTablet": true,
       "icon": "./assets/expo.icon",
+      "entitlements": {
+        "com.apple.developer.default-data-protection": "NSFileProtectionComplete"
+      },
       "infoPlist": {
         "CFBundleDisplayName": "QR Scanner",
         "CFBundleLocalizations": ["en", "es"],
