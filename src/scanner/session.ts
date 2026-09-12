@@ -1,3 +1,5 @@
+import type { AcceptedScan, ScanAcceptanceState } from './acceptance';
+import { createInitialScanAcceptanceState, updateScanAcceptance } from './acceptance';
 import { AVFoundationScannerObservationSource } from './avFoundation';
 import { resolveCameraAccessState } from './cameraAccess';
 import { CameraAccessFixtureProvider } from './cameraFixtures';
@@ -30,6 +32,8 @@ export class ScannerSessionStore {
 
   private readonly cameraAccess: CameraAccessProviding;
   private readonly observationSource: ScannerObservationSource;
+  private onAcceptedScan: ((accepted: AcceptedScan) => void) | null;
+  private acceptanceState: ScanAcceptanceState = createInitialScanAcceptanceState();
   private isObservationSourceRunning = false;
   private scenePhase: ScannerLifecyclePhase = 'active';
   private presentation: ScannerPresentation = 'visible';
@@ -41,9 +45,16 @@ export class ScannerSessionStore {
   constructor(input: {
     cameraAccess: CameraAccessProviding;
     observationSource: ScannerObservationSource;
+    /**
+     * Invoked exactly for acceptance-gate events (HIS-01 history recording).
+     * Observations that never stabilize never reach this callback, so they
+     * can never create persistent rows.
+     */
+    onAcceptedScan?: (accepted: AcceptedScan) => void;
   }) {
     this.cameraAccess = input.cameraAccess;
     this.observationSource = input.observationSource;
+    this.onAcceptedScan = input.onAcceptedScan ?? null;
     this.cameraAccessState = resolveCameraAccessState(
       input.cameraAccess.authorization,
       input.cameraAccess.cameraAvailable,
@@ -53,6 +64,15 @@ export class ScannerSessionStore {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * Late-attaches (or detaches) the acceptance-gate listener used for
+   * history recording. Lets the app open the persistent store
+   * asynchronously after the session already exists.
+   */
+  setAcceptedScanListener(listener: ((accepted: AcceptedScan) => void) | null): void {
+    this.onAcceptedScan = listener;
   }
 
   get isCameraActive(): boolean {
@@ -233,11 +253,27 @@ export class ScannerSessionStore {
       if (frame.length > 0) {
         this.hasAcceptedScan = true;
       }
+      this.recordGatedAcceptances(frame);
       this.updateMultiCodeState(frame);
       this.emit();
     });
     this.hasPreview = this.observationSource.hasPreview;
     this.emit();
+  }
+
+  private recordGatedAcceptances(frame: ScannerObservation[]): void {
+    if (this.onAcceptedScan == null) {
+      return;
+    }
+    const result = updateScanAcceptance(
+      this.acceptanceState,
+      frame.map((observation) => observation.rawPayload),
+      new Date(),
+    );
+    this.acceptanceState = result.state;
+    for (const accepted of result.accepted) {
+      this.onAcceptedScan(accepted);
+    }
   }
 
   private updateMultiCodeState(frame: ScannerObservation[]): void {
