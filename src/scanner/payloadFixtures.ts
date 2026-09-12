@@ -270,6 +270,22 @@ export const PAYLOAD_FIXTURE_CORPUS: PayloadFixture[] = [
     description: 'TOTP enrollment; secret classified session-only.',
   },
   {
+    name: 'otp-migration',
+    raw: 'otpauth-migration://offline?data=ZGlzcG9zYWJsZS1maXh0dXJl',
+    expectedKind: 'otp',
+    parserIds: ['otp'],
+    edgeCategories: ['standard'],
+    description: 'Authenticator export blob; data stays session-only and unpublished.',
+  },
+  {
+    name: 'passkey-fido-hybrid',
+    raw: 'FIDO:/000111222333444555666777888999',
+    expectedKind: 'passkey',
+    parserIds: ['passkey'],
+    edgeCategories: ['standard'],
+    description: 'FIDO hybrid QR digits; tunnel secret is not decoded or shown.',
+  },
+  {
     name: 'custom-myapp',
     raw: 'myapp://pay?amount=10&to=bob',
     expectedKind: 'customScheme',

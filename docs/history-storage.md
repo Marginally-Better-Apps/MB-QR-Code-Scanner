@@ -30,10 +30,11 @@ never stabilize create no rows.
 | OTP / session-only, passkey/FIDO markers, private-key material | At most a generic kind `redacted` plus the timestamp. No summary, no original, no raw secret anywhere in the row |
 
 Unstructured text matching secret-enrollment markers (`passkey`,
-`webauthn`, `fido2`, `fido:`, private-key blocks) is redacted even when it
-parses as another kind. The check errs toward redaction: a page whose URL
-merely mentions passkeys is stored redacted rather than risk persisting
-enrollment material.
+`webauthn`, `fido2`, `fido:`, `otpauth://`, `otpauth-migration:`,
+private-key blocks) is redacted even when it parses as another kind. The
+check errs toward redaction: a page whose URL merely mentions passkeys is
+stored redacted rather than risk persisting enrollment material. Exact
+recognition versus invocation rules live in `docs/auth-qr-capabilities.md`.
 
 ## Platform protection
 

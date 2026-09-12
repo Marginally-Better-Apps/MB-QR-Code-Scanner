@@ -43,6 +43,8 @@ export type { ScannerFixtureDetection } from './fixtures';
 export { makeCameraAccess, makeObservationSource } from './factory';
 export { CameraAccessFixtureProvider, cameraAccessFromFixture } from './cameraFixtures';
 export { AppState, ScannerSessionStore } from './session';
+export { AUTH_QR_FIXTURES, recognizeAuthQr } from './authQr';
+export type { AuthQrFormat, AuthQrRecognition } from './authQr';
 export {
   PAYLOAD_PARSER_VERSION,
   STRUCTURED_PARSERS,

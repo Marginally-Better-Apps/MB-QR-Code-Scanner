@@ -1,3 +1,5 @@
+import { recognizeAuthQr } from './authQr';
+
 export const PAYLOAD_PARSER_VERSION = 1;
 
 export type QRSensitivity = 'standard' | 'redacted' | 'sessionOnly';
@@ -44,6 +46,7 @@ export type QRContent =
       location: string | null;
     }
   | { kind: 'otp'; label: string | null; issuer: string | null }
+  | { kind: 'passkey' }
   | { kind: 'customScheme'; scheme: string; remainder: string };
 
 export type ParsedQRPayload = {
@@ -565,44 +568,33 @@ function tryParseCalendar(raw: string): QRContent | null {
 }
 
 function tryParseOtp(raw: string): QRContent | null {
-  const trimmed = raw.trim();
-  if (!/^otpauth:\/\//i.test(trimmed) || hasControls(trimmed)) {
+  const recognized = recognizeAuthQr(raw);
+  if (recognized == null) {
     return null;
   }
-  try {
-    const url = new URL(trimmed);
-    if (url.protocol.toLowerCase() !== 'otpauth:') {
-      return null;
-    }
-    const type = url.host.toLowerCase();
-    if (type !== 'totp' && type !== 'hotp') {
-      return null;
-    }
-    const secret = url.searchParams.get('secret');
-    if (secret == null || secret.trim().length === 0) {
-      return null;
-    }
-    const normalizedSecret = secret.trim().replace(/\s+/g, '');
-    if (!/^[A-Z2-7]+=*$/.test(normalizedSecret.toUpperCase())) {
-      return null;
-    }
-    const issuer = url.searchParams.get('issuer');
-    const pathLabel = decodeURIComponent(url.pathname.replace(/^\//, ''));
-    let label: string | null = pathLabel.length > 0 ? pathLabel : null;
-    if (label != null && label.includes(':')) {
-      const [, after] = label.split(/:(.+)/);
-      if (after) {
-        label = after;
-      }
-    }
+  if (recognized.format === 'otpauth') {
     return {
       kind: 'otp',
-      label,
-      issuer: issuer && issuer.length > 0 ? issuer : null,
+      label: recognized.label,
+      issuer: recognized.issuer,
     };
-  } catch {
+  }
+  if (recognized.format === 'otpauth-migration') {
+    return {
+      kind: 'otp',
+      label: null,
+      issuer: null,
+    };
+  }
+  return null;
+}
+
+function tryParsePasskey(raw: string): QRContent | null {
+  const recognized = recognizeAuthQr(raw);
+  if (recognized == null || recognized.format !== 'fido-hybrid') {
     return null;
   }
+  return { kind: 'passkey' };
 }
 
 const KNOWN_SCHEMES = new Set([
@@ -615,6 +607,8 @@ const KNOWN_SCHEMES = new Set([
   'geo',
   'wifi',
   'otpauth',
+  'otpauth-migration',
+  'fido',
   'matmsg',
   'mecard',
 ]);
@@ -675,12 +669,19 @@ function displayForContent(content: QRContent, raw: string): string {
       );
     case 'calendar':
       return toSafeSummary(content.title ?? 'Calendar event');
-    case 'otp':
+    case 'otp': {
+      const recognized = recognizeAuthQr(raw);
+      if (recognized != null) {
+        return toSafeSummary(recognized.summary);
+      }
       return toSafeSummary(
         content.issuer
           ? `Authentication code (${content.issuer})`
           : 'Authentication code',
       );
+    }
+    case 'passkey':
+      return toSafeSummary('Passkey sign-in');
     case 'customScheme':
       return toSafeSummary(`${content.scheme}:${content.remainder}`);
     default:
@@ -709,6 +710,7 @@ function actionsForContent(content: QRContent): QRAction[] {
     case 'calendar':
       return ['addEvent', 'copy', 'share'];
     case 'otp':
+    case 'passkey':
       return ['authenticate'];
     case 'customScheme':
       return ['openApp', 'copy', 'share'];
@@ -725,6 +727,11 @@ export const STRUCTURED_PARSERS: StructuredParser[] = [
     id: 'otp',
     sensitivity: 'sessionOnly',
     parse: tryParseOtp,
+  },
+  {
+    id: 'passkey',
+    sensitivity: 'sessionOnly',
+    parse: tryParsePasskey,
   },
   {
     id: 'geo',

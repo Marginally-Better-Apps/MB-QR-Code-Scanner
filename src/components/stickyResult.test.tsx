@@ -7,6 +7,7 @@ import {
 import { ScannerScreen } from '@/components/ScannerScreen';
 import { setLocale } from '@/i18n';
 import { ScannerSessionStore } from '@/scanner';
+import { AUTH_QR_FIXTURES } from '@/scanner/authQr';
 import { CameraAccessFixtureProvider } from '@/scanner/cameraFixtures';
 import { ScannerObservationFixtureSource } from '@/scanner/fixtures';
 
@@ -169,5 +170,25 @@ describe('sticky session result UI (SCN-04)', () => {
     expect(screen.getByTestId('sticky-result-payload').props.children).toBe(
       'https://example.com/bg',
     );
+  });
+
+  test('authentication codes show a safe label and no Authenticate button', async () => {
+    const { source, store } = stickySession();
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    act(() => {
+      source.emit([
+        {
+          rawPayload: AUTH_QR_FIXTURES.otpauthTotp,
+          displayBounds: bounds(),
+        },
+      ]);
+    });
+
+    expect(screen.getByText('Authentication code (Example)')).toBeTruthy();
+    expect(screen.queryByText(/Authenticate/i)).toBeNull();
+    expect(screen.queryByText(AUTH_QR_FIXTURES.otpauthSecret)).toBeNull();
+    expect(screen.queryByText(AUTH_QR_FIXTURES.otpauthTotp)).toBeNull();
   });
 });
