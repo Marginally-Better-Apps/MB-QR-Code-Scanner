@@ -240,11 +240,15 @@ describe('scanner observation protocol', () => {
     source.start((frame) => receivedFrames.push(frame));
 
     expect(source.engineID).toBe('fixture.single-code');
-    expect(receivedFrames).toHaveLength(1);
+    expect(receivedFrames).toHaveLength(2);
     expect(receivedFrames[0].map((item) => item.rawPayload)).toEqual([
       'https://example.com/fixture',
     ]);
+    expect(receivedFrames[1].map((item) => item.rawPayload)).toEqual([
+      'https://example.com/fixture',
+    ]);
     expect(receivedFrames[0].map((item) => item.timestamp)).toEqual([timestamp]);
+    expect(receivedFrames[1].map((item) => item.timestamp)).toEqual([timestamp]);
   });
 
   test('fixture source deterministically emits loss, repeat, replacement, and simultaneous codes', () => {
@@ -385,6 +389,21 @@ describe('camera access and app shell', () => {
 });
 
 describe('engine selection', () => {
+  test('bootstrap forwards a history fixture only when fixtures are enabled', () => {
+    expect(
+      bootstrapApp({
+        arguments: ['QRScanner', '--history-fixture', 'grouped'],
+        fixturesEnabled: true,
+      }).historyFixture,
+    ).toBe('grouped');
+    expect(
+      bootstrapApp({
+        arguments: ['QRScanner', '--history-fixture', 'grouped'],
+        fixturesEnabled: false,
+      }).historyFixture,
+    ).toBeUndefined();
+  });
+
   test('bootstrap forwards an allowed native image fixture to the live preview', () => {
     expect(
       bootstrapApp({

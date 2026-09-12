@@ -56,6 +56,7 @@ export function makeObservationSource(
           engineID: 'fixture.single-code',
           clock,
           startupFrame: SINGLE_CODE_FIXTURE,
+          stabilizeStartup: true,
         });
       case 'edge-codes':
         return new ScannerObservationFixtureSource({

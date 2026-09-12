@@ -16,3 +16,17 @@ export {
   toStorableHistoryEvent,
 } from './historyPolicy';
 export type { StoredHistoryEvent } from './historyPolicy';
+export { groupHistoryEvents, isoHistoryCalendar } from './historyGrouping';
+export type {
+  GroupHistoryEventsOptions,
+  HistoryCalendar,
+  HistorySection,
+} from './historyGrouping';
+export { presentHistoryRow } from './historyRowPresentation';
+export type {
+  HistoryRowPresentation,
+  PresentHistoryRowOptions,
+} from './historyRowPresentation';
+export { seedGroupedHistoryFixture } from './historyFixtures';
+export { hydrateHistoryForSession } from './historyHydration';
+export type { HistoryHydrationInput } from './historyHydration';

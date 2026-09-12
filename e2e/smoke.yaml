@@ -8,7 +8,8 @@ appId: com.marginallybetter.qrscanner
 - startRecording: smoke
 - tapOn:
     id: "open-history"
-- assertVisible: "Your scan history will appear here."
+- assertVisible: "Accepted scans appear here."
+- assertVisible: "Scan a QR code"
 - tapOn:
     id: "history-back"
 - assertVisible: "Camera Unavailable"

@@ -327,7 +327,7 @@ describe('scanner UI', () => {
     const onBack = jest.fn();
     render(<HistoryScreen onBack={onBack} />);
     expect(screen.getByText('History')).toBeTruthy();
-    expect(screen.getByText('Your scan history will appear here.')).toBeTruthy();
+    expect(screen.getByText('Accepted scans appear here.')).toBeTruthy();
     expect(screen.getByLabelText('Back')).toBeTruthy();
     fireEvent.press(screen.getByTestId('history-back'));
     expect(onBack).toHaveBeenCalledTimes(1);
@@ -337,7 +337,7 @@ describe('scanner UI', () => {
     setLocale('es');
     render(<HistoryScreen />);
     expect(screen.getByText('Historial')).toBeTruthy();
-    expect(screen.getByText('Tu historial de escaneos aparecerá aquí.')).toBeTruthy();
+    expect(screen.getByText('Los escaneos aceptados aparecen aquí.')).toBeTruthy();
     expect(screen.getByLabelText('Atrás')).toBeTruthy();
   });
 
