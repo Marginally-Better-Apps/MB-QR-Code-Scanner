@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import {
   isGlassEffectAPIAvailable,
   isLiquidGlassAvailable,
@@ -350,5 +350,196 @@ describe('scanner UI', () => {
         'El acceso a la cámara está restringido por Tiempo en pantalla o la gestión del dispositivo.',
       ),
     ).toBeTruthy();
+  });
+});
+
+describe('center scan target (SCN-02)', () => {
+  beforeEach(() => {
+    setLocale('en');
+    (isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(false);
+    (isLiquidGlassAvailable as jest.Mock).mockReturnValue(false);
+  });
+
+  test('renders guidance corners over live camera without an opaque scrim', async () => {
+    const store = session('authorized');
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    expect(screen.getByTestId('center-scan-guide')).toBeTruthy();
+    expect(
+      screen.getAllByTestId(/center-scan-corner/, {
+        includeHiddenElements: true,
+      }),
+    ).toHaveLength(4);
+    expect(screen.queryByTestId('center-scan-scrim')).toBeNull();
+
+    const guideStyle = StyleSheet.flatten(
+      screen.getByTestId('center-scan-guide').props.style,
+    );
+    expect(['transparent', undefined]).toContain(guideStyle.backgroundColor);
+
+    for (const corner of screen.getAllByTestId(/center-scan-corner/, {
+      includeHiddenElements: true,
+    })) {
+      expect(corner.props.pointerEvents).toBe('none');
+    }
+  });
+
+  test('first-use coaching disappears after the first accepted scan and never returns', async () => {
+    const source = new NativeEngineObservationSource('visionkit');
+    const store = new ScannerSessionStore({
+      cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
+      observationSource: source,
+    });
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    expect(screen.getByTestId('center-scan-coaching')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Place code near here. Codes anywhere in view are recognized.',
+      ),
+    ).toBeTruthy();
+
+    act(() => {
+      publishNativeObservations('visionkit', [
+        {
+          payload: 'https://example.com/first',
+          displayBounds: { x: 0.4, y: 0.4, width: 0.2, height: 0.2 },
+        },
+      ]);
+    });
+
+    expect(screen.queryByTestId('center-scan-coaching')).toBeNull();
+    expect(screen.getByTestId('center-scan-guide')).toBeTruthy();
+
+    act(() => {
+      publishNativeObservations('visionkit', []);
+    });
+
+    expect(screen.queryByTestId('center-scan-coaching')).toBeNull();
+    expect(screen.getByTestId('center-scan-guide')).toBeTruthy();
+  });
+
+  test('guide corners stay visible over light and dark scenes', async () => {
+    const store = session('authorized');
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    const corners = screen.getAllByTestId(/center-scan-corner/, {
+      includeHiddenElements: true,
+    });
+    expect(corners).toHaveLength(4);
+    for (const corner of corners) {
+      const style = StyleSheet.flatten(corner.props.style);
+      expect(String(style.borderColor).toLowerCase()).toMatch(/fff|white|255/);
+      expect(style.shadowColor ?? style.elevation ?? true).toBeTruthy();
+    }
+  });
+
+  test('increased contrast thickens the center guide', async () => {
+    const { AccessibilityInfo } = require('react-native');
+    const spy = jest
+      .spyOn(AccessibilityInfo, 'isDarkerSystemColorsEnabled')
+      .mockResolvedValue(true);
+    try {
+      const store = session('authorized');
+      await store.activateScanner();
+      render(<ScannerScreen session={store} engine="visionkit" />);
+
+      await waitFor(() => {
+        const corners = screen.getAllByTestId(/center-scan-corner/, {
+          includeHiddenElements: true,
+        });
+        const width = StyleSheet.flatten(corners[0].props.style).borderWidth;
+        expect(width).toBeGreaterThanOrEqual(5);
+      });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('VoiceOver ignores decorative corners and describes the full camera as the scan area', async () => {
+    const store = session('authorized');
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    expect(screen.getByLabelText('Live camera scan area')).toBeTruthy();
+    expect(screen.getByTestId('live-scan-area').props.accessibilityLabel).toBe(
+      'Live camera scan area',
+    );
+
+    const guide = screen.getByTestId('center-scan-guide');
+    expect(guide.props.accessible).toBe(false);
+
+    // Decorative corners are hidden from the accessibility tree entirely.
+    expect(screen.queryAllByTestId(/center-scan-corner/)).toHaveLength(0);
+
+    for (const corner of screen.getAllByTestId(/center-scan-corner/, {
+      includeHiddenElements: true,
+    })) {
+      expect(corner.props.accessible).toBe(false);
+      expect(corner.props.accessibilityElementsHidden).toBe(true);
+      expect(corner.props.importantForAccessibility).toBe(
+        'no-hide-descendants',
+      );
+    }
+  });
+
+  test('codes outside the center guide are still found alongside the guide', async () => {
+    const source = new NativeEngineObservationSource('visionkit');
+    const store = new ScannerSessionStore({
+      cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
+      observationSource: source,
+    });
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    act(() => {
+      publishNativeObservations('visionkit', [
+        {
+          payload: 'https://example.com/edge-left',
+          displayBounds: { x: 0.01, y: 0.4, width: 0.12, height: 0.12 },
+        },
+        {
+          payload: 'https://example.com/edge-right',
+          displayBounds: { x: 0.87, y: 0.4, width: 0.12, height: 0.12 },
+        },
+      ]);
+    });
+
+    expect(screen.getByTestId('center-scan-guide')).toBeTruthy();
+    expect(screen.getByText('https://example.com/edge-left')).toBeTruthy();
+    expect(screen.getByText('https://example.com/edge-right')).toBeTruthy();
+
+    const {
+      AVFoundationScannerObservationSource,
+      ScannerRecognitionRegion,
+      VisionKitScannerObservationSource,
+    } = require('@/scanner');
+    expect(
+      VisionKitScannerObservationSource.productConfiguration.recognitionRegion,
+    ).toEqual(ScannerRecognitionRegion.fullPreview);
+    expect(
+      AVFoundationScannerObservationSource.productConfiguration.recognitionRegion,
+    ).toEqual(ScannerRecognitionRegion.fullPreview);
+  });
+
+  test('coaching is time-limited even without a scan', async () => {
+    jest.useFakeTimers();
+    try {
+      const store = session('authorized');
+      await store.activateScanner();
+      render(<ScannerScreen session={store} engine="visionkit" />);
+
+      expect(screen.getByTestId('center-scan-coaching')).toBeTruthy();
+      act(() => {
+        jest.advanceTimersByTime(15000);
+      });
+      expect(screen.queryByTestId('center-scan-coaching')).toBeNull();
+      expect(screen.getByTestId('center-scan-guide')).toBeTruthy();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

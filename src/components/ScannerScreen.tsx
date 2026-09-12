@@ -1,9 +1,17 @@
-import { Linking, StyleSheet, useColorScheme, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Linking,
+  StyleSheet,
+  useColorScheme,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
 import { GlassControl } from '@/components/GlassControl';
 import { ScannerPreview } from '@/components/ScannerPreview';
+import { ScanTargetGuide } from '@/components/ScanTargetGuide';
 import { StickyResultBar } from '@/components/StickyResultBar';
 import { UnavailableState } from '@/components/UnavailableState';
 import { useScannerSession } from '@/hooks/useScanner';
@@ -27,8 +35,26 @@ export function ScannerScreen({
   const scanner = useScannerSession(session);
   const insets = useSafeAreaInsets();
   const dark = useColorScheme() === 'dark';
+  const highContrast = useHighContrast();
   const onMedia = scanner.cameraAccessState === 'ready';
   const lightChrome = !onMedia && !dark;
+  const isLiveForGuide =
+    scanner.cameraAccessState === 'ready' &&
+    !scanner.engineID.startsWith('fixture');
+  const [coachingExpired, setCoachingExpired] = useState(false);
+
+  useEffect(() => {
+    if (!isLiveForGuide || scanner.hasAcceptedScan) {
+      return;
+    }
+    const id = setTimeout(
+      () => setCoachingExpired(true),
+      SCAN_TARGET_COACHING_TIMEOUT_MS,
+    );
+    return () => clearTimeout(id);
+  }, [isLiveForGuide, scanner.hasAcceptedScan]);
+
+  const showCoaching = !scanner.hasAcceptedScan && !coachingExpired;
 
   let body;
   switch (scanner.cameraAccessState) {
@@ -81,6 +107,12 @@ export function ScannerScreen({
               onReady={(ready) => session.setHasPreview(ready)}
             />
           ) : null}
+          {isLiveCamera ? (
+            <ScanTargetGuide
+              showCoaching={showCoaching}
+              highContrast={highContrast}
+            />
+          ) : null}
           {scanner.visibleObservations.length > 0 ? (
             <ObservationHighlights observations={scanner.visibleObservations} />
           ) : isLiveCamera ? null : sticky ? null : (
@@ -122,6 +154,50 @@ export function ScannerScreen({
       </GlassControl>
     </View>
   );
+}
+
+export const SCAN_TARGET_COACHING_TIMEOUT_MS = 12000;
+
+function useHighContrast(): boolean {
+  const [highContrast, setHighContrast] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    try {
+      const query = AccessibilityInfo.isDarkerSystemColorsEnabled?.();
+      if (query && typeof query.then === 'function') {
+        query
+          .then((enabled) => {
+            if (mounted) {
+              setHighContrast(enabled === true);
+            }
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // Keep the default non-high-contrast guide.
+    }
+    const subscription = (() => {
+      try {
+        return AccessibilityInfo.addEventListener?.(
+          'darkerSystemColorsChanged',
+          setHighContrast,
+        );
+      } catch {
+        return undefined;
+      }
+    })();
+    return () => {
+      mounted = false;
+      try {
+        subscription?.remove?.();
+      } catch {
+        // Ignore cleanup errors in tests.
+      }
+    };
+  }, []);
+
+  return highContrast;
 }
 
 function ObservationHighlights({
