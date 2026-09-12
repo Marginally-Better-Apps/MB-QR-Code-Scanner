@@ -127,8 +127,9 @@ describe('scanner UI', () => {
     await store.activateScanner();
     render(<ScannerScreen session={store} engine="avfoundation" />);
 
-    const payload = screen.getByTestId('sticky-result-payload');
-    expect(StyleSheet.flatten(payload.props.style)).toEqual(
+    // ACT-02: web results emphasize the normalized host; the host stays readable.
+    const host = screen.getByTestId('sticky-result-host');
+    expect(StyleSheet.flatten(host.props.style)).toEqual(
       expect.objectContaining({ color: '#fff' }),
     );
     expect(screen.getByText('doc.on.clipboard').props.tintColor).toBe('#fff');
