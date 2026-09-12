@@ -16,6 +16,7 @@ const en = {
     'QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved.',
   historyPlaceholder: 'Your scan history will appear here.',
   liveScanArea: 'Live camera scan area',
+  scanTargetCoaching: 'Place code near here. Codes anywhere in view are recognized.',
   copy: 'Copy',
   back: 'Back',
   clear: 'Clear',
@@ -43,6 +44,8 @@ const es: typeof en = {
     'QR Scanner reconoce códigos QR en este dispositivo. Los fotogramas de la cámara nunca se suben ni se guardan.',
   historyPlaceholder: 'Tu historial de escaneos aparecerá aquí.',
   liveScanArea: 'Área de escaneo con cámara en vivo',
+  scanTargetCoaching:
+    'Coloca el código cerca de aquí. Se reconocen los códigos en cualquier parte de la vista.',
   copy: 'Copiar',
   back: 'Atrás',
   clear: 'Borrar',

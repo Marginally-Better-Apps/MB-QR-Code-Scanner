@@ -17,6 +17,7 @@ export class ScannerSessionStore {
   visibleObservations: ScannerObservation[] = [];
   currentResult: ScannerObservation | null = null;
   hasPreview = false;
+  hasAcceptedScan = false;
   revision = 0;
 
   private readonly cameraAccess: CameraAccessProviding;
@@ -198,11 +199,12 @@ export class ScannerSessionStore {
     this.isObservationSourceRunning = true;
     this.observationSource.start((frame) => {
       this.visibleObservations = frame;
-      // SCN-04 sticky session: the first accepted observation becomes current.
-      // Empty frames never clear. A different payload replaces in one emit.
-      // NOTE: when the SCN-03 acceptance reducer lands, feed its accepted
-      // events here instead of the raw first frame.
       if (frame.length > 0) {
+        this.hasAcceptedScan = true;
+        // SCN-04 sticky session: the first accepted observation becomes current.
+        // Empty frames never clear. A different payload replaces in one emit.
+        // NOTE: when the SCN-03 acceptance reducer lands, feed its accepted
+        // events here instead of the raw first frame.
         const first = frame[0];
         if (
           this.currentResult === null ||

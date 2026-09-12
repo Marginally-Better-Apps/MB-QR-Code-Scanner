@@ -25,5 +25,6 @@ export function useScannerSession(session: ScannerSessionStore) {
     isCapturing: session.isCapturing,
     visibleObservations: session.visibleObservations,
     currentResult: session.currentResult,
+    hasAcceptedScan: session.hasAcceptedScan,
   };
 }
