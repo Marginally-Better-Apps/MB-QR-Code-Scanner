@@ -42,6 +42,20 @@ export { makeCameraAccess, makeObservationSource } from './factory';
 export { CameraAccessFixtureProvider, cameraAccessFromFixture } from './cameraFixtures';
 export { AppState, ScannerSessionStore } from './session';
 export {
+  PAYLOAD_PARSER_VERSION,
+  STRUCTURED_PARSERS,
+  parseQRPayload,
+} from './payloadParser';
+export type {
+  ParsedQRPayload,
+  QRAction,
+  QRContent,
+  QRSensitivity,
+  StructuredParser,
+} from './payloadParser';
+export { PAYLOAD_FIXTURE_CORPUS } from './payloadFixtures';
+export type { PayloadEdgeCategory, PayloadFixture } from './payloadFixtures';
+export {
   createInitialScanAcceptanceState,
   normalizeScanPayload,
   SCAN_RESET_MS,

@@ -510,7 +510,8 @@ describe('center scan target (SCN-02)', () => {
 
     expect(screen.getByTestId('center-scan-guide')).toBeTruthy();
     expect(screen.getByText('https://example.com/edge-left')).toBeTruthy();
-    expect(screen.getByText('https://example.com/edge-right')).toBeTruthy();
+    expect(screen.getAllByTestId('scanner-observation-bounds')).toHaveLength(2);
+    expect(screen.getAllByTestId('sticky-result-accessory')).toHaveLength(1);
 
     const {
       AVFoundationScannerObservationSource,
