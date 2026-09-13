@@ -1,22 +1,16 @@
-<svg width="600" height="600" viewBox="0 0 600 600" fill="none" xmlns="http://www.w3.org/2000/svg">
-<path d="M40,0H128Q168,0 168,40V128Q168,168 128,168H40Q0,168 0,128V40Q0,0 40,0ZM48,24H120Q144,24 144,48V120Q144,144 120,144H48Q24,144 24,120V48Q24,24 48,24ZM472,0H560Q600,0 600,40V128Q600,168 560,168H472Q432,168 432,128V40Q432,0 472,0ZM480,24H552Q576,24 576,48V120Q576,144 552,144H480Q456,144 456,120V48Q456,24 480,24ZM40,432H128Q168,432 168,472V560Q168,600 128,600H40Q0,600 0,560V472Q0,432 40,432ZM48,456H120Q144,456 144,480V552Q144,576 120,576H48Q24,576 24,552V480Q24,456 48,456Z" fill="white" fill-rule="evenodd"/>
-<rect x="48" y="48" width="72" height="72" rx="14" fill="white"/>
-<rect x="480" y="48" width="72" height="72" rx="14" fill="white"/>
-<rect x="48" y="480" width="72" height="72" rx="14" fill="white"/>
-<rect x="504" y="216" width="48" height="48" rx="12" fill="white"/>
-<rect x="360" y="288" width="48" height="48" rx="12" fill="white"/>
-<rect x="504" y="360" width="48" height="48" rx="12" fill="white"/>
-<rect x="216" y="360" width="48" height="48" rx="12" fill="white"/>
-<rect x="288" y="432" width="48" height="48" rx="12" fill="white"/>
-<rect x="432" y="432" width="48" height="48" rx="12" fill="white"/>
-<rect x="360" y="504" width="48" height="48" rx="12" fill="white"/>
-<rect x="504" y="504" width="48" height="48" rx="12" fill="white"/>
-<rect x="216" y="72" width="24" height="24" rx="6" fill="white"/>
-<rect x="264" y="72" width="24" height="24" rx="6" fill="white"/>
-<rect x="312" y="72" width="24" height="24" rx="6" fill="white"/>
-<rect x="360" y="72" width="24" height="24" rx="6" fill="white"/>
-<rect x="72" y="216" width="24" height="24" rx="6" fill="white"/>
-<rect x="72" y="264" width="24" height="24" rx="6" fill="white"/>
-<rect x="72" y="312" width="24" height="24" rx="6" fill="white"/>
-<rect x="72" y="360" width="24" height="24" rx="6" fill="white"/>
+<!-- lucide "qr-code" icon (ISC license) https://lucide.dev/icons/qr-code, recolored white -->
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"
+  stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round">
+  <rect width="5" height="5" x="3" y="3" rx="1" />
+  <rect width="5" height="5" x="16" y="3" rx="1" />
+  <rect width="5" height="5" x="3" y="16" rx="1" />
+  <path d="M21 16L18 16L16 18L16 21" />
+  <path d="M12 7L12 10L10 12L7 12" />
+  <path d="M16 12L17 12" />
+  <path d="M12 21L12 20" />
+  <path d="M21 21h.01" />
+  <path d="M3 12h.01" />
+  <path d="M12 3h.01" />
+  <path d="M12 16h.01" />
+  <path d="M21 12h.01" />
 </svg>
