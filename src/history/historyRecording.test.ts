@@ -1,8 +1,9 @@
+import type { AcceptedScan } from '@/scanner/acceptance';
+import { AUTH_QR_FIXTURES } from '@/scanner/authQr';
 import { CameraAccessFixtureProvider } from '@/scanner/cameraFixtures';
 import { makeObservationSource } from '@/scanner/factory';
 import { ScannerObservationFixtureSource } from '@/scanner/fixtures';
 import { ScannerSessionStore } from '@/scanner/session';
-import type { AcceptedScan } from '@/scanner/acceptance';
 
 import { hydrateHistoryForSession } from './historyHydration';
 import { HistoryStore, InMemoryHistoryFileIO, recordAcceptedScan } from './historyStore';
@@ -76,6 +77,32 @@ describe('history recording downstream of the acceptance gate (HIS-01)', () => {
     expect(events[0]?.kind).toBe('redacted');
     expect(events[0]?.original).toBeNull();
     expect(JSON.stringify(events)).not.toContain(OTP_SECRET);
+  });
+
+  test('stabilized migration and FIDO observations persist no secret material', async () => {
+    for (const { raw, fragment } of [
+      {
+        raw: AUTH_QR_FIXTURES.otpMigration,
+        fragment: AUTH_QR_FIXTURES.otpMigrationData,
+      },
+      {
+        raw: AUTH_QR_FIXTURES.fidoHybrid,
+        fragment: AUTH_QR_FIXTURES.fidoDigits,
+      },
+    ]) {
+      const { source, store } = await makeRecordingSession();
+      source.emit([{ rawPayload: raw, displayBounds: bounds() }]);
+      source.emit([{ rawPayload: raw, displayBounds: bounds() }]);
+
+      const events = await store.list();
+      expect(events).toHaveLength(1);
+      expect(events[0]?.kind).toBe('redacted');
+      expect(events[0]?.original).toBeNull();
+      expect(events[0]?.summary).toBeNull();
+      const serialized = JSON.stringify(events);
+      expect(serialized).not.toContain(fragment);
+      expect(serialized).not.toContain(raw);
+    }
   });
 
   test('a stabilized wifi observation omits ssid and password', async () => {

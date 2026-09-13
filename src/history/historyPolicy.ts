@@ -28,7 +28,7 @@ export const WIFI_STORAGE_SUMMARY = 'Wi-Fi network';
  * and key material in any payload kind.
  */
 const SECRET_ENROLLMENT_RE =
-  /\b(passkey|webauthn|fido2)\b|fido:|private\s*key|BEGIN\s+[A-Z0-9 ]*PRIVATE\s+KEY/i;
+  /\b(passkey|webauthn|fido2)\b|fido:|otpauth:\/\/|otpauth-migration:|private\s*key|BEGIN\s+[A-Z0-9 ]*PRIVATE\s+KEY/i;
 
 export function looksLikeSecretEnrollment(raw: string): boolean {
   return SECRET_ENROLLMENT_RE.test(raw);

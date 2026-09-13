@@ -368,6 +368,9 @@ export async function dispatchResultAction(
       await deps.shareText(parsed.originalPayload);
       return;
     }
+    case 'authenticate': {
+      throw new Error('Action "authenticate" is not implemented');
+    }
     default: {
       throw new Error(`Action "${action as string}" is not handled by the result router`);
     }

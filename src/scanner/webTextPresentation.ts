@@ -376,6 +376,15 @@ export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewMod
         full: parsed.originalPayload,
       };
     }
+    case 'otp':
+    case 'passkey': {
+      const safe = sanitizeVisibleText(parsed.displaySummary);
+      return {
+        kind: 'other',
+        preview: safe,
+        full: safe,
+      };
+    }
     default: {
       return {
         kind: 'other',

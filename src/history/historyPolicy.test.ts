@@ -1,3 +1,4 @@
+import { AUTH_QR_FIXTURES } from '@/scanner/authQr';
 import { PAYLOAD_PARSER_VERSION, parseQRPayload } from '@/scanner/payloadParser';
 
 import {
@@ -74,6 +75,31 @@ describe('history storage policy (HIS-01)', () => {
     expect(JSON.stringify(toStorableHistoryEvent(parseQRPayload(PEM_RAW), ACCEPTED_AT))).not.toContain(
       'testkeymaterial',
     );
+  });
+
+  test('otpauth-migration and FIDO hybrid rows omit every secret fragment', () => {
+    const cases = [
+      {
+        raw: AUTH_QR_FIXTURES.otpMigration,
+        fragment: AUTH_QR_FIXTURES.otpMigrationData,
+      },
+      {
+        raw: AUTH_QR_FIXTURES.fidoHybrid,
+        fragment: AUTH_QR_FIXTURES.fidoDigits,
+      },
+    ];
+    for (const { raw, fragment } of cases) {
+      expect(looksLikeSecretEnrollment(raw)).toBe(true);
+      const parsed = parseQRPayload(raw);
+      expect(parsed.sensitivity).toBe('sessionOnly');
+      const event = toStorableHistoryEvent(parsed, ACCEPTED_AT);
+      expect(event.kind).toBe('redacted');
+      expect(event.original).toBeNull();
+      expect(event.summary).toBeNull();
+      const serialized = JSON.stringify(event);
+      expect(serialized).not.toContain(fragment);
+      expect(serialized).not.toContain(raw);
+    }
   });
 
   test('ordinary prose mentioning no secret markers stays fully stored', () => {
