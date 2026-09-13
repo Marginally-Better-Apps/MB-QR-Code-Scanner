@@ -6,6 +6,7 @@ import {
   EDGE_CODE_FIXTURE,
   CALENDAR_CODE_FIXTURE,
   CONTACT_CODE_FIXTURE,
+  WIFI_CODE_FIXTURE,
   EMAIL_CODE_FIXTURE,
   GEO_CODE_FIXTURE,
   PHONE_CODE_FIXTURE,
@@ -117,6 +118,12 @@ export function makeObservationSource(
           engineID: 'fixture.calendar-code',
           clock,
           startupFrame: CALENDAR_CODE_FIXTURE,
+        });
+      case 'wifi-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.wifi-code',
+          clock,
+          startupFrame: WIFI_CODE_FIXTURE,
         });
       default:
         break;

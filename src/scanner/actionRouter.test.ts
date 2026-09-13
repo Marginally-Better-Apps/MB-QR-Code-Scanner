@@ -14,9 +14,11 @@ function mockDeps() {
       openLocation: true,
       addContact: true,
       addEvent: true,
+      joinWifi: true,
     },
     presentContact: jest.fn(async () => 'saved' as const),
     presentEvent: jest.fn(async () => 'saved' as const),
+    joinWifi: jest.fn(async () => 'joined' as const),
   };
 }
 

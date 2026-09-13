@@ -29,6 +29,7 @@ export type QRContent =
       security: string;
       hasPassword: boolean;
       password: string | null;
+      hidden: boolean;
     }
   | {
       kind: 'contact';
@@ -337,7 +338,7 @@ function splitUnescaped(value: string, delimiter: string): string[] {
   return parts;
 }
 
-const WIFI_SECURITY = new Set(['WEP', 'WPA', 'WPA2', 'EAP', 'NOPASS', '']);
+const WIFI_SECURITY = new Set(['WEP', 'WPA', 'WPA2', 'WPA3', 'SAE', 'EAP', 'NOPASS', '']);
 
 function tryParseWifi(raw: string): QRContent | null {
   const trimmed = raw.trim();
@@ -356,6 +357,7 @@ function tryParseWifi(raw: string): QRContent | null {
   let security = 'nopass';
   let ssid: string | null = null;
   let password: string | null = null;
+  let hidden = false;
   let hasSecurity = false;
   for (const field of fields) {
     if (field === '') {
@@ -398,6 +400,8 @@ function tryParseWifi(raw: string): QRContent | null {
       ssid = unescapeWifiValue(value);
     } else if (key === 'P') {
       password = unescapeWifiValue(value);
+    } else if (key === 'H') {
+      hidden = /^(true|1|yes)$/i.test(unescapeWifiValue(value).trim());
     }
   }
   if (ssid == null) {
@@ -413,6 +417,7 @@ function tryParseWifi(raw: string): QRContent | null {
     security,
     hasPassword,
     password: hasPassword ? password : null,
+    hidden,
   };
 }
 

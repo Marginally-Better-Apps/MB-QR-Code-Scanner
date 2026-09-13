@@ -33,6 +33,7 @@ const PRIMARY_LABEL: Record<
   openLocation: 'openMap',
   addContact: 'addContact',
   addEvent: 'addEvent',
+  joinWifi: 'joinWifi',
 };
 
 const PRIMARY_SYMBOL = {
@@ -44,6 +45,7 @@ const PRIMARY_SYMBOL = {
   openLocation: 'map',
   addContact: 'person.crop.circle.badge.plus',
   addEvent: 'calendar.badge.plus',
+  joinWifi: 'wifi',
 } as const;
 
 export function StickyResultBar({
@@ -233,6 +235,36 @@ export function StickyResultBar({
         {view.location ? (
           <Text testID="sticky-result-event-location" numberOfLines={1} style={styles.path}>
             {view.location}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'wifi' ? (
+      <View style={styles.preview}>
+        <Text
+          testID="sticky-result-wifi-ssid"
+          accessibilityLabel={`${t('wifiNetwork')} ${view.ssid}`}
+          numberOfLines={1}
+          style={styles.host}>
+          {view.ssid}
+        </Text>
+        <Text testID="sticky-result-wifi-security" numberOfLines={1} style={styles.path}>
+          {view.security}
+        </Text>
+        {view.passwordMasked ? (
+          <Text
+            testID="sticky-result-wifi-password"
+            accessibilityLabel={t('wifiPasswordHidden')}
+            numberOfLines={1}
+            style={styles.path}>
+            {view.passwordMasked}
+          </Text>
+        ) : null}
+        {!primary ? (
+          <Text testID="sticky-result-wifi-unavailable" numberOfLines={1} style={styles.path}>
+            {t('wifiJoinUnavailable')}
           </Text>
         ) : null}
         <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
