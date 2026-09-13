@@ -2,15 +2,19 @@ appId: com.marginallybetter.qrscanner
 ---
 - launchApp:
     clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "acceptance-first"
 - assertVisible:
-    id: "open-history"
-- assertVisible: "Camera Unavailable"
+    id: "sticky-result-accessory"
+- assertVisible: "https://example.com/acceptance-first"
 - startRecording: smoke
 - tapOn:
     id: "open-history"
-- assertVisible: "Accepted scans appear here."
-- assertVisible: "Scan a QR code"
+- assertVisible: "example.com/acceptance-first.*"
 - tapOn:
     id: "history-back"
-- assertVisible: "Camera Unavailable"
+- assertVisible: "https://example.com/acceptance-first"
+- assertVisible:
+    id: "sticky-result-accessory"
 - stopRecording

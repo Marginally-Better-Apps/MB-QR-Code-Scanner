@@ -37,6 +37,8 @@ jobs:
         run: python3 scripts/test-write-autoloader-page.py
       - name: Test history storage policy
         run: python3 scripts/test-history-storage.py
+      - name: Test acceptance journey
+        run: python3 scripts/test-acceptance-journey.py
       - name: Test scanner and UI
         run: npm test
       - name: Typecheck
