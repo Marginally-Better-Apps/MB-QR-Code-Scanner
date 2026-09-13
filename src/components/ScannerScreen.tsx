@@ -11,6 +11,7 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'ex
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
+import { announceAcceptedScan } from '@/a11y/announceAcceptedScan';
 import {
   chromeContainerStyle,
   resolveChromeSurface,
@@ -70,6 +71,14 @@ export function ScannerScreen({
     );
     return () => clearTimeout(id);
   }, [isLiveForGuide, scanner.hasAcceptedScan]);
+
+  const stickyPayload = scanner.currentResult?.rawPayload ?? null;
+  useEffect(() => {
+    if (stickyPayload == null) {
+      return;
+    }
+    announceAcceptedScan(stickyPayload);
+  }, [stickyPayload]);
 
   const showCoaching = !scanner.hasAcceptedScan && !coachingExpired;
 
@@ -227,7 +236,9 @@ function ObservationHighlights({
     <View
       testID="scanner-observation-overlay"
       style={styles.overlay}
-      pointerEvents="box-none">
+      pointerEvents="box-none"
+      accessible={false}
+      importantForAccessibility="no">
       {observations.map((observation) => {
         const stableId = stableCandidateId(observation.rawPayload);
         return (
@@ -236,6 +247,8 @@ function ObservationHighlights({
             testID="scanner-observation-bounds"
             nativeID={stableId}
             pointerEvents="none"
+            accessible={false}
+            importantForAccessibility="no"
             style={[
               styles.bounds,
               {

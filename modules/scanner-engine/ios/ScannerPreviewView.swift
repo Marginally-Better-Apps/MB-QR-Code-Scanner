@@ -44,8 +44,9 @@ final class ScannerPreviewView: ExpoView, AVCaptureVideoDataOutputSampleBufferDe
     hostView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     addSubview(hostView)
 
-    isAccessibilityElement = true
-    accessibilityLabel = NSLocalizedString("Live camera scan area", comment: "")
+    // VoiceOver scan-area label lives on the RN live-scan-area wrapper so fixture
+    // and live paths share one announcement.
+    isAccessibilityElement = false
   }
 
   override func didMoveToWindow() {

@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 
+import { useChromePreferences } from '@/components/chromeAppearance';
 import { trailingEdge, type LayoutDirection } from '@/history/historySwipe';
 import { t } from '@/i18n';
 
@@ -25,6 +26,7 @@ export function HistorySwipeableRow({ direction, onDelete, children }: Props) {
   const edge = trailingEdge(direction);
   const tx = useRef(new Animated.Value(0)).current;
   const [opened, setOpened] = useState(false);
+  const { reduceMotion } = useChromePreferences();
 
   function restOffset(open: boolean): number {
     if (!open) {
@@ -35,8 +37,13 @@ export function HistorySwipeableRow({ direction, onDelete, children }: Props) {
 
   function animateTo(open: boolean) {
     setOpened(open);
+    const toValue = restOffset(open);
+    if (reduceMotion) {
+      tx.setValue(toValue);
+      return;
+    }
     Animated.spring(tx, {
-      toValue: restOffset(open),
+      toValue,
       useNativeDriver: true,
       bounciness: 0,
     }).start();
@@ -66,7 +73,15 @@ export function HistorySwipeableRow({ direction, onDelete, children }: Props) {
   ).current;
 
   return (
-    <View testID={`history-row-trailing-${edge}`} style={styles.clip}>
+    <View
+      testID={`history-row-trailing-${edge}`}
+      style={styles.clip}
+      accessibilityActions={[{ name: 'delete', label: t('historyDelete') }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'delete') {
+          onDelete();
+        }
+      }}>
       {opened ? (
         <View style={[styles.deleteWrap, edge === 'left' ? styles.deleteStart : styles.deleteEnd]}>
           <Pressable
@@ -75,7 +90,9 @@ export function HistorySwipeableRow({ direction, onDelete, children }: Props) {
             testID="history-row-delete"
             onPress={onDelete}
             style={styles.delete}>
-            <Text style={styles.deleteLabel}>{t('historyDelete')}</Text>
+            <Text style={styles.deleteLabel} maxFontSizeMultiplier={2.2}>
+              {t('historyDelete')}
+            </Text>
           </Pressable>
         </View>
       ) : null}
@@ -117,6 +134,7 @@ const styles = StyleSheet.create({
   },
   delete: {
     width: DELETE_WIDTH,
+    minHeight: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -132,6 +150,8 @@ const styles = StyleSheet.create({
     top: 4,
     width: 44,
     height: 44,
+    minWidth: 44,
+    minHeight: 44,
   },
   testHitRight: {
     right: 0,

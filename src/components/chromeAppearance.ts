@@ -10,6 +10,7 @@ export type ChromeTone = 'onMedia' | 'onCanvas';
 export type ChromePreferences = {
   reduceTransparency: boolean;
   increaseContrast: boolean;
+  reduceMotion: boolean;
 };
 
 export type ChromeSurfaceKind = 'liquidGlass' | 'semanticOpaque';
@@ -53,7 +54,7 @@ export function resolveChromeSurface(input: ResolveChromeSurfaceInput): ChromeSu
       backgroundColor: 'transparent',
       borderWidth: 0,
       borderColor: 'transparent',
-      contentColor: '#ffffff',
+      contentColor: '#fff',
       secondaryContentColor: 'rgba(255,255,255,0.75)',
     };
   }
@@ -65,7 +66,7 @@ export function resolveChromeSurface(input: ResolveChromeSurfaceInput): ChromeSu
         backgroundColor: '#000000',
         borderWidth: 2,
         borderColor: '#ffffff',
-        contentColor: '#ffffff',
+        contentColor: '#fff',
         secondaryContentColor: '#ffffff',
       };
     }
@@ -74,7 +75,7 @@ export function resolveChromeSurface(input: ResolveChromeSurfaceInput): ChromeSu
       backgroundColor: '#1c1c1e',
       borderWidth: 0,
       borderColor: 'transparent',
-      contentColor: '#ffffff',
+      contentColor: '#fff',
       secondaryContentColor: '#ebebf5',
     };
   }
@@ -111,18 +112,22 @@ export function chromeContainerStyle(surface: ChromeSurface): ViewStyle {
 export function useChromePreferences(): ChromePreferences {
   const [reduceTransparency, setReduceTransparency] = useState(false);
   const [increaseContrast, setIncreaseContrast] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
     let mounted = true;
 
-    const readReduce = () => {
+    const readBool = (
+      queryFn: (() => boolean | Promise<boolean>) | undefined,
+      setValue: (value: boolean) => void,
+    ) => {
       try {
-        const query = AccessibilityInfo.isReduceTransparencyEnabled?.();
+        const query = queryFn?.();
         if (query && typeof (query as Promise<boolean>).then === 'function') {
           void (query as Promise<boolean>)
             .then((enabled) => {
               if (mounted) {
-                setReduceTransparency(enabled === true);
+                setValue(enabled === true);
               }
             })
             .catch(() => {});
@@ -132,25 +137,9 @@ export function useChromePreferences(): ChromePreferences {
       }
     };
 
-    const readContrast = () => {
-      try {
-        const query = AccessibilityInfo.isDarkerSystemColorsEnabled?.();
-        if (query && typeof (query as Promise<boolean>).then === 'function') {
-          void (query as Promise<boolean>)
-            .then((enabled) => {
-              if (mounted) {
-                setIncreaseContrast(enabled === true);
-              }
-            })
-            .catch(() => {});
-        }
-      } catch {
-        // Keep the default.
-      }
-    };
-
-    readReduce();
-    readContrast();
+    readBool(AccessibilityInfo.isReduceTransparencyEnabled, setReduceTransparency);
+    readBool(AccessibilityInfo.isDarkerSystemColorsEnabled, setIncreaseContrast);
+    readBool(AccessibilityInfo.isReduceMotionEnabled, setReduceMotion);
 
     const subscriptions: Array<{ remove?: () => void } | undefined> = [];
     try {
@@ -173,6 +162,16 @@ export function useChromePreferences(): ChromePreferences {
     } catch {
       // Ignore missing listeners in tests/older runtimes.
     }
+    try {
+      subscriptions.push(
+        AccessibilityInfo.addEventListener?.(
+          'reduceMotionChanged',
+          setReduceMotion,
+        ),
+      );
+    } catch {
+      // Ignore missing listeners in tests/older runtimes.
+    }
 
     return () => {
       mounted = false;
@@ -186,7 +185,7 @@ export function useChromePreferences(): ChromePreferences {
     };
   }, []);
 
-  return { reduceTransparency, increaseContrast };
+  return { reduceTransparency, increaseContrast, reduceMotion };
 }
 
 /** True when this process should render expo-glass-effect GlassView. */

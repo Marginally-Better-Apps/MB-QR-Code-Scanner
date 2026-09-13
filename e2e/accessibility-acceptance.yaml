@@ -1,0 +1,20 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "single-code"
+- assertVisible: "example.com"
+- assertVisible:
+    id: "sticky-result-open"
+- assertVisible:
+    id: "sticky-result-copy"
+- assertVisible:
+    id: "sticky-result-clear"
+- startRecording: accessibility-acceptance
+- tapOn:
+    id: "sticky-result-expand"
+- assertVisible:
+    id: "sticky-result-detail"
+- stopRecording

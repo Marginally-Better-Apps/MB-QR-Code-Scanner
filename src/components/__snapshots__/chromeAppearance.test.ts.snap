@@ -14,7 +14,7 @@ exports[`chrome appearance (QLT-01) Increase Contrast keeps hierarchy with high-
     "backgroundColor": "#000000",
     "borderColor": "#ffffff",
     "borderWidth": 2,
-    "contentColor": "#ffffff",
+    "contentColor": "#fff",
     "kind": "semanticOpaque",
     "secondaryContentColor": "#ffffff",
   },
@@ -26,7 +26,7 @@ exports[`chrome appearance (QLT-01) Reduced Transparency replaces Liquid Glass w
   "backgroundColor": "#1c1c1e",
   "borderColor": "transparent",
   "borderWidth": 0,
-  "contentColor": "#ffffff",
+  "contentColor": "#fff",
   "kind": "semanticOpaque",
   "secondaryContentColor": "#ebebf5",
 }
@@ -37,7 +37,7 @@ exports[`chrome appearance (QLT-01) current OS uses Liquid Glass when available 
   "backgroundColor": "transparent",
   "borderColor": "transparent",
   "borderWidth": 0,
-  "contentColor": "#ffffff",
+  "contentColor": "#fff",
   "kind": "liquidGlass",
   "secondaryContentColor": "rgba(255,255,255,0.75)",
 }
@@ -48,7 +48,7 @@ exports[`chrome appearance (QLT-01) fallback without Liquid Glass uses opaque se
   "backgroundColor": "#1c1c1e",
   "borderColor": "transparent",
   "borderWidth": 0,
-  "contentColor": "#ffffff",
+  "contentColor": "#fff",
   "kind": "semanticOpaque",
   "secondaryContentColor": "#ebebf5",
 }

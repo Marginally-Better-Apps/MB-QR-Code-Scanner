@@ -62,6 +62,7 @@ describe('Liquid Glass surfaces (QLT-01)', () => {
     (isLiquidGlassAvailable as jest.Mock).mockReturnValue(false);
     jest.spyOn(AccessibilityInfo, 'isReduceTransparencyEnabled').mockResolvedValue(false);
     jest.spyOn(AccessibilityInfo, 'isDarkerSystemColorsEnabled').mockResolvedValue(false);
+    jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -75,9 +76,7 @@ describe('Liquid Glass surfaces (QLT-01)', () => {
       <StickyResultBar payload="https://example.com/glass" onClear={() => {}} />,
     );
     await waitFor(() => {
-      expect(screen.getByTestId('sticky-result-accessory').props.accessibilityHint).toBe(
-        'liquidGlass',
-      );
+      expect(screen.getByTestId('chrome-surface-liquidGlass')).toBeTruthy();
     });
     expect(screen.getByTestId('sticky-result-accessory').props.colorScheme).toBe('dark');
     expect(StyleSheet.flatten(screen.getByTestId('sticky-result-host').props.style).color).toBe(
@@ -90,9 +89,7 @@ describe('Liquid Glass surfaces (QLT-01)', () => {
       <StickyResultBar payload="https://example.com/fallback" onClear={() => {}} />,
     );
     await waitFor(() => {
-      expect(screen.getByTestId('sticky-result-accessory').props.accessibilityHint).toBe(
-        'semanticOpaque',
-      );
+      expect(screen.getByTestId('chrome-surface-semanticOpaque')).toBeTruthy();
     });
     const style = StyleSheet.flatten(screen.getByTestId('sticky-result-accessory').props.style);
     expect(style.backgroundColor).toBe('#1c1c1e');
@@ -107,9 +104,7 @@ describe('Liquid Glass surfaces (QLT-01)', () => {
       <StickyResultBar payload="https://example.com/reduce" onClear={() => {}} />,
     );
     await waitFor(() => {
-      expect(screen.getByTestId('sticky-result-accessory').props.accessibilityHint).toBe(
-        'semanticOpaque',
-      );
+      expect(screen.getByTestId('chrome-surface-semanticOpaque')).toBeTruthy();
     });
     expect(screen.getByTestId('sticky-result-accessory').props.colorScheme).toBeUndefined();
     expect(
@@ -157,22 +152,19 @@ describe('Liquid Glass surfaces (QLT-01)', () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByTestId('multi-code-chooser').props.accessibilityHint).toBe(
-        'liquidGlass',
-      );
+      expect(screen.getByTestId('chrome-surface-liquidGlass')).toBeTruthy();
     });
   });
 
-  test('history control reports chrome kind for accessibility diagnostics', async () => {
+  test('history control marks Liquid Glass chrome without speaking the kind', async () => {
     (isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(true);
     (isLiquidGlassAvailable as jest.Mock).mockReturnValue(true);
     const { store } = stickySession();
     await store.activateScanner();
     render(<ScannerScreen session={store} engine="visionkit" />);
     await waitFor(() => {
-      expect(screen.getByTestId('open-history-chrome').props.accessibilityLabel).toBe(
-        'liquidGlass',
-      );
+      expect(screen.getByTestId('open-history-chrome-liquidGlass')).toBeTruthy();
     });
+    expect(screen.getByLabelText('History')).toBeTruthy();
   });
 });

@@ -22,9 +22,21 @@ export function UnavailableState({
   const dark = useColorScheme() === 'dark';
 
   return (
-    <View style={styles.container} testID="unavailable-state">
-      <Text style={[styles.title, dark && styles.lightText]}>{t(title)}</Text>
-      <Text style={[styles.description, dark && styles.lightText]}>{t(description)}</Text>
+    <View
+      style={styles.container}
+      testID="unavailable-state"
+      accessible
+      accessibilityRole="summary"
+      accessibilityLabel={`${t(title)}. ${t(description)}`}>
+      <Text
+        accessibilityRole="header"
+        style={[styles.title, dark && styles.lightText]}
+        maxFontSizeMultiplier={2.2}>
+        {t(title)}
+      </Text>
+      <Text style={[styles.description, dark && styles.lightText]} maxFontSizeMultiplier={2.2}>
+        {t(description)}
+      </Text>
       {actionTitle && onAction ? (
         <GlassControl
           accessibilityLabel={t(actionTitle)}
@@ -33,7 +45,9 @@ export function UnavailableState({
           shape="pill"
           tone={dark ? 'onMedia' : 'onCanvas'}
           style={styles.action}>
-          <Text style={[styles.buttonLabel, dark && styles.lightText]}>{t(actionTitle)}</Text>
+          <Text style={[styles.buttonLabel, dark && styles.lightText]} maxFontSizeMultiplier={2.2}>
+            {t(actionTitle)}
+          </Text>
         </GlassControl>
       ) : null}
     </View>
