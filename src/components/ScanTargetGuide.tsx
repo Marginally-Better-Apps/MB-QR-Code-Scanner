@@ -1,18 +1,26 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { COMPACT_GUIDE_SIZE } from '@/components/adaptiveLayout';
 import { t } from '@/i18n';
 
 type Props = {
   showCoaching: boolean;
   highContrast?: boolean;
+  /** Outer guide box size in points. Capped by adaptive layout for iPad. */
+  guideSize?: number;
 };
 
-export const CENTER_SCAN_GUIDE_SIZE = 200;
+export const CENTER_SCAN_GUIDE_SIZE = COMPACT_GUIDE_SIZE;
 export const CENTER_SCAN_CORNER_LENGTH = 36;
 
-export function ScanTargetGuide({ showCoaching, highContrast = false }: Props) {
+export function ScanTargetGuide({
+  showCoaching,
+  highContrast = false,
+  guideSize = CENTER_SCAN_GUIDE_SIZE,
+}: Props) {
   const borderWidth = highContrast ? 5 : 3;
   const borderColor = highContrast ? '#ffffff' : 'rgba(255,255,255,0.92)';
+  const size = Math.min(240, Math.max(160, guideSize));
 
   const baseCorner = {
     borderColor,
@@ -29,7 +37,11 @@ export function ScanTargetGuide({ showCoaching, highContrast = false }: Props) {
       accessible={false}
       pointerEvents="box-none"
       style={styles.container}>
-      <View accessible={false} pointerEvents="none" style={styles.box}>
+      <View
+        accessible={false}
+        pointerEvents="none"
+        testID="center-scan-guide-box"
+        style={[styles.box, { width: size, height: size }]}>
         <View
           testID="center-scan-corner-tl"
           accessible={false}

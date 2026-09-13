@@ -41,12 +41,13 @@ const NativeView = (() => {
 
 export function ScannerPreview({ engine, running, imageFixture, onReady }: Props) {
   if (!NativeView) {
-    return <View style={styles.fill} />;
+    return <View testID="scanner-preview" style={styles.fill} />;
   }
 
   return (
     <NativeView
       collapsable={false}
+      testID="scanner-preview"
       style={styles.fill}
       engine={engine}
       running={running}

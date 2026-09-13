@@ -501,6 +501,12 @@ export function StickyResultBar({
       <GlassView
         testID="sticky-result-accessory"
         accessibilityLabel={t('scanResult')}
+        accessibilityActions={[{ name: 'escape', label: t('clear') }]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === 'escape') {
+            onClear();
+          }
+        }}
         style={styles.bar}
         glassEffectStyle="regular"
         colorScheme="dark"
@@ -520,6 +526,12 @@ export function StickyResultBar({
     <View
       testID="sticky-result-accessory"
       accessibilityLabel={t('scanResult')}
+      accessibilityActions={[{ name: 'escape', label: t('clear') }]}
+      onAccessibilityAction={(event) => {
+        if (event.nativeEvent.actionName === 'escape') {
+          onClear();
+        }
+      }}
       style={[styles.bar, chromeContainerStyle(surface)]}>
       <View
         testID={`chrome-surface-${surface.kind}`}

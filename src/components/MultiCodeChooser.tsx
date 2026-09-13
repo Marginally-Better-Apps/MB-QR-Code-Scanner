@@ -14,6 +14,8 @@ import type { ScoredMultiCodeCandidate } from '@/scanner/multiCode';
 type Props = {
   candidates: ScoredMultiCodeCandidate[];
   onSelect: (candidateId: string) => void;
+  /** Hardware-keyboard Escape / accessibility escape collapses the chooser. */
+  onDismiss?: () => void;
 };
 
 function spatialOrder(a: ScoredMultiCodeCandidate, b: ScoredMultiCodeCandidate): number {
@@ -23,7 +25,7 @@ function spatialOrder(a: ScoredMultiCodeCandidate, b: ScoredMultiCodeCandidate):
   return a.bounds.x - b.bounds.x;
 }
 
-export function MultiCodeChooser({ candidates, onSelect }: Props) {
+export function MultiCodeChooser({ candidates, onSelect, onDismiss }: Props) {
   const ordered = useMemo(() => [...candidates].sort(spatialOrder), [candidates]);
   const prefs = useChromePreferences();
   const surface = resolveChromeSurface({
@@ -38,6 +40,18 @@ export function MultiCodeChooser({ candidates, onSelect }: Props) {
       testID="multi-code-chooser"
       accessibilityLabel={t('selectCode')}
       accessibilityRole="list"
+      accessibilityActions={
+        onDismiss ? [{ name: 'escape', label: t('dismiss') }] : undefined
+      }
+      onAccessibilityAction={
+        onDismiss
+          ? (event) => {
+              if (event.nativeEvent.actionName === 'escape') {
+                onDismiss();
+              }
+            }
+          : undefined
+      }
       style={[styles.list, !glass && chromeContainerStyle(surface)]}>
       <View
         testID={`chrome-surface-${surface.kind}`}

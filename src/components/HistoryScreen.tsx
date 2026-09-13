@@ -16,6 +16,7 @@ import { SymbolView } from 'expo-symbols';
 import { GlassControl } from '@/components/GlassControl';
 import { HistorySwipeableRow } from '@/components/HistorySwipeableRow';
 import { StickyResultBar } from '@/components/StickyResultBar';
+import { useAdaptiveLayout } from '@/components/adaptiveLayout';
 import { groupHistoryEvents } from '@/history/historyGrouping';
 import { presentHistoryRow } from '@/history/historyRowPresentation';
 import type { StoredHistoryEvent } from '@/history/historyPolicy';
@@ -67,6 +68,8 @@ export function HistoryScreen({
     timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
   const resolvedNow = now ?? new Date();
   const resolvedDirection = direction ?? layoutDirection(I18nManager.isRTL);
+  const adaptive = useAdaptiveLayout();
+  const wideHistory = adaptive.horizontalSizeClass === 'regular';
   const [selected, setSelected] = useState<StoredHistoryEvent | null>(null);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   const [restoredEvents, setRestoredEvents] = useState<StoredHistoryEvent[]>([]);
@@ -194,6 +197,105 @@ export function HistoryScreen({
   const clearLabel =
     visibleCount === 1 ? t('historyClearCountOne') : t('historyClearCount', { count: visibleCount });
 
+  function renderHistoryRow(item: StoredHistoryEvent) {
+    const row = presentHistoryRow(item, {
+      locale: resolvedLocale,
+      timeZone: resolvedTimeZone,
+      redactedTitle: t('historyRedactedTitle'),
+      wifiTitle: t('historyWifiTitle'),
+    });
+    return (
+      <HistorySwipeableRow direction={resolvedDirection} onDelete={() => handleDelete(item)}>
+        <Pressable
+          testID="history-row"
+          accessibilityRole="button"
+          accessibilityLabel={`${row.title}, ${row.timeLabel}`}
+          onPress={() => setSelected(item)}
+          style={[styles.row, dark && styles.rowDark]}>
+          <View style={[styles.iconWell, dark && styles.iconWellDark]}>
+            <SymbolView
+              name={row.symbol as 'qrcode'}
+              size={18}
+              tintColor={dark ? '#fff' : '#000'}
+              pointerEvents="none"
+            />
+          </View>
+          <Text style={[styles.rowTitle, textColor]} numberOfLines={1}>
+            {row.title}
+          </Text>
+          <Text style={[styles.rowTime, textColor]}>{row.timeLabel}</Text>
+        </Pressable>
+      </HistorySwipeableRow>
+    );
+  }
+
+  const listHeader = (
+    <View style={styles.listHeader}>
+      <Text style={[styles.title, styles.listTitle, textColor]}>{t('history')}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={clearLabel}
+        testID="history-clear"
+        onPress={handleClearRequest}
+        style={styles.clearButton}>
+        <Text style={[styles.clearLabel, textColor]}>{clearLabel}</Text>
+      </Pressable>
+    </View>
+  );
+
+  const listContentStyle = [
+    styles.listContent,
+    wideHistory && styles.wideListContent,
+    { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 24 },
+  ];
+
+  const listBody = wideHistory ? (
+    <GestureScrollView
+      testID="history-list"
+      contentContainerStyle={listContentStyle}>
+      {listHeader}
+      {sections.map((section) => (
+        <View key={section.key}>
+          <Text
+            testID="history-section-header"
+            style={[styles.sectionHeader, dark && styles.sectionHeaderDark]}>
+            {section.title}
+          </Text>
+          <View testID="history-grid" style={styles.grid}>
+            {section.events.map((item) => (
+              <View key={item.id} testID="history-grid-cell" style={styles.gridCell}>
+                {renderHistoryRow(item)}
+              </View>
+            ))}
+          </View>
+        </View>
+      ))}
+    </GestureScrollView>
+  ) : (
+    <SectionList
+      testID="history-list"
+      initialNumToRender={20}
+      stickySectionHeadersEnabled={false}
+      renderScrollComponent={(props) => <GestureScrollView {...props} />}
+      sections={sections.map((section) => ({
+        title: section.title,
+        key: section.key,
+        data: section.events,
+      }))}
+      keyExtractor={(item) => item.id}
+      contentContainerStyle={listContentStyle}
+      ListHeaderComponent={listHeader}
+      renderSectionHeader={({ section }) => (
+        <Text
+          testID="history-section-header"
+          style={[styles.sectionHeader, dark && styles.sectionHeaderDark]}>
+          {section.title}
+        </Text>
+      )}
+      renderItem={({ item }) => renderHistoryRow(item)}
+    />
+  );
+
   return (
     <View style={[styles.container, dark && styles.darkContainer]}>
       <GlassControl
@@ -213,6 +315,12 @@ export function HistoryScreen({
       {selected && replay && selectedTime && selectedRow ? (
         <View
           testID="history-detail"
+          accessibilityActions={[{ name: 'escape', label: t('back') }]}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'escape') {
+              setSelected(null);
+            }
+          }}
           style={[
             styles.detail,
             { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 24 },
@@ -258,75 +366,7 @@ export function HistoryScreen({
           </Pressable>
         </View>
       ) : (
-        <SectionList
-          testID="history-list"
-          initialNumToRender={20}
-          stickySectionHeadersEnabled={false}
-          renderScrollComponent={(props) => <GestureScrollView {...props} />}
-          sections={sections.map((section) => ({
-            title: section.title,
-            key: section.key,
-            data: section.events,
-          }))}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 24 },
-          ]}
-          ListHeaderComponent={
-            <View style={styles.listHeader}>
-              <Text style={[styles.title, styles.listTitle, textColor]}>{t('history')}</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={clearLabel}
-                testID="history-clear"
-                onPress={handleClearRequest}
-                style={styles.clearButton}>
-                <Text style={[styles.clearLabel, textColor]}>{clearLabel}</Text>
-              </Pressable>
-            </View>
-          }
-          renderSectionHeader={({ section }) => (
-            <Text
-              testID="history-section-header"
-              style={[styles.sectionHeader, dark && styles.sectionHeaderDark]}>
-              {section.title}
-            </Text>
-          )}
-          renderItem={({ item }) => {
-            const row = presentHistoryRow(item, {
-              locale: resolvedLocale,
-              timeZone: resolvedTimeZone,
-              redactedTitle: t('historyRedactedTitle'),
-              wifiTitle: t('historyWifiTitle'),
-            });
-            return (
-              <HistorySwipeableRow
-                direction={resolvedDirection}
-                onDelete={() => handleDelete(item)}>
-                <Pressable
-                  testID="history-row"
-                  accessibilityRole="button"
-                  accessibilityLabel={`${row.title}, ${row.timeLabel}`}
-                  onPress={() => setSelected(item)}
-                  style={[styles.row, dark && styles.rowDark]}>
-                  <View style={[styles.iconWell, dark && styles.iconWellDark]}>
-                    <SymbolView
-                      name={row.symbol as 'qrcode'}
-                      size={18}
-                      tintColor={dark ? '#fff' : '#000'}
-                      pointerEvents="none"
-                    />
-                  </View>
-                  <Text style={[styles.rowTitle, textColor]} numberOfLines={1}>
-                    {row.title}
-                  </Text>
-                  <Text style={[styles.rowTime, textColor]}>{row.timeLabel}</Text>
-                </Pressable>
-              </HistorySwipeableRow>
-            );
-          }}
-        />
+        listBody
       )}
       {pendingUndo ? (
         <View
@@ -422,6 +462,20 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 16,
+  },
+  wideListContent: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -4,
+  },
+  gridCell: {
+    width: '50%',
+    paddingHorizontal: 4,
   },
   sectionHeader: {
     fontSize: 13,
