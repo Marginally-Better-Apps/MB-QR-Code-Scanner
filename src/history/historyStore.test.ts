@@ -152,6 +152,88 @@ describe('history store (HIS-01)', () => {
     await fs.rm(directory, { recursive: true, force: true });
   });
 
+  test('delete removes one event and a relaunch fetch no longer includes it', async () => {
+    const directory = await makeTempDir();
+    const fileIO = nodeHistoryFileIO(fs);
+
+    const store = await HistoryStore.open({ fileIO, directory });
+    const first = await store.recordAccepted(parseQRPayload(URL_RAW), at(0));
+    const second = await store.recordAccepted(
+      parseQRPayload('https://example.com/keep'),
+      at(1000),
+    );
+
+    await store.delete(first.id);
+    const remaining = await store.list();
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]).toEqual(second);
+    expect(remaining.map((event) => event.id)).not.toContain(first.id);
+
+    const relaunched = await HistoryStore.open({ fileIO, directory });
+    const afterRelaunch = await relaunched.list();
+    expect(afterRelaunch).toHaveLength(1);
+    expect(afterRelaunch[0]).toEqual(second);
+    expect(afterRelaunch.map((event) => event.id)).not.toContain(first.id);
+
+    await fs.rm(directory, { recursive: true, force: true });
+  });
+
+  test('delete of a missing id is a no-op and leaves other events intact', async () => {
+    const store = await HistoryStore.open({
+      fileIO: new InMemoryHistoryFileIO(),
+      directory: '/tmp/history-test',
+    });
+    const kept = await store.recordAccepted(parseQRPayload(URL_RAW), at(0));
+
+    await expect(store.delete('missing-id')).resolves.toBeUndefined();
+    await expect(store.list()).resolves.toEqual([kept]);
+  });
+
+  test('restore inserts the exact deleted event including id and acceptedAt', async () => {
+    const directory = await makeTempDir();
+    const fileIO = nodeHistoryFileIO(fs);
+
+    const store = await HistoryStore.open({ fileIO, directory });
+    const older = await store.recordAccepted(
+      parseQRPayload('https://example.com/older'),
+      at(0),
+    );
+    const deleted = await store.recordAccepted(parseQRPayload(URL_RAW), at(1000));
+    const newer = await store.recordAccepted(
+      parseQRPayload('https://example.com/newer'),
+      at(2000),
+    );
+
+    await store.delete(deleted.id);
+    await store.restore(deleted);
+
+    const restored = await store.list();
+    expect(restored).toEqual([newer, deleted, older]);
+    expect(restored[1]).toEqual({
+      id: deleted.id,
+      acceptedAt: deleted.acceptedAt,
+      kind: deleted.kind,
+      summary: deleted.summary,
+      original: deleted.original,
+      parserVersion: deleted.parserVersion,
+    });
+
+    const relaunched = await HistoryStore.open({ fileIO, directory });
+    await expect(relaunched.list()).resolves.toEqual([newer, deleted, older]);
+
+    await fs.rm(directory, { recursive: true, force: true });
+  });
+
+  test('restore of an already present id is a no-op', async () => {
+    const store = await HistoryStore.open({
+      fileIO: new InMemoryHistoryFileIO(),
+      directory: '/tmp/history-test',
+    });
+    const event = await store.recordAccepted(parseQRPayload(URL_RAW), at(0));
+    await store.restore({ ...event, summary: 'should-not-replace' });
+    await expect(store.list()).resolves.toEqual([event]);
+  });
+
   test('recording and fetching perform no network i/o', async () => {
     const fetchSpy = jest.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('no net'));
     try {

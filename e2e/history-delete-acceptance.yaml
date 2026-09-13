@@ -1,0 +1,55 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      historyFixture: "grouped"
+- tapOn:
+    id: "open-history"
+- assertVisible: "example.com/today.*"
+- assertVisible: "Clear 6 scans"
+- tapOn:
+    id: "history-back"
+- assertVisible:
+    id: "open-history"
+- startRecording: history-delete-acceptance
+- launchApp:
+    clearState: false
+    arguments:
+      cameraFixture: "authorized"
+- tapOn:
+    id: "open-history"
+- assertVisible: "example.com/today.*"
+- swipe:
+    from:
+      text: "example.com/today.*"
+    direction: LEFT
+    duration: 600
+- tapOn:
+    id: "history-row-delete"
+    optional: true
+- tapOn:
+    text: "Delete"
+    optional: true
+- tapOn:
+    id: "history-row-swipe-full"
+    optional: true
+- assertVisible:
+    id: "history-undo"
+- tapOn:
+    id: "history-undo"
+- extendedWaitUntil:
+    visible: "example.com/today.*"
+    timeout: 8000
+- tapOn:
+    id: "history-clear"
+- tapOn: "Cancel"
+- assertVisible: "example.com/today.*"
+- tapOn:
+    id: "history-clear"
+- tapOn: "Clear All"
+- extendedWaitUntil:
+    visible: "Accepted scans appear here."
+    timeout: 8000
+- stopRecording
