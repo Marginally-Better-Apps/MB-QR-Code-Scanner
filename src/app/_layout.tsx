@@ -5,6 +5,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AppProvider, TabPresentationSync } from '@/state/AppProvider';
 
+/**
+ * Root chrome stays on the system Stack from expo-router / react-native-screens.
+ * Floating camera overlays own the only custom Liquid Glass surfaces.
+ */
 export default function RootLayout() {
   const scheme = useColorScheme();
   return (

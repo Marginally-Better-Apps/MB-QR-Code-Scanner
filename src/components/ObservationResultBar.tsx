@@ -4,6 +4,11 @@ import { SymbolView } from 'expo-symbols';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import {
+  chromeContainerStyle,
+  resolveChromeSurface,
+  useChromePreferences,
+} from '@/components/chromeAppearance';
 import { t } from '@/i18n';
 
 type Props = {
@@ -12,7 +17,13 @@ type Props = {
 
 export function ObservationResultBar({ payload }: Props) {
   const [didCopy, setDidCopy] = useState(false);
-  const glass = isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+  const prefs = useChromePreferences();
+  const surface = resolveChromeSurface({
+    ...prefs,
+    tone: 'onMedia',
+    liquidGlassAvailable: isGlassEffectAPIAvailable() && isLiquidGlassAvailable(),
+  });
+  const glass = surface.kind === 'liquidGlass';
 
   async function copyPayload() {
     await Clipboard.setStringAsync(payload);
@@ -51,6 +62,7 @@ export function ObservationResultBar({ payload }: Props) {
     return (
       <GlassView
         testID="scanner-observation-bar"
+        accessibilityHint={surface.kind}
         style={styles.bar}
         glassEffectStyle="regular"
         colorScheme="dark"
@@ -61,7 +73,10 @@ export function ObservationResultBar({ payload }: Props) {
   }
 
   return (
-    <View testID="scanner-observation-bar" style={[styles.bar, styles.fallback]}>
+    <View
+      testID="scanner-observation-bar"
+      accessibilityHint={surface.kind}
+      style={[styles.bar, chromeContainerStyle(surface)]}>
       {body}
     </View>
   );
@@ -72,9 +87,6 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 12,
     overflow: 'hidden',
-  },
-  fallback: {
-    backgroundColor: 'rgba(28,28,30,0.88)',
   },
   row: {
     flex: 1,

@@ -3,6 +3,11 @@ import { SymbolView } from 'expo-symbols';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import {
+  chromeContainerStyle,
+  resolveChromeSurface,
+  useChromePreferences,
+} from '@/components/chromeAppearance';
 import { t, type MessageKey } from '@/i18n';
 import {
   defaultResultActionDeps,
@@ -59,7 +64,13 @@ export function StickyResultBar({
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [didCopy, setDidCopy] = useState(false);
-  const glass = isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+  const prefs = useChromePreferences();
+  const surface = resolveChromeSurface({
+    ...prefs,
+    tone: 'onMedia',
+    liquidGlassAvailable: isGlassEffectAPIAvailable() && isLiquidGlassAvailable(),
+  });
+  const glass = surface.kind === 'liquidGlass';
 
   const parsed = useMemo(() => parseQRPayload(payload), [payload]);
   const view = useMemo(() => describeResultForDisplay(parsed), [parsed]);
@@ -444,6 +455,7 @@ export function StickyResultBar({
       <GlassView
         testID="sticky-result-accessory"
         accessibilityLabel={t('scanResult')}
+        accessibilityHint={surface.kind}
         style={styles.bar}
         glassEffectStyle="regular"
         colorScheme="dark"
@@ -457,7 +469,8 @@ export function StickyResultBar({
     <View
       testID="sticky-result-accessory"
       accessibilityLabel={t('scanResult')}
-      style={[styles.bar, styles.fallback]}>
+      accessibilityHint={surface.kind}
+      style={[styles.bar, chromeContainerStyle(surface)]}>
       {body}
     </View>
   );
@@ -468,9 +481,6 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: 12,
     overflow: 'hidden',
-  },
-  fallback: {
-    backgroundColor: 'rgba(28,28,30,0.88)',
   },
   row: {
     minHeight: 44,

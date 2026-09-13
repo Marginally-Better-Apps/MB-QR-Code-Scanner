@@ -1,0 +1,55 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`chrome appearance (QLT-01) Increase Contrast keeps hierarchy with high-contrast borders and fills: increased-contrast 1`] = `
+{
+  "canvas": {
+    "backgroundColor": "#ffffff",
+    "borderColor": "#000000",
+    "borderWidth": 2,
+    "contentColor": "#000000",
+    "kind": "semanticOpaque",
+    "secondaryContentColor": "#000000",
+  },
+  "media": {
+    "backgroundColor": "#000000",
+    "borderColor": "#ffffff",
+    "borderWidth": 2,
+    "contentColor": "#ffffff",
+    "kind": "semanticOpaque",
+    "secondaryContentColor": "#ffffff",
+  },
+}
+`;
+
+exports[`chrome appearance (QLT-01) Reduced Transparency replaces Liquid Glass with an opaque semantic surface: reduced-transparency 1`] = `
+{
+  "backgroundColor": "#1c1c1e",
+  "borderColor": "transparent",
+  "borderWidth": 0,
+  "contentColor": "#ffffff",
+  "kind": "semanticOpaque",
+  "secondaryContentColor": "#ebebf5",
+}
+`;
+
+exports[`chrome appearance (QLT-01) current OS uses Liquid Glass when available and transparency is allowed: current-liquid-glass 1`] = `
+{
+  "backgroundColor": "transparent",
+  "borderColor": "transparent",
+  "borderWidth": 0,
+  "contentColor": "#ffffff",
+  "kind": "liquidGlass",
+  "secondaryContentColor": "rgba(255,255,255,0.75)",
+}
+`;
+
+exports[`chrome appearance (QLT-01) fallback without Liquid Glass uses opaque semantic fills, not translucent fake glass: fallback-semantic-opaque 1`] = `
+{
+  "backgroundColor": "#1c1c1e",
+  "borderColor": "transparent",
+  "borderWidth": 0,
+  "contentColor": "#ffffff",
+  "kind": "semanticOpaque",
+  "secondaryContentColor": "#ebebf5",
+}
+`;
