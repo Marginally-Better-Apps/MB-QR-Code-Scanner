@@ -9,6 +9,7 @@ import {
   View,
   useColorScheme,
 } from 'react-native';
+import { ScrollView as GestureScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
@@ -252,6 +253,7 @@ export function HistoryScreen({
           testID="history-list"
           initialNumToRender={20}
           stickySectionHeadersEnabled={false}
+          renderScrollComponent={(props) => <GestureScrollView {...props} />}
           sections={sections.map((section) => ({
             title: section.title,
             key: section.key,

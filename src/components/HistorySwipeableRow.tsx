@@ -38,6 +38,7 @@ export function HistorySwipeableRow({ direction, onDelete, children }: Props) {
       }}
       overshootRight={edge === 'right'}
       overshootLeft={edge === 'left'}
+      failOffsetY={[-24, 24]}
       childrenContainerStyle={{ direction }}>
       {children}
     </Swipeable>
