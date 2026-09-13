@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AppState as RNAppState } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 
@@ -6,10 +6,11 @@ import { bootstrapApp, type BootstrapResult } from '@/scanner/bootstrap';
 import { openProductionHistoryStore } from '@/history/historyExpoFileIO';
 import { hydrateHistoryForSession } from '@/history/historyHydration';
 import type { StoredHistoryEvent } from '@/history/historyPolicy';
+import type { HistoryStore } from '@/history/historyStore';
 import { setLocale } from '@/i18n';
 import * as Localization from 'expo-localization';
 
-import { HistoryEventsProvider } from './historyEvents';
+import { HistoryEventsProvider, type HistoryActions } from './historyEvents';
 
 const AppContext = createContext<BootstrapResult | null>(null);
 
@@ -25,8 +26,38 @@ export function AppProvider({
     [bootstrap],
   );
   const [historyEvents, setHistoryEvents] = useState<StoredHistoryEvent[]>([]);
+  const historyStoreRef = useRef<HistoryStore | null>(null);
 
   setLocale(Localization.getLocales()[0]?.languageTag ?? 'en');
+
+  const refreshHistory = useCallback(async () => {
+    const store = historyStoreRef.current;
+    if (store == null) {
+      return;
+    }
+    setHistoryEvents(await store.list());
+  }, []);
+
+  const historyActions = useMemo<HistoryActions>(
+    () => ({
+      deleteEvent: async (id) => {
+        await historyStoreRef.current?.delete(id);
+        await refreshHistory();
+      },
+      restoreEvent: async (event) => {
+        try {
+          await historyStoreRef.current?.restore(event);
+        } finally {
+          await refreshHistory();
+        }
+      },
+      clearEvents: async () => {
+        await historyStoreRef.current?.clear();
+        await refreshHistory();
+      },
+    }),
+    [refreshHistory],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +69,7 @@ export function AppProvider({
           return;
         }
         if (store != null) {
+          historyStoreRef.current = store;
           await hydrateHistoryForSession({
             store,
             session: value.appState.scannerSession,
@@ -82,7 +114,9 @@ export function AppProvider({
 
   return (
     <AppContext.Provider value={value}>
-      <HistoryEventsProvider events={historyEvents}>{children}</HistoryEventsProvider>
+      <HistoryEventsProvider events={historyEvents} actions={historyActions}>
+        {children}
+      </HistoryEventsProvider>
     </AppContext.Provider>
   );
 }

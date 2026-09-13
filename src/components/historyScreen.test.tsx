@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
 
 import { HistoryScreen } from '@/components/HistoryScreen';
 import {
@@ -38,6 +40,48 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: { children: unknown }) => children,
 }));
 
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const { Swipeable } = require('react-native-gesture-handler');
+  return { __esModule: true, default: Swipeable };
+});
+
+jest.mock('react-native-gesture-handler', () => {
+  const React = require('react');
+  const { Pressable, ScrollView, View } = require('react-native');
+  return {
+    GestureHandlerRootView: ({ children }: { children: unknown }) => children,
+    ScrollView,
+    Swipeable: ({
+      children,
+      renderRightActions,
+      renderLeftActions,
+      onSwipeableOpen,
+      testID,
+    }: {
+      children: unknown;
+      renderRightActions?: () => unknown;
+      renderLeftActions?: () => unknown;
+      onSwipeableOpen?: (direction: 'left' | 'right') => void;
+      testID?: string;
+    }) => {
+      const [open, setOpen] = React.useState(false);
+      const trailing = renderRightActions ?? renderLeftActions;
+      const openDirection = renderRightActions ? 'right' : 'left';
+      return (
+        <View testID={testID}>
+          <Pressable testID="history-row-swipe-trailing" onPress={() => setOpen(true)} />
+          <Pressable
+            testID="history-row-swipe-full"
+            onPress={() => onSwipeableOpen?.(openDirection)}
+          />
+          {open ? trailing?.() : null}
+          {children}
+        </View>
+      );
+    },
+  };
+});
+
 const PARSER = 1;
 const NOW = new Date('2026-09-12T18:00:00.000Z');
 const OTP_SECRET = 'JBSWY3DPEHPK3PXP';
@@ -68,7 +112,16 @@ function mockDeps(): ResultActionDeps & {
 
 function renderHistory(
   events: StoredHistoryEvent[],
-  extra?: { onBack?: () => void; locale?: string; actionDeps?: ResultActionDeps },
+  extra?: {
+    onBack?: () => void;
+    locale?: string;
+    actionDeps?: ResultActionDeps;
+    onDelete?: (id: string) => void | Promise<void>;
+    onUndo?: (event: StoredHistoryEvent) => void | Promise<void>;
+    onClear?: () => void | Promise<void>;
+    direction?: 'ltr' | 'rtl';
+    scheduleUndoExpiry?: (dismiss: () => void) => void;
+  },
 ) {
   setLocale(extra?.locale ?? 'en');
   return render(
@@ -79,6 +132,11 @@ function renderHistory(
       locale={extra?.locale === 'es' ? 'es' : 'en-US'}
       onBack={extra?.onBack}
       actionDeps={extra?.actionDeps}
+      onDelete={extra?.onDelete}
+      onUndo={extra?.onUndo}
+      onClear={extra?.onClear}
+      direction={extra?.direction}
+      scheduleUndoExpiry={extra?.scheduleUndoExpiry ?? (() => {})}
     />,
   );
 }
@@ -320,5 +378,268 @@ describe('HistoryScreen (HIS-02)', () => {
 
     expect(screen.getByText('example.com/from-store')).toBeTruthy();
     expect(screen.getByText('Today')).toBeTruthy();
+  });
+});
+
+describe('HistoryScreen (HIS-04)', () => {
+  beforeEach(() => {
+    setLocale('en');
+  });
+
+  test('trailing-edge swipe exposes destructive Delete', () => {
+    renderHistory([event({ id: 'url' })]);
+
+    expect(screen.getByTestId('history-row-trailing-right')).toBeTruthy();
+    expect(screen.queryByTestId('history-row-delete')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
+
+    expect(screen.getByTestId('history-row-delete')).toBeTruthy();
+    expect(screen.getByLabelText('Delete')).toBeTruthy();
+  });
+
+  test('pressing Delete removes the row from the list and offers Undo', () => {
+    const onDelete = jest.fn();
+    renderHistory([event({ id: 'url', summary: 'example.com/today' })], { onDelete });
+
+    fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
+    fireEvent.press(screen.getByTestId('history-row-delete'));
+
+    expect(onDelete).toHaveBeenCalledWith('url');
+    expect(screen.queryByText('example.com/today')).toBeNull();
+    expect(screen.getByTestId('history-undo')).toBeTruthy();
+    expect(screen.getByLabelText('Undo')).toBeTruthy();
+  });
+
+  test('full-swipe deletes the selected row', () => {
+    const onDelete = jest.fn();
+    renderHistory([event({ id: 'url', summary: 'example.com/today' })], { onDelete });
+
+    fireEvent.press(screen.getByTestId('history-row-swipe-full'));
+
+    expect(onDelete).toHaveBeenCalledWith('url');
+    expect(screen.queryByText('example.com/today')).toBeNull();
+    expect(screen.getByTestId('history-undo')).toBeTruthy();
+  });
+
+  test('Undo restores the exact event during the recovery window', () => {
+    const onDelete = jest.fn();
+    const onUndo = jest.fn();
+    const stored = event({
+      id: 'url-42',
+      acceptedAt: '2026-09-12T17:04:00.000Z',
+      kind: 'url',
+      summary: 'example.com/today',
+      original: 'https://example.com/today',
+      parserVersion: PARSER,
+    });
+    renderHistory([stored], { onDelete, onUndo });
+
+    fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
+    fireEvent.press(screen.getByTestId('history-row-delete'));
+    expect(screen.queryByText('example.com/today')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('history-undo'));
+
+    expect(onUndo).toHaveBeenCalledWith(stored);
+    expect(screen.getByText('example.com/today')).toBeTruthy();
+    expect(screen.queryByTestId('history-undo')).toBeNull();
+  });
+
+  test('Undo disappears after the recovery window without restoring', () => {
+    let dismiss: (() => void) | undefined;
+    const onUndo = jest.fn();
+    renderHistory([event({ id: 'url', summary: 'example.com/today' })], {
+      onUndo,
+      scheduleUndoExpiry: (expire) => {
+        dismiss = expire;
+      },
+    });
+
+    fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
+    fireEvent.press(screen.getByTestId('history-row-delete'));
+    expect(screen.getByTestId('history-undo')).toBeTruthy();
+
+    act(() => {
+      dismiss?.();
+    });
+
+    expect(screen.queryByTestId('history-undo')).toBeNull();
+    expect(screen.queryByText('example.com/today')).toBeNull();
+    expect(onUndo).not.toHaveBeenCalled();
+  });
+
+  test('Clear History states the affected count and requires destructive confirmation', () => {
+    const onClear = jest.fn();
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+    try {
+      renderHistory(
+        [
+          event({ id: 'one', summary: 'example.com/one' }),
+          event({
+            id: 'two',
+            summary: 'example.com/two',
+            original: 'https://example.com/two',
+          }),
+          event({
+            id: 'three',
+            summary: 'example.com/three',
+            original: 'https://example.com/three',
+          }),
+        ],
+        { onClear },
+      );
+
+      expect(screen.getByLabelText('Clear 3 scans')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('history-clear'));
+
+      expect(alertSpy).toHaveBeenCalledTimes(1);
+      const [title, message, buttons] = alertSpy.mock.calls[0] ?? [];
+      expect(title).toBe('Clear all scans?');
+      expect(String(message)).toMatch(/3 scans/);
+      const confirm = (buttons as { text?: string; style?: string }[] | undefined)?.find(
+        (button) => button.style === 'destructive',
+      );
+      expect(confirm?.text).toBe('Clear All');
+      expect(onClear).not.toHaveBeenCalled();
+      expect(screen.getByText('example.com/one')).toBeTruthy();
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  test('canceling Clear History confirmation changes nothing', () => {
+    const onClear = jest.fn();
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const cancel = buttons?.find((button) => button.style === 'cancel');
+      cancel?.onPress?.();
+    });
+    try {
+      renderHistory(
+        [
+          event({ id: 'one', summary: 'example.com/one' }),
+          event({
+            id: 'two',
+            summary: 'example.com/two',
+            original: 'https://example.com/two',
+          }),
+        ],
+        { onClear },
+      );
+
+      fireEvent.press(screen.getByTestId('history-clear'));
+      expect(onClear).not.toHaveBeenCalled();
+      expect(screen.getByText('example.com/one')).toBeTruthy();
+      expect(screen.getByText('example.com/two')).toBeTruthy();
+      expect(screen.queryByTestId('history-empty')).toBeNull();
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  test('confirming Clear History removes every row', () => {
+    const onClear = jest.fn();
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+      const confirm = buttons?.find((button) => button.style === 'destructive');
+      confirm?.onPress?.();
+    });
+    try {
+      renderHistory(
+        [
+          event({ id: 'one', summary: 'example.com/one' }),
+          event({
+            id: 'two',
+            summary: 'example.com/two',
+            original: 'https://example.com/two',
+          }),
+        ],
+        { onClear },
+      );
+
+      fireEvent.press(screen.getByTestId('history-clear'));
+      expect(onClear).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('history-empty')).toBeTruthy();
+      expect(screen.queryByText('example.com/one')).toBeNull();
+    } finally {
+      alertSpy.mockRestore();
+    }
+  });
+
+  test('RTL mirrors the trailing delete edge to the left', () => {
+    renderHistory([event({ id: 'url' })], { direction: 'rtl' });
+
+    expect(screen.getByTestId('history-row-trailing-left')).toBeTruthy();
+    expect(screen.queryByTestId('history-row-trailing-right')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
+    expect(screen.getByTestId('history-row-delete')).toBeTruthy();
+  });
+
+  test('Undo puts the exact row back after the parent list has already dropped it', async () => {
+    const stored = event({ id: 'url-42', summary: 'example.com/today' });
+    function Harness() {
+      const [items, setItems] = useState([stored]);
+      return (
+        <HistoryScreen
+          events={items}
+          now={NOW}
+          timeZone="UTC"
+          locale="en-US"
+          scheduleUndoExpiry={() => {}}
+          onDelete={(id) => {
+            setItems((current) => current.filter((item) => item.id !== id));
+          }}
+          onUndo={() => {
+            // Parent refresh can lag the tap. The row must reappear anyway.
+          }}
+        />
+      );
+    }
+
+    render(<Harness />);
+    fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
+    fireEvent.press(screen.getByTestId('history-row-delete'));
+    expect(screen.queryByText('example.com/today')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('history-undo'));
+    expect(screen.getByText('example.com/today')).toBeTruthy();
+  });
+
+  test('provider actions delete and restore without an events prop', () => {
+    const deleteEvent = jest.fn(async () => {});
+    const restoreEvent = jest.fn(async () => {});
+    const stored = event({ id: 'from-context', summary: 'example.com/from-store' });
+    render(
+      <HistoryEventsProvider
+        events={[stored]}
+        actions={{
+          deleteEvent,
+          restoreEvent,
+          clearEvents: jest.fn(async () => {}),
+        }}>
+        <HistoryScreen
+          now={NOW}
+          timeZone="UTC"
+          locale="en-US"
+          scheduleUndoExpiry={() => {}}
+        />
+      </HistoryEventsProvider>,
+    );
+
+    fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
+    fireEvent.press(screen.getByTestId('history-row-delete'));
+    expect(deleteEvent).toHaveBeenCalledWith('from-context');
+
+    fireEvent.press(screen.getByTestId('history-undo'));
+    expect(restoreEvent).toHaveBeenCalledWith(stored);
+  });
+
+  test('Clear History copy is localized and count-aware', () => {
+    renderHistory(
+      [event({ id: 'one', summary: 'example.com/one' })],
+      { locale: 'es' },
+    );
+
+    expect(screen.getByLabelText('Borrar 1 escaneo')).toBeTruthy();
   });
 });
