@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
+import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 
 import { trailingEdge, type LayoutDirection } from '@/history/historySwipe';
 import { t } from '@/i18n';
@@ -27,7 +27,7 @@ export function HistorySwipeableRow({ direction, onDelete, children }: Props) {
   );
 
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       testID={`history-row-trailing-${edge}`}
       renderRightActions={edge === 'right' ? deleteAction : undefined}
       renderLeftActions={edge === 'left' ? deleteAction : undefined}
@@ -38,10 +38,9 @@ export function HistorySwipeableRow({ direction, onDelete, children }: Props) {
       }}
       overshootRight={edge === 'right'}
       overshootLeft={edge === 'left'}
-      failOffsetY={[-24, 24]}
       childrenContainerStyle={{ direction }}>
       {children}
-    </Swipeable>
+    </ReanimatedSwipeable>
   );
 }
 

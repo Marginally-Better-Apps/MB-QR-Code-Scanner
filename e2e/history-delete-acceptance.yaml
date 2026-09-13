@@ -22,8 +22,10 @@ appId: com.marginallybetter.qrscanner
     id: "open-history"
 - assertVisible: "example.com/today.*"
 - swipe:
-    start: 92%, 28%
-    end: 8%, 28%
+    from:
+      text: "example.com/today.*"
+    direction: LEFT
+    duration: 600
 - tapOn:
     id: "history-row-delete"
     optional: true

@@ -41,6 +41,11 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: { children: unknown }) => children,
 }));
 
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const { Swipeable } = require('react-native-gesture-handler');
+  return { __esModule: true, default: Swipeable };
+});
+
 jest.mock('react-native-gesture-handler', () => {
   const React = require('react');
   const { Pressable, ScrollView, View } = require('react-native');
