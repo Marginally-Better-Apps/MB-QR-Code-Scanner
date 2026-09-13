@@ -54,6 +54,23 @@ export { makeCameraAccess, makeObservationSource } from './factory';
 export { CameraAccessFixtureProvider, cameraAccessFromFixture } from './cameraFixtures';
 export { AppState, ScannerSessionStore } from './session';
 export { AUTH_QR_FIXTURES, recognizeAuthQr } from './authQr';
+export {
+  ACCEPTED_RESULT_BUDGET_MS,
+  BoundedMetadataQueue,
+  LOW_POWER_MIN_FRAME_INTERVAL_MS,
+  MAX_METADATA_QUEUE_DEPTH,
+  median,
+  PerformanceSignposts,
+  PREVIEW_BUDGET_MS,
+  createBoundedParseCache,
+  resolveVisionKitPerformanceConfiguration,
+  shouldDeliverThrottledFrame,
+  systemPerformanceClock,
+} from './performance';
+export type {
+  PerformanceClock,
+  ScannerPerformanceMode,
+} from './performance';
 export type { AuthQrFormat, AuthQrRecognition } from './authQr';
 export {
   PAYLOAD_PARSER_VERSION,

@@ -96,6 +96,9 @@ export function AppProvider({
     return () => {
       cancelled = true;
       value.appState.scannerSession.setAcceptedScanListener(null);
+      // QLT-04: release capture + listeners so provider teardown returns
+      // memory near baseline with no retained controller/session leak.
+      value.appState.scannerSession.dispose();
     };
   }, [value]);
 

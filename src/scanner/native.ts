@@ -90,6 +90,7 @@ export type ScannerPreviewNativeProps = ViewProps & {
   engine: 'visionkit' | 'avfoundation';
   running: boolean;
   imageFixture?: string;
+  lowPowerMode?: boolean;
   onObservations?: (event: {
     nativeEvent: {
       items: {

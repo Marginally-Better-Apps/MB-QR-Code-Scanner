@@ -18,6 +18,13 @@ final class ScannerPreviewView: ExpoView, AVCaptureVideoDataOutputSampleBufferDe
     didSet { updateRunning() }
   }
 
+  /// QLT-04 thermal mitigation: when true, detection processes a subset of
+  /// frames (~1 in 4) so a 10-minute continuous scan avoids high-rate Vision
+  /// work that can be disabled. Driven from JS via the `lowPowerMode` prop.
+  var lowPowerMode = false {
+    didSet { lowPowerFrameSkipCounter = 0 }
+  }
+
   private let hostView = UIView()
   private var captureSession: AVCaptureSession?
   private var previewLayer: AVCaptureVideoPreviewLayer?
@@ -35,6 +42,13 @@ final class ScannerPreviewView: ExpoView, AVCaptureVideoDataOutputSampleBufferDe
   private var fixtureDetectionGeneration = 0
   private var fixtureDetectionInFlight = false
   private var fixtureObservations: [QRVisionObservation]?
+  /// QLT-04: bounds the hop from the recognition queue to the main queue.
+  /// While a delivery is pending, newer frames are coalesced (dropped) so
+  /// metadata callbacks cannot build an unbounded main-queue backlog.
+  private var mainDeliveryInFlight = false
+  private var lowPowerFrameSkipCounter = 0
+  private var lastThermalCheck = Date.distantPast
+  private var thermalThrottling = false
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -240,6 +254,8 @@ final class ScannerPreviewView: ExpoView, AVCaptureVideoDataOutputSampleBufferDe
 
   private func tearDown() {
     stop()
+    mainDeliveryInFlight = false
+    lowPowerFrameSkipCounter = 0
     previewLayer?.removeFromSuperlayer()
     previewLayer = nil
     videoOutput?.setSampleBufferDelegate(nil, queue: nil)
@@ -382,6 +398,16 @@ final class ScannerPreviewView: ExpoView, AVCaptureVideoDataOutputSampleBufferDe
     guard running, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
       return
     }
+    // QLT-04: coalesce while the previous frame's delivery is still pending.
+    // Detection already runs off the main thread on `recognitionQueue`; this
+    // guard additionally bounds the main-queue backlog to one delivery.
+    guard !mainDeliveryInFlight else {
+      return
+    }
+    if shouldSkipFrameForThermalOrLowPower() {
+      return
+    }
+    mainDeliveryInFlight = true
     let observations = (try? QRVisionDetector.detect(in: pixelBuffer)) ?? []
     let pixelBufferSize = CGSize(
       width: CVPixelBufferGetWidth(pixelBuffer),
@@ -389,8 +415,10 @@ final class ScannerPreviewView: ExpoView, AVCaptureVideoDataOutputSampleBufferDe
     )
     DispatchQueue.main.async { [weak self] in
       guard let self, self.running, self.previewLayer != nil else {
+        self?.mainDeliveryInFlight = false
         return
       }
+      defer { self.mainDeliveryInFlight = false }
       let items = observations.compactMap { observation in
         let displayedBounds = QRPreviewGeometry.aspectFillBounds(
           normalizedImageBounds: observation.normalizedBounds,
@@ -404,6 +432,26 @@ final class ScannerPreviewView: ExpoView, AVCaptureVideoDataOutputSampleBufferDe
       }
       self.onObservations(["items": items])
     }
+  }
+
+  /// QLT-04: decides whether the current frame can skip detection. Skips when
+  /// explicit low-power mode is on or when the OS reports serious/critical
+  /// thermal pressure (checked at most every 5s to avoid syscall churn).
+  /// Detection itself always runs on `recognitionQueue`, never on the
+  /// render path; this only lowers its rate.
+  private func shouldSkipFrameForThermalOrLowPower() -> Bool {
+    let now = Date()
+    if now.timeIntervalSince(lastThermalCheck) > 5 {
+      lastThermalCheck = now
+      let state = ProcessInfo.processInfo.thermalState
+      thermalThrottling = (state == .serious || state == .critical)
+    }
+    guard lowPowerMode || thermalThrottling else {
+      return false
+    }
+    lowPowerFrameSkipCounter += 1
+    // ~1 in 4 frames at 30fps input ≈ 7.5fps detection rate.
+    return lowPowerFrameSkipCounter % 4 != 1
   }
 
   private func observationPayload(payload: String?, bounds: CGRect) -> [String: Any]? {

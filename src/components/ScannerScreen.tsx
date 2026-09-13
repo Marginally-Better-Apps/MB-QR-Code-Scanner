@@ -135,6 +135,7 @@ export function ScannerScreen({
               engine={engine}
               running={scanner.isCapturing}
               imageFixture={nativeImageFixture}
+              lowPowerMode={session.performanceMode === 'lowPower'}
               onReady={(ready) => session.setHasPreview(ready)}
             />
           ) : null}
