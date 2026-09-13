@@ -32,6 +32,9 @@ appId: com.marginallybetter.qrscanner
 - tapOn:
     text: "Delete"
     optional: true
+- tapOn:
+    id: "history-row-swipe-full"
+    optional: true
 - assertVisible:
     id: "history-undo"
 - tapOn:
