@@ -260,6 +260,7 @@ export function HistoryScreen({
       ) : (
         <SectionList
           testID="history-list"
+          extraData={`${visibleEvents.map((event) => event.id).join('|')}|${pendingUndo?.id ?? ''}`}
           initialNumToRender={20}
           stickySectionHeadersEnabled={false}
           renderScrollComponent={(props) => <GestureScrollView {...props} />}
