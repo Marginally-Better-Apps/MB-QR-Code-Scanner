@@ -2,7 +2,7 @@ name: PR unsigned IPA
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, 'story/**']
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
