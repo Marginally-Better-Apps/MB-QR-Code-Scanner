@@ -6,6 +6,15 @@ import { CameraAccessFixtureProvider } from './cameraFixtures';
 import { makeObservationSource } from './factory';
 import { parseQRPayload } from './payloadParser';
 import {
+  BoundedMetadataQueue,
+  LOW_POWER_MIN_FRAME_INTERVAL_MS,
+  MAX_METADATA_QUEUE_DEPTH,
+  PerformanceSignposts,
+  shouldDeliverThrottledFrame,
+  type PerformanceClock,
+  type ScannerPerformanceMode,
+} from './performance';
+import {
   rankMultiCodeCandidates,
   resolveMultiCodeWinner,
   stableCandidateId,
@@ -42,6 +51,18 @@ export class ScannerSessionStore {
   private stabilityById = new Map<string, number>();
   private lastCandidateIds = new Set<string>();
   private manualCandidateId: string | null = null;
+  private readonly performanceClock: PerformanceClock;
+  /** Budget signposts (QLT-04): authorization -> preview, first sighting -> accept. */
+  private readonly signposts: PerformanceSignposts;
+  /** Bounded backlog for re-entrant metadata bursts (QLT-04). */
+  private readonly metadataQueue = new BoundedMetadataQueue<ScannerObservation[]>(
+    MAX_METADATA_QUEUE_DEPTH,
+  );
+  private isProcessingFrame = false;
+  private performanceModeValue: ScannerPerformanceMode = 'full';
+  private lastDeliveredFrameAtMs: number | null = null;
+  private throttledFrameCount = 0;
+  private disposed = false;
 
   constructor(input: {
     cameraAccess: CameraAccessProviding;
@@ -52,10 +73,14 @@ export class ScannerSessionStore {
      * can never create persistent rows.
      */
     onAcceptedScan?: (accepted: AcceptedScan) => void;
+    /** Injectable ms clock for the performance signposts (QLT-04). */
+    performanceNow?: PerformanceClock;
   }) {
     this.cameraAccess = input.cameraAccess;
     this.observationSource = input.observationSource;
     this.onAcceptedScan = input.onAcceptedScan ?? null;
+    this.performanceClock = input.performanceNow ?? (() => Date.now());
+    this.signposts = new PerformanceSignposts(this.performanceClock);
     this.cameraAccessState = resolveCameraAccessState(
       input.cameraAccess.authorization,
       input.cameraAccess.cameraAvailable,
@@ -65,6 +90,86 @@ export class ScannerSessionStore {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  get isDisposed(): boolean {
+    return this.disposed;
+  }
+
+  get listenerCount(): number {
+    return this.listeners.size;
+  }
+
+  get performanceMode(): ScannerPerformanceMode {
+    return this.performanceModeValue;
+  }
+
+  /**
+   * Switches between full-rate and thermal-friendly scanning (QLT-04).
+   * Low-power mode coalesces high-rate observation frames and is forwarded
+   * to the native preview so device-side detection can skip frames too.
+   */
+  setPerformanceMode(mode: ScannerPerformanceMode): void {
+    if (this.performanceModeValue === mode) {
+      return;
+    }
+    this.performanceModeValue = mode;
+    this.lastDeliveredFrameAtMs = null;
+    this.emit();
+  }
+
+  /**
+   * Observable performance counters for the documented measurement runs:
+   * backlog depth, coalesced drops, throttled frames, and budget verdicts.
+   */
+  performanceMetrics(): {
+    mode: ScannerPerformanceMode;
+    backlogDepth: number;
+    droppedFrames: number;
+    throttledFrames: number;
+    previewLatencyMs: number | null;
+    acceptedResultLatencyMs: number | null;
+    meetsPreviewBudget: boolean;
+    meetsAcceptedResultBudget: boolean;
+  } {
+    return {
+      mode: this.performanceModeValue,
+      backlogDepth: this.metadataQueue.depth,
+      droppedFrames: this.metadataQueue.droppedTotal,
+      throttledFrames: this.throttledFrameCount,
+      previewLatencyMs: this.signposts.previewLatencyMs(),
+      acceptedResultLatencyMs: this.signposts.acceptedResultLatencyMs(),
+      meetsPreviewBudget: this.signposts.meetsPreviewBudget(),
+      meetsAcceptedResultBudget: this.signposts.meetsAcceptedResultBudget(),
+    };
+  }
+
+  /**
+   * Tears down capture and releases everything the session holds (QLT-04):
+   * stops the observation source, drops listeners, clears frame-derived
+   * state, and detaches the acceptance listener so repeated tab changes and
+   * background/resume cycles return memory near baseline with no retained
+   * controller/session leak.
+   */
+  dispose(): void {
+    if (this.disposed) {
+      return;
+    }
+    this.disposed = true;
+    this.observationSource.stop();
+    this.isObservationSourceRunning = false;
+    this.listeners.clear();
+    this.onAcceptedScan = null;
+    this.visibleObservations = [];
+    this.multiCodeCandidates = [];
+    this.isMultiCodeAmbiguous = false;
+    this.currentResult = null;
+    this.manualCandidateId = null;
+    this.stabilityById = new Map();
+    this.lastCandidateIds = new Set();
+    this.metadataQueue.clear();
+    this.hasPreview = false;
+    this.hasAcceptedScan = false;
   }
 
   /**
@@ -96,9 +201,13 @@ export class ScannerSessionStore {
   }
 
   async activateScanner(): Promise<void> {
+    if (this.disposed) {
+      return;
+    }
     this.refreshCameraAccess();
 
     if (this.cameraAccessState !== 'notDetermined') {
+      this.markAuthorizationGrantedIfReady();
       this.updateObservationSourceActivity();
       this.emit();
       return;
@@ -106,6 +215,7 @@ export class ScannerSessionStore {
 
     await this.cameraAccess.requestAuthorization();
     this.refreshCameraAccess();
+    this.markAuthorizationGrantedIfReady();
     this.updateObservationSourceActivity();
     this.emit();
   }
@@ -118,6 +228,9 @@ export class ScannerSessionStore {
   }
 
   handleLifecycle(phase: ScannerLifecyclePhase): void {
+    if (this.disposed) {
+      return;
+    }
     this.scenePhase = phase;
     switch (phase) {
       case 'background':
@@ -138,6 +251,9 @@ export class ScannerSessionStore {
   }
 
   handlePresentation(presentation: ScannerPresentation): void {
+    if (this.disposed) {
+      return;
+    }
     this.presentation = presentation;
     switch (presentation) {
       case 'obscured':
@@ -161,7 +277,16 @@ export class ScannerSessionStore {
 
   setHasPreview(hasPreview: boolean): void {
     this.hasPreview = hasPreview;
+    if (hasPreview) {
+      this.signposts.markPreviewReady();
+    }
     this.emit();
+  }
+
+  private markAuthorizationGrantedIfReady(): void {
+    if (this.cameraAccessState === 'ready') {
+      this.signposts.markAuthorizationGranted();
+    }
   }
 
   private releaseSessionOnlySecret(): void {
@@ -262,28 +387,85 @@ export class ScannerSessionStore {
 
     this.isObservationSourceRunning = true;
     this.observationSource.start((frame) => {
-      this.visibleObservations = frame;
-      if (frame.length > 0) {
-        this.hasAcceptedScan = true;
-      }
-      this.recordGatedAcceptances(frame);
-      this.updateMultiCodeState(frame);
-      this.emit();
+      this.handleIncomingFrame(frame);
     });
     this.hasPreview = this.observationSource.hasPreview;
     this.emit();
   }
 
-  private recordGatedAcceptances(frame: ScannerObservation[]): void {
-    if (this.onAcceptedScan == null) {
+  /**
+   * Routes every metadata callback through the bounded queue (QLT-04).
+   * The JS bridge delivers synchronously, so normally each frame is
+   * processed inline; re-entrant bursts (a listener synchronously producing
+   * more frames) queue with a drop-oldest policy instead of growing without
+   * bound, and low-power mode coalesces high-rate frames before processing.
+   */
+  private handleIncomingFrame(frame: ScannerObservation[]): void {
+    if (this.disposed) {
       return;
     }
+    if (this.isProcessingFrame) {
+      this.metadataQueue.push(frame);
+      return;
+    }
+    this.isProcessingFrame = true;
+    try {
+      this.deliverFrameIfAllowed(frame);
+      let pending = this.metadataQueue.drain();
+      while (pending.length > 0) {
+        for (const queued of pending) {
+          this.deliverFrameIfAllowed(queued);
+        }
+        pending = this.metadataQueue.drain();
+      }
+    } finally {
+      this.isProcessingFrame = false;
+    }
+  }
+
+  private deliverFrameIfAllowed(frame: ScannerObservation[]): void {
+    if (
+      this.performanceModeValue === 'lowPower' &&
+      frame.length > 0 &&
+      !shouldDeliverThrottledFrame(
+        this.lastDeliveredFrameAtMs,
+        this.performanceClock(),
+        LOW_POWER_MIN_FRAME_INTERVAL_MS,
+      )
+    ) {
+      this.throttledFrameCount += 1;
+      return;
+    }
+    if (frame.length > 0) {
+      this.lastDeliveredFrameAtMs = this.performanceClock();
+      this.signposts.markFirstObservation();
+    }
+    this.processFrame(frame);
+  }
+
+  private processFrame(frame: ScannerObservation[]): void {
+    this.visibleObservations = frame;
+    if (frame.length > 0) {
+      this.hasAcceptedScan = true;
+    }
+    this.recordGatedAcceptances(frame);
+    this.updateMultiCodeState(frame);
+    this.emit();
+  }
+
+  private recordGatedAcceptances(frame: ScannerObservation[]): void {
     const result = updateScanAcceptance(
       this.acceptanceState,
       frame.map((observation) => observation.rawPayload),
       new Date(),
     );
     this.acceptanceState = result.state;
+    if (result.accepted.length > 0) {
+      this.signposts.markAcceptedResult();
+    }
+    if (this.onAcceptedScan == null) {
+      return;
+    }
     for (const accepted of result.accepted) {
       this.onAcceptedScan(accepted);
     }

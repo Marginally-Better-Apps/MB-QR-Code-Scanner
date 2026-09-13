@@ -9,6 +9,7 @@ import {
 } from '@/components/chromeAppearance';
 import { t } from '@/i18n';
 import { parseQRPayload } from '@/scanner/payloadParser';
+import { createBoundedParseCache } from '@/scanner/performance';
 import type { ScoredMultiCodeCandidate } from '@/scanner/multiCode';
 
 type Props = {
@@ -25,8 +26,35 @@ function spatialOrder(a: ScoredMultiCodeCandidate, b: ScoredMultiCodeCandidate):
   return a.bounds.x - b.bounds.x;
 }
 
+/**
+ * Bounded memo for chooser labels (QLT-04). Metadata frames arrive at a high
+ * rate with new array identities but identical payloads; the cache keeps
+ * repeated renders from redoing payload parsing, and evicts the oldest entry
+ * past capacity so long sessions stay memory-flat.
+ */
+const parsedPayloadCache = createBoundedParseCache(parseQRPayload);
+
 export function MultiCodeChooser({ candidates, onSelect, onDismiss }: Props) {
   const ordered = useMemo(() => [...candidates].sort(spatialOrder), [candidates]);
+  // Content key, not array identity: identical payloads across frames reuse
+  // the memoized rows instead of parsing again on every render.
+  const contentKey = ordered.map((candidate) => `${candidate.id}\n${candidate.rawPayload}`).join('\n---\n');
+  const rows = useMemo(
+    () =>
+      ordered.map((candidate, index, all) => {
+        const parsed = parsedPayloadCache.parse(candidate.rawPayload);
+        return {
+          key: candidate.id,
+          label: `${index + 1} of ${all.length}, ${parsed.content.kind}, ${parsed.displaySummary}`,
+          kind: parsed.content.kind,
+          summary: parsed.displaySummary,
+        };
+      }),
+    // Recompute only when the candidate contents change; the closure always
+    // sees the current render's `ordered`, so equal contents reuse rows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [contentKey],
+  );
   const prefs = useChromePreferences();
   const surface = resolveChromeSurface({
     ...prefs,
@@ -59,27 +87,25 @@ export function MultiCodeChooser({ candidates, onSelect, onDismiss }: Props) {
         importantForAccessibility="no"
         style={styles.chromeProbe}
       />
-      {ordered.map((candidate, index) => {
-        const parsed = parseQRPayload(candidate.rawPayload);
-        const label = `${index + 1} of ${ordered.length}, ${parsed.content.kind}, ${parsed.displaySummary}`;
+      {rows.map((row) => {
         return (
           <Pressable
-            key={candidate.id}
+            key={row.key}
             testID="multi-code-row"
-            nativeID={candidate.id}
+            nativeID={row.key}
             accessibilityRole="button"
-            accessibilityLabel={label}
-            onPress={() => onSelect(candidate.id)}
+            accessibilityLabel={row.label}
+            onPress={() => onSelect(row.key)}
             style={styles.row}>
             <Text numberOfLines={1} style={styles.kind} maxFontSizeMultiplier={2.2}>
-              {parsed.content.kind}
+              {row.kind}
             </Text>
             <Text
               numberOfLines={2}
               ellipsizeMode="middle"
               style={styles.summary}
               maxFontSizeMultiplier={2.2}>
-              {parsed.displaySummary}
+              {row.summary}
             </Text>
           </Pressable>
         );

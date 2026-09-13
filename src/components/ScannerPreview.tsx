@@ -19,6 +19,7 @@ type Props = {
   engine: NativeEngineKind;
   running: boolean;
   imageFixture?: string;
+  lowPowerMode?: boolean;
   onReady?: (ready: boolean) => void;
 };
 
@@ -26,6 +27,7 @@ type NativeProps = ViewProps & {
   engine: NativeEngineKind;
   running: boolean;
   imageFixture?: string;
+  lowPowerMode?: boolean;
   style?: StyleProp<ViewStyle>;
   onObservations?: (event: { nativeEvent: { items: NativeObservation[] } }) => void;
   onPreviewReady?: (event: { nativeEvent: { ready: boolean } }) => void;
@@ -39,7 +41,7 @@ const NativeView = (() => {
   }
 })();
 
-export function ScannerPreview({ engine, running, imageFixture, onReady }: Props) {
+export function ScannerPreview({ engine, running, imageFixture, lowPowerMode, onReady }: Props) {
   if (!NativeView) {
     return <View testID="scanner-preview" style={styles.fill} />;
   }
@@ -52,6 +54,7 @@ export function ScannerPreview({ engine, running, imageFixture, onReady }: Props
       engine={engine}
       running={running}
       imageFixture={imageFixture}
+      lowPowerMode={lowPowerMode}
       onObservations={(event) => {
         publishNativeObservations(engine, nativeObservationItems(event));
       }}

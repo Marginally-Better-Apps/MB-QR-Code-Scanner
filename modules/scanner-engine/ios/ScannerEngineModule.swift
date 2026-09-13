@@ -40,6 +40,9 @@ public class ScannerEngineModule: Module {
       Prop("imageFixture") { (view: ScannerPreviewView, imageFixture: String?) in
         view.imageFixtureName = imageFixture
       }
+      Prop("lowPowerMode") { (view: ScannerPreviewView, lowPowerMode: Bool) in
+        view.lowPowerMode = lowPowerMode
+      }
     }
   }
 }
