@@ -405,10 +405,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(245, 245, 247, 0.96)',
+    backgroundColor: '#f2f2f7',
   },
   ctaDark: {
-    backgroundColor: 'rgba(28, 28, 30, 0.86)',
+    backgroundColor: '#1c1c1e',
   },
   ctaLabel: {
     fontSize: 16,

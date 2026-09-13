@@ -1,6 +1,12 @@
+import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import {
+  chromeContainerStyle,
+  resolveChromeSurface,
+  useChromePreferences,
+} from '@/components/chromeAppearance';
 import { t } from '@/i18n';
 import { parseQRPayload } from '@/scanner/payloadParser';
 import type { ScoredMultiCodeCandidate } from '@/scanner/multiCode';
@@ -19,12 +25,20 @@ function spatialOrder(a: ScoredMultiCodeCandidate, b: ScoredMultiCodeCandidate):
 
 export function MultiCodeChooser({ candidates, onSelect }: Props) {
   const ordered = useMemo(() => [...candidates].sort(spatialOrder), [candidates]);
+  const prefs = useChromePreferences();
+  const surface = resolveChromeSurface({
+    ...prefs,
+    tone: 'onMedia',
+    liquidGlassAvailable: isGlassEffectAPIAvailable() && isLiquidGlassAvailable(),
+  });
+  const glass = surface.kind === 'liquidGlass';
 
-  return (
+  const list = (
     <View
       testID="multi-code-chooser"
       accessibilityLabel={t('selectCode')}
-      style={styles.list}>
+      accessibilityHint={surface.kind}
+      style={[styles.list, !glass && chromeContainerStyle(surface)]}>
       {ordered.map((candidate) => {
         const parsed = parseQRPayload(candidate.rawPayload);
         const label = `${parsed.content.kind}, ${parsed.displaySummary}`;
@@ -48,13 +62,26 @@ export function MultiCodeChooser({ candidates, onSelect }: Props) {
       })}
     </View>
   );
+
+  if (!glass) {
+    return list;
+  }
+
+  return (
+    <GlassView
+      style={styles.list}
+      glassEffectStyle="regular"
+      colorScheme="dark"
+      isInteractive>
+      {list}
+    </GlassView>
+  );
 }
 
 const styles = StyleSheet.create({
   list: {
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: 'rgba(28,28,30,0.92)',
   },
   row: {
     minHeight: 44,

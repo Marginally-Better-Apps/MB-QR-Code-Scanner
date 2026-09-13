@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  AccessibilityInfo,
   Linking,
   Pressable,
   StyleSheet,
@@ -8,9 +7,15 @@ import {
   useColorScheme,
   View,
 } from 'react-native';
+import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
+import {
+  chromeContainerStyle,
+  resolveChromeSurface,
+  useChromePreferences,
+} from '@/components/chromeAppearance';
 import { GlassControl } from '@/components/GlassControl';
 import { MultiCodeChooser } from '@/components/MultiCodeChooser';
 import { ScannerPreview } from '@/components/ScannerPreview';
@@ -39,7 +44,14 @@ export function ScannerScreen({
   const scanner = useScannerSession(session);
   const insets = useSafeAreaInsets();
   const dark = useColorScheme() === 'dark';
-  const highContrast = useHighContrast();
+  const chromePrefs = useChromePreferences();
+  const highContrast = chromePrefs.increaseContrast;
+  const mediaChrome = resolveChromeSurface({
+    ...chromePrefs,
+    tone: 'onMedia',
+    liquidGlassAvailable: isGlassEffectAPIAvailable() && isLiquidGlassAvailable(),
+  });
+  const mediaChromeGlass = mediaChrome.kind === 'liquidGlass';
   const onMedia = scanner.cameraAccessState === 'ready';
   const lightChrome = !onMedia && !dark;
   const isLiveForGuide =
@@ -132,14 +144,36 @@ export function ScannerScreen({
               style={[styles.stickyResults, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}
               pointerEvents="box-none">
               {showChooserTrigger ? (
-                <Pressable
-                  testID="multi-code-chooser-trigger"
-                  accessibilityRole="button"
-                  accessibilityLabel={chooserLabel}
-                  onPress={() => setChooserOpen((open) => !open)}
-                  style={styles.chooserTrigger}>
-                  <Text style={styles.chooserTriggerText}>{chooserLabel}</Text>
-                </Pressable>
+                mediaChromeGlass ? (
+                  <GlassView
+                    style={[styles.chooserTrigger, { marginBottom: 8 }]}
+                    glassEffectStyle="regular"
+                    colorScheme="dark"
+                    isInteractive>
+                    <Pressable
+                      testID="multi-code-chooser-trigger"
+                      accessibilityRole="button"
+                      accessibilityLabel={chooserLabel}
+                      accessibilityHint={mediaChrome.kind}
+                      onPress={() => setChooserOpen((open) => !open)}
+                      style={styles.chooserTriggerHit}>
+                      <Text style={styles.chooserTriggerText}>{chooserLabel}</Text>
+                    </Pressable>
+                  </GlassView>
+                ) : (
+                  <Pressable
+                    testID="multi-code-chooser-trigger"
+                    accessibilityRole="button"
+                    accessibilityLabel={chooserLabel}
+                    accessibilityHint={mediaChrome.kind}
+                    onPress={() => setChooserOpen((open) => !open)}
+                    style={[
+                      styles.chooserTrigger,
+                      chromeContainerStyle(mediaChrome),
+                    ]}>
+                    <Text style={styles.chooserTriggerText}>{chooserLabel}</Text>
+                  </Pressable>
+                )
               ) : null}
               {showChooserTrigger && chooserOpen ? (
                 <MultiCodeChooser
@@ -183,48 +217,6 @@ export function ScannerScreen({
 }
 
 export const SCAN_TARGET_COACHING_TIMEOUT_MS = 12000;
-
-function useHighContrast(): boolean {
-  const [highContrast, setHighContrast] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    try {
-      const query = AccessibilityInfo.isDarkerSystemColorsEnabled?.();
-      if (query && typeof query.then === 'function') {
-        query
-          .then((enabled) => {
-            if (mounted) {
-              setHighContrast(enabled === true);
-            }
-          })
-          .catch(() => {});
-      }
-    } catch {
-      // Keep the default non-high-contrast guide.
-    }
-    const subscription = (() => {
-      try {
-        return AccessibilityInfo.addEventListener?.(
-          'darkerSystemColorsChanged',
-          setHighContrast,
-        );
-      } catch {
-        return undefined;
-      }
-    })();
-    return () => {
-      mounted = false;
-      try {
-        subscription?.remove?.();
-      } catch {
-        // Ignore cleanup errors in tests.
-      }
-    };
-  }, []);
-
-  return highContrast;
-}
 
 function ObservationHighlights({
   observations,
@@ -291,9 +283,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 12,
-    backgroundColor: 'rgba(28,28,30,0.92)',
     paddingHorizontal: 14,
     marginBottom: 8,
+    overflow: 'hidden',
+  },
+  chooserTriggerHit: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
   },
   chooserTriggerText: {
     fontSize: 15,

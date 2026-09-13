@@ -2,7 +2,13 @@ import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'ex
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, type StyleProp, View, type ViewStyle } from 'react-native';
 
-type Tone = 'onMedia' | 'onCanvas';
+import {
+  chromeContainerStyle,
+  resolveChromeSurface,
+  useChromePreferences,
+  type ChromeTone,
+} from '@/components/chromeAppearance';
+
 type Shape = 'circle' | 'pill';
 
 type Props = {
@@ -10,7 +16,7 @@ type Props = {
   testID: string;
   onPress: () => void;
   children: ReactNode;
-  tone?: Tone;
+  tone?: ChromeTone;
   shape?: Shape;
   style?: StyleProp<ViewStyle>;
 };
@@ -24,7 +30,13 @@ export function GlassControl({
   shape = 'circle',
   style,
 }: Props) {
-  const glass = isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+  const prefs = useChromePreferences();
+  const surface = resolveChromeSurface({
+    ...prefs,
+    tone,
+    liquidGlassAvailable: isGlassEffectAPIAvailable() && isLiquidGlassAvailable(),
+  });
+  const glass = surface.kind === 'liquidGlass';
   const shapeStyle = shape === 'circle' ? styles.circle : styles.pill;
   const pressable = (
     <Pressable
@@ -36,18 +48,27 @@ export function GlassControl({
       style={[
         styles.hit,
         glass ? StyleSheet.absoluteFill : shapeStyle,
-        !glass && (tone === 'onMedia' ? styles.mediaFallback : styles.canvasFallback),
+        !glass && chromeContainerStyle(surface),
       ]}>
       {children}
     </Pressable>
   );
 
   if (!glass) {
-    return <View style={style}>{pressable}</View>;
+    return (
+      <View
+        testID={`${testID}-chrome`}
+        accessibilityLabel={surface.kind}
+        style={style}>
+        {pressable}
+      </View>
+    );
   }
 
   return (
     <GlassView
+      testID={`${testID}-chrome`}
+      accessibilityLabel={surface.kind}
       style={[shapeStyle, style]}
       glassEffectStyle="regular"
       isInteractive
@@ -73,11 +94,5 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
     paddingHorizontal: 18,
-  },
-  mediaFallback: {
-    backgroundColor: 'rgba(28, 28, 30, 0.55)',
-  },
-  canvasFallback: {
-    backgroundColor: 'rgba(245, 245, 247, 0.86)',
   },
 });
