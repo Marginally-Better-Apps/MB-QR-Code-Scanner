@@ -33,6 +33,11 @@ export type QRContent =
   | {
       kind: 'contact';
       name: string | null;
+      organization: string | null;
+      phones: string[];
+      emails: string[];
+      addresses: string[];
+      urls: string[];
       phone: string | null;
       email: string | null;
     }
@@ -427,6 +432,43 @@ function vcardUnescape(value: string): string {
     .replace(/\\\\/g, '\\');
 }
 
+function formatVCardAddress(raw: string): string | null {
+  const parts = splitUnescaped(raw, ';').map((part) => vcardUnescape(part).trim());
+  const usable = parts.filter((part) => part.length > 0);
+  return usable.length > 0 ? usable.join(', ') : null;
+}
+
+function contactContent(
+  name: string | null,
+  organization: string | null,
+  phones: string[],
+  emails: string[],
+  addresses: string[],
+  urls: string[],
+): Extract<QRContent, { kind: 'contact' }> | null {
+  if (
+    name == null &&
+    organization == null &&
+    phones.length === 0 &&
+    emails.length === 0 &&
+    addresses.length === 0 &&
+    urls.length === 0
+  ) {
+    return null;
+  }
+  return {
+    kind: 'contact',
+    name,
+    organization,
+    phones,
+    emails,
+    addresses,
+    urls,
+    phone: phones[0] ?? null,
+    email: emails[0] ?? null,
+  };
+}
+
 function tryParseContact(raw: string): QRContent | null {
   const trimmed = raw.trim();
   if (hasControls(trimmed.replace(/\r/g, '').replace(/\n/g, '')) && /[\x00-\x1F\x7F]/.test(trimmed)) {
@@ -442,9 +484,12 @@ function tryParseContact(raw: string): QRContent | null {
     }
     const lines = unfoldVCardLines(trimmed);
     let name: string | null = null;
-    let phone: string | null = null;
-    let email: string | null = null;
-    const seen = new Set<string>();
+    let structuredName: string | null = null;
+    let organization: string | null = null;
+    const phones: string[] = [];
+    const emails: string[] = [];
+    const addresses: string[] = [];
+    const urls: string[] = [];
     for (const line of lines) {
       const colon = line.indexOf(':');
       if (colon < 0) {
@@ -452,25 +497,42 @@ function tryParseContact(raw: string): QRContent | null {
       }
       const keyPart = line.slice(0, colon).split(';')[0].toUpperCase();
       const value = line.slice(colon + 1);
-      if (keyPart === 'FN' && !seen.has('FN')) {
-        seen.add('FN');
+      if (keyPart === 'FN' && name == null) {
         name = vcardUnescape(value).trim() || null;
-      } else if (keyPart === 'TEL' && !seen.has('TEL')) {
-        seen.add('TEL');
-        phone = vcardUnescape(value).trim() || null;
-      } else if (keyPart === 'EMAIL' && !seen.has('EMAIL')) {
-        seen.add('EMAIL');
-        email = vcardUnescape(value).trim() || null;
-      } else if (keyPart === 'N' && name == null && !seen.has('N')) {
-        seen.add('N');
-        const nValue = vcardUnescape(value).trim();
-        name = nValue.length > 0 ? nValue : null;
+      } else if (keyPart === 'N' && structuredName == null) {
+        structuredName = vcardUnescape(value).trim() || null;
+      } else if (keyPart === 'ORG' && organization == null) {
+        organization = vcardUnescape(value).trim() || null;
+      } else if (keyPart === 'TEL') {
+        const phone = vcardUnescape(value).trim();
+        if (phone.length > 0) {
+          phones.push(phone);
+        }
+      } else if (keyPart === 'EMAIL') {
+        const email = vcardUnescape(value).trim();
+        if (email.length > 0) {
+          emails.push(email);
+        }
+      } else if (keyPart === 'ADR') {
+        const address = formatVCardAddress(value);
+        if (address) {
+          addresses.push(address);
+        }
+      } else if (keyPart === 'URL') {
+        const url = vcardUnescape(value).trim();
+        if (url.length > 0) {
+          urls.push(url);
+        }
       }
     }
-    if (name == null && phone == null && email == null) {
-      return null;
-    }
-    return { kind: 'contact', name, phone, email };
+    return contactContent(
+      name ?? structuredName,
+      organization,
+      phones,
+      emails,
+      addresses,
+      urls,
+    );
   }
   if (/^MECARD:/i.test(trimmed)) {
     if (!/;\s*$/.test(trimmed)) {
@@ -479,9 +541,11 @@ function tryParseContact(raw: string): QRContent | null {
     const inner = trimmed.slice('MECARD:'.length).replace(/;+\s*$/, '');
     const fields = splitUnescaped(inner, ';');
     let name: string | null = null;
-    let phone: string | null = null;
-    let email: string | null = null;
-    const seen = new Set<string>();
+    let organization: string | null = null;
+    const phones: string[] = [];
+    const emails: string[] = [];
+    const addresses: string[] = [];
+    const urls: string[] = [];
     for (const field of fields) {
       if (field === '') {
         continue;
@@ -509,22 +573,24 @@ function tryParseContact(raw: string): QRContent | null {
       }
       const key = field.slice(0, colon).toUpperCase();
       const value = unescapeWifiValue(field.slice(colon + 1)).trim();
-      if (seen.has(key)) {
+      if (value.length === 0) {
         continue;
       }
-      seen.add(key);
       if (key === 'N' && name == null) {
-        name = value.length > 0 ? value : null;
-      } else if ((key === 'TEL' || key === 'VOICE') && phone == null) {
-        phone = value.length > 0 ? value : null;
-      } else if ((key === 'EMAIL' || key === 'EM') && email == null) {
-        email = value.length > 0 ? value : null;
+        name = value;
+      } else if (key === 'ORG' && organization == null) {
+        organization = value;
+      } else if (key === 'TEL' || key === 'VOICE') {
+        phones.push(value);
+      } else if (key === 'EMAIL' || key === 'EM') {
+        emails.push(value);
+      } else if (key === 'ADR') {
+        addresses.push(value);
+      } else if (key === 'URL') {
+        urls.push(value);
       }
     }
-    if (name == null && phone == null && email == null) {
-      return null;
-    }
-    return { kind: 'contact', name, phone, email };
+    return contactContent(name, organization, phones, emails, addresses, urls);
   }
   return null;
 }
@@ -675,7 +741,11 @@ function displayForContent(content: QRContent, raw: string): string {
       );
     case 'contact':
       return toSafeSummary(
-        content.name ?? content.phone ?? content.email ?? 'Contact',
+        content.name ??
+          content.organization ??
+          content.phone ??
+          content.email ??
+          'Contact',
       );
     case 'calendar':
       return toSafeSummary(content.title ?? 'Calendar event');

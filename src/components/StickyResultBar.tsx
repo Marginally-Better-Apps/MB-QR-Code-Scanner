@@ -31,6 +31,7 @@ const PRIMARY_LABEL: Record<
   call: 'call',
   sendSms: 'sendSms',
   openLocation: 'openMap',
+  addContact: 'addContact',
 };
 
 const PRIMARY_SYMBOL = {
@@ -40,6 +41,7 @@ const PRIMARY_SYMBOL = {
   call: 'phone',
   sendSms: 'message',
   openLocation: 'map',
+  addContact: 'person.crop.circle.badge.plus',
 } as const;
 
 export function StickyResultBar({
@@ -188,6 +190,30 @@ export function StickyResultBar({
         {view.query ? (
           <Text testID="sticky-result-geo-query" numberOfLines={1} style={styles.path}>
             {view.query}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'contact' ? (
+      <View style={styles.preview}>
+        <Text testID="sticky-result-contact-name" numberOfLines={1} style={styles.host}>
+          {view.name ?? t('contactUntitled')}
+        </Text>
+        {view.organization ? (
+          <Text testID="sticky-result-contact-org" numberOfLines={1} style={styles.path}>
+            {view.organization}
+          </Text>
+        ) : null}
+        {view.phones[0] ? (
+          <Text testID="sticky-result-contact-phone" numberOfLines={1} style={styles.path}>
+            {view.phones[0]}
+          </Text>
+        ) : null}
+        {view.emails[0] ? (
+          <Text testID="sticky-result-contact-email" numberOfLines={1} style={styles.path}>
+            {view.emails[0]}
           </Text>
         ) : null}
         <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>

@@ -44,6 +44,16 @@ export type ResultViewModel =
       query: string | null;
       full: string;
     }
+  | {
+      kind: 'contact';
+      name: string | null;
+      organization: string | null;
+      phones: string[];
+      emails: string[];
+      addresses: string[];
+      urls: string[];
+      full: string;
+    }
   | { kind: 'other'; preview: string; full: string };
 
 const BIDI_AND_INVISIBLE_RE =
@@ -299,6 +309,20 @@ export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewMod
         latitude: String(content.latitude),
         longitude: String(content.longitude),
         query: content.query ? sanitizeVisibleText(content.query) : null,
+        full: parsed.originalPayload,
+      };
+    }
+    case 'contact': {
+      return {
+        kind: 'contact',
+        name: content.name ? sanitizeVisibleText(content.name) : null,
+        organization: content.organization
+          ? sanitizeVisibleText(content.organization)
+          : null,
+        phones: content.phones.map((phone) => normalizePhoneForDisplay(phone)),
+        emails: content.emails.map((email) => sanitizeVisibleText(email)),
+        addresses: content.addresses.map((address) => sanitizeVisibleText(address)),
+        urls: content.urls.map((url) => sanitizeVisibleText(url)),
         full: parsed.originalPayload,
       };
     }

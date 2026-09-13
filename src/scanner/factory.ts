@@ -4,6 +4,7 @@ import { cameraAccessFromFixture } from './cameraFixtures';
 import { decideScannerEngine } from './engineSelector';
 import {
   EDGE_CODE_FIXTURE,
+  CONTACT_CODE_FIXTURE,
   EMAIL_CODE_FIXTURE,
   GEO_CODE_FIXTURE,
   PHONE_CODE_FIXTURE,
@@ -103,6 +104,12 @@ export function makeObservationSource(
           engineID: 'fixture.geo-code',
           clock,
           startupFrame: GEO_CODE_FIXTURE,
+        });
+      case 'contact-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.contact-code',
+          clock,
+          startupFrame: CONTACT_CODE_FIXTURE,
         });
       default:
         break;

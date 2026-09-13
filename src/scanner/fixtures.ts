@@ -95,6 +95,14 @@ export const GEO_CODE_FIXTURE: ScannerFixtureDetection[] = [
   },
 ];
 
+export const CONTACT_CODE_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload:
+      'BEGIN:VCARD\nVERSION:3.0\nFN:Jane Doe\nORG:Acme Labs\nTEL:+14155552671\nEMAIL:jane@example.com\nEND:VCARD',
+    displayBounds: COMMS_BOUNDS,
+  },
+];
+
 export const SINGLE_CODE_FIXTURE: ScannerFixtureDetection[] = [
   {
     rawPayload: 'https://example.com/fixture',
