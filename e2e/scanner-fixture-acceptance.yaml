@@ -13,7 +13,9 @@ appId: com.marginallybetter.qrscanner
 - startRecording: scanner-fixture-acceptance
 - tapOn:
     id: "open-history"
-- assertVisible: "Your scan history will appear here."
+- assertVisible: "Today"
+- assertVisible: "example.com/fixture.*"
+- assertNotVisible: "Accepted scans appear here."
 - tapOn:
     id: "history-back"
 - assertVisible: "https://example.com/fixture"

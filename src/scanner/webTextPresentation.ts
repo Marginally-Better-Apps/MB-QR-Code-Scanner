@@ -18,6 +18,57 @@ export type ResultViewModel =
       remainderPreview: string;
       full: string;
     }
+  | {
+      kind: 'email';
+      to: string;
+      subject: string;
+      body: string;
+      full: string;
+    }
+  | {
+      kind: 'phone';
+      displayNumber: string;
+      originalNumber: string;
+      full: string;
+    }
+  | {
+      kind: 'sms';
+      displayNumber: string;
+      message: string;
+      full: string;
+    }
+  | {
+      kind: 'geo';
+      latitude: string;
+      longitude: string;
+      query: string | null;
+      full: string;
+    }
+  | {
+      kind: 'contact';
+      name: string | null;
+      organization: string | null;
+      phones: string[];
+      emails: string[];
+      addresses: string[];
+      urls: string[];
+      full: string;
+    }
+  | {
+      kind: 'calendar';
+      title: string;
+      whenLabel: string;
+      location: string | null;
+      full: string;
+    }
+  | {
+      kind: 'wifi';
+      ssid: string;
+      security: string;
+      passwordMasked: string | null;
+      hidden: boolean;
+      full: string;
+    }
   | { kind: 'other'; preview: string; full: string };
 
 const BIDI_AND_INVISIBLE_RE =
@@ -193,6 +244,45 @@ function sanitizePath(path: string, maxLength = WEB_PATH_PREVIEW_MAX_LENGTH): st
   return `${neutralized.slice(0, maxLength - 1)}…`;
 }
 
+/**
+ * Keep the original number on the payload. Display may regroup digits.
+ * NANP +1 numbers become `+1 NXX NXX XXXX`.
+ */
+export function normalizePhoneForDisplay(number: string): string {
+  const trimmed = number.trim();
+  const hasPlus = trimmed.startsWith('+');
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length === 0) {
+    return sanitizeVisibleText(trimmed);
+  }
+  if (hasPlus && digits.length === 11 && digits.startsWith('1')) {
+    return `+1 ${digits.slice(1, 4)} ${digits.slice(4, 7)} ${digits.slice(7)}`;
+  }
+  if (!hasPlus && digits.length === 10) {
+    return `${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+  }
+  if (hasPlus && digits.length === 10) {
+    return `+${digits.slice(0, 3)} ${digits.slice(3, 6)} ${digits.slice(6)}`;
+  }
+  return hasPlus ? `+${digits}` : digits;
+}
+
+function calendarWhenLabel(
+  content: Extract<ParsedQRPayload['content'], { kind: 'calendar' }>,
+): string {
+  const start = content.start ?? '';
+  if (content.timeKind === 'allDay') {
+    return sanitizeVisibleText(`All day ${start}`);
+  }
+  if (content.timeKind === 'utc') {
+    return sanitizeVisibleText(`UTC ${start}`);
+  }
+  if (content.timeKind === 'namedZone' && content.timeZone) {
+    return sanitizeVisibleText(`${content.timeZone} ${start}`);
+  }
+  return sanitizeVisibleText(`Local ${start}`);
+}
+
 export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewModel {
   const { content } = parsed;
   switch (content.kind) {
@@ -217,6 +307,73 @@ export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewMod
         scheme: sanitizeVisibleText(content.scheme.toLowerCase(), 32),
         remainderPreview: sanitizePath(content.remainder, WEB_PATH_PREVIEW_MAX_LENGTH),
         full: `${content.scheme}:${content.remainder}`,
+      };
+    }
+    case 'email': {
+      return {
+        kind: 'email',
+        to: sanitizeVisibleText(content.to),
+        subject: sanitizeVisibleText(content.subject),
+        body: sanitizeVisibleText(content.body, VISIBLE_TEXT_MAX_LENGTH),
+        full: parsed.originalPayload,
+      };
+    }
+    case 'phone': {
+      return {
+        kind: 'phone',
+        displayNumber: normalizePhoneForDisplay(content.number),
+        originalNumber: content.number,
+        full: parsed.originalPayload,
+      };
+    }
+    case 'sms': {
+      return {
+        kind: 'sms',
+        displayNumber: normalizePhoneForDisplay(content.number),
+        message: sanitizeVisibleText(content.message, VISIBLE_TEXT_MAX_LENGTH),
+        full: parsed.originalPayload,
+      };
+    }
+    case 'geo': {
+      return {
+        kind: 'geo',
+        latitude: String(content.latitude),
+        longitude: String(content.longitude),
+        query: content.query ? sanitizeVisibleText(content.query) : null,
+        full: parsed.originalPayload,
+      };
+    }
+    case 'contact': {
+      return {
+        kind: 'contact',
+        name: content.name ? sanitizeVisibleText(content.name) : null,
+        organization: content.organization
+          ? sanitizeVisibleText(content.organization)
+          : null,
+        phones: content.phones.map((phone) => normalizePhoneForDisplay(phone)),
+        emails: content.emails.map((email) => sanitizeVisibleText(email)),
+        addresses: content.addresses.map((address) => sanitizeVisibleText(address)),
+        urls: content.urls.map((url) => sanitizeVisibleText(url)),
+        full: parsed.originalPayload,
+      };
+    }
+    case 'calendar': {
+      return {
+        kind: 'calendar',
+        title: sanitizeVisibleText(content.title ?? 'Calendar event'),
+        whenLabel: calendarWhenLabel(content),
+        location: content.location ? sanitizeVisibleText(content.location) : null,
+        full: parsed.originalPayload,
+      };
+    }
+    case 'wifi': {
+      return {
+        kind: 'wifi',
+        ssid: sanitizeVisibleText(content.ssid),
+        security: sanitizeVisibleText(content.security),
+        passwordMasked: content.hasPassword ? '••••••••' : null,
+        hidden: content.hidden,
+        full: parsed.originalPayload,
       };
     }
     case 'otp':

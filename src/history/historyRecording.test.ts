@@ -1,9 +1,11 @@
 import type { AcceptedScan } from '@/scanner/acceptance';
 import { AUTH_QR_FIXTURES } from '@/scanner/authQr';
 import { CameraAccessFixtureProvider } from '@/scanner/cameraFixtures';
+import { makeObservationSource } from '@/scanner/factory';
 import { ScannerObservationFixtureSource } from '@/scanner/fixtures';
 import { ScannerSessionStore } from '@/scanner/session';
 
+import { hydrateHistoryForSession } from './historyHydration';
 import { HistoryStore, InMemoryHistoryFileIO, recordAcceptedScan } from './historyStore';
 
 const URL_RAW = 'https://example.com/gated';
@@ -115,5 +117,31 @@ describe('history recording downstream of the acceptance gate (HIS-01)', () => {
     expect(events[0]?.original).toBeNull();
     expect(JSON.stringify(events)).not.toContain('supersecret123');
     expect(JSON.stringify(events)).not.toContain('home-network');
+  });
+
+  test('named single-code startup fixture records once when the listener is attached first', async () => {
+    const store = await HistoryStore.open({
+      fileIO: new InMemoryHistoryFileIO(),
+      directory: '/tmp/history-startup-fixture',
+    });
+    const session = new ScannerSessionStore({
+      cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
+      observationSource: makeObservationSource({
+        arguments: ['QRScanner', '--scanner-fixture', 'single-code'],
+        fixturesEnabled: true,
+      }),
+    });
+
+    await hydrateHistoryForSession({
+      store,
+      session,
+      fixturesEnabled: false,
+      onEvents: () => {},
+    });
+    await session.activateScanner();
+
+    const events = await store.list();
+    expect(events).toHaveLength(1);
+    expect(events[0]?.summary).toContain('example.com/fixture');
   });
 });

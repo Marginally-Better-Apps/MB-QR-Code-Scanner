@@ -77,6 +77,12 @@ enum LaunchConfiguration {
     ) {
       payload["nativeImageFixture"] = nativeImageFixture
     }
+    if let historyFixture = stringValue(
+      flag: "--history-fixture",
+      defaultsKey: "historyFixture"
+    ) {
+      payload["historyFixture"] = historyFixture
+    }
     return payload
   }
 
@@ -103,9 +109,11 @@ enum LaunchConfiguration {
     return arguments.contains("--scanner-fixture")
       || arguments.contains("--camera-fixture")
       || arguments.contains("--native-image-fixture")
+      || arguments.contains("--history-fixture")
       || arguments.contains("-scannerFixture")
       || arguments.contains("-cameraFixture")
       || arguments.contains("-nativeImageFixture")
+      || arguments.contains("-historyFixture")
 #endif
   }
 

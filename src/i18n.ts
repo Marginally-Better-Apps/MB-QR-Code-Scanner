@@ -14,7 +14,14 @@ const en = {
   pointCamera: 'Point the camera at a QR code. Scanning starts automatically.',
   cameraPurpose:
     'QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved.',
-  historyPlaceholder: 'Your scan history will appear here.',
+  historyPlaceholder: 'Accepted scans appear here.',
+  historyScanCta: 'Scan a QR code',
+  historyToday: 'Today',
+  historyYesterday: 'Yesterday',
+  historyRedactedTitle: 'Sensitive scan',
+  historyWifiTitle: 'Wi-Fi network',
+  historySensitiveNotSaved: 'This sensitive code was not saved.',
+  historyWifiNotSaved: 'The Wi-Fi network was not saved.',
   liveScanArea: 'Live camera scan area',
   scanTargetCoaching: 'Place code near here. Codes anywhere in view are recognized.',
   copy: 'Copy',
@@ -24,6 +31,23 @@ const en = {
   openAppLink: 'Open app link',
   website: 'Website',
   appLink: 'App link',
+  composeEmail: 'Compose',
+  call: 'Call',
+  sendSms: 'Message',
+  openMap: 'Open Map',
+  emailTo: 'To',
+  emailSubject: 'Subject',
+  emailBody: 'Body',
+  phoneNumber: 'Phone',
+  smsMessage: 'Message',
+  geoLocation: 'Location',
+  addContact: 'Add Contact',
+  contactUntitled: 'Contact',
+  addEvent: 'Add Event',
+  joinWifi: 'Join',
+  wifiNetwork: 'Wi-Fi',
+  wifiPasswordHidden: 'Password hidden',
+  wifiJoinUnavailable: 'Joining Wi-Fi is not available on this build.',
   back: 'Back',
   clear: 'Clear',
   showDetails: 'Show details',
@@ -33,6 +57,16 @@ const en = {
   chooseCode: 'Choose',
   selectCode: 'Select a QR code',
   candidateCodes: 'Candidate QR codes',
+  historyDelete: 'Delete',
+  historyUndo: 'Undo',
+  historyScanDeleted: 'Scan deleted',
+  historyClearCount: 'Clear {count} scans',
+  historyClearCountOne: 'Clear 1 scan',
+  historyClearConfirmTitle: 'Clear all scans?',
+  historyClearConfirmMessage: 'This removes {count} scans from this device.',
+  historyClearConfirmMessageOne: 'This removes 1 scan from this device.',
+  historyClearConfirm: 'Clear All',
+  historyClearCancel: 'Cancel',
 };
 
 const es: typeof en = {
@@ -52,7 +86,14 @@ const es: typeof en = {
   pointCamera: 'Apunta la cámara a un código QR. El escaneo comienza automáticamente.',
   cameraPurpose:
     'QR Scanner reconoce códigos QR en este dispositivo. Los fotogramas de la cámara nunca se suben ni se guardan.',
-  historyPlaceholder: 'Tu historial de escaneos aparecerá aquí.',
+  historyPlaceholder: 'Los escaneos aceptados aparecen aquí.',
+  historyScanCta: 'Escanear un código QR',
+  historyToday: 'Hoy',
+  historyYesterday: 'Ayer',
+  historyRedactedTitle: 'Escaneo confidencial',
+  historyWifiTitle: 'Red Wi-Fi',
+  historySensitiveNotSaved: 'Este código confidencial no se guardó.',
+  historyWifiNotSaved: 'La red Wi-Fi no se guardó.',
   liveScanArea: 'Área de escaneo con cámara en vivo',
   scanTargetCoaching:
     'Coloca el código cerca de aquí. Se reconocen los códigos en cualquier parte de la vista.',
@@ -63,6 +104,23 @@ const es: typeof en = {
   openAppLink: 'Abrir enlace de app',
   website: 'Sitio web',
   appLink: 'Enlace de app',
+  composeEmail: 'Redactar',
+  call: 'Llamar',
+  sendSms: 'Mensaje',
+  openMap: 'Abrir mapa',
+  emailTo: 'Para',
+  emailSubject: 'Asunto',
+  emailBody: 'Cuerpo',
+  phoneNumber: 'Teléfono',
+  smsMessage: 'Mensaje',
+  geoLocation: 'Ubicación',
+  addContact: 'Añadir contacto',
+  contactUntitled: 'Contacto',
+  addEvent: 'Añadir evento',
+  joinWifi: 'Unirse',
+  wifiNetwork: 'Wi-Fi',
+  wifiPasswordHidden: 'Contraseña oculta',
+  wifiJoinUnavailable: 'Unirse a Wi-Fi no está disponible en esta compilación.',
   back: 'Atrás',
   clear: 'Borrar',
   showDetails: 'Mostrar detalles',
@@ -72,6 +130,16 @@ const es: typeof en = {
   chooseCode: 'Elegir',
   selectCode: 'Selecciona un código QR',
   candidateCodes: 'Códigos QR candidatos',
+  historyDelete: 'Eliminar',
+  historyUndo: 'Deshacer',
+  historyScanDeleted: 'Escaneo eliminado',
+  historyClearCount: 'Borrar {count} escaneos',
+  historyClearCountOne: 'Borrar 1 escaneo',
+  historyClearConfirmTitle: '¿Borrar todos los escaneos?',
+  historyClearConfirmMessage: 'Esto elimina {count} escaneos de este dispositivo.',
+  historyClearConfirmMessageOne: 'Esto elimina 1 escaneo de este dispositivo.',
+  historyClearConfirm: 'Borrar todo',
+  historyClearCancel: 'Cancelar',
 };
 
 export type MessageKey = keyof typeof en;
@@ -86,6 +154,12 @@ export function getLocale(): string {
   return currentLocale;
 }
 
-export function t(key: MessageKey): string {
-  return (currentLocale === 'es' ? es : en)[key];
+export function t(key: MessageKey, vars?: Record<string, string | number>): string {
+  let value = (currentLocale === 'es' ? es : en)[key];
+  if (vars) {
+    for (const [name, replacement] of Object.entries(vars)) {
+      value = value.replaceAll(`{${name}}`, String(replacement));
+    }
+  }
+  return value;
 }

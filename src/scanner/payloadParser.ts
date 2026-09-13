@@ -31,10 +31,16 @@ export type QRContent =
       security: string;
       hasPassword: boolean;
       password: string | null;
+      hidden: boolean;
     }
   | {
       kind: 'contact';
       name: string | null;
+      organization: string | null;
+      phones: string[];
+      emails: string[];
+      addresses: string[];
+      urls: string[];
       phone: string | null;
       email: string | null;
     }
@@ -44,6 +50,11 @@ export type QRContent =
       start: string | null;
       end: string | null;
       location: string | null;
+      notes: string | null;
+      url: string | null;
+      timeZone: string | null;
+      allDay: boolean;
+      timeKind: 'allDay' | 'utc' | 'local' | 'namedZone';
     }
   | { kind: 'otp'; label: string | null; issuer: string | null }
   | { kind: 'passkey' }
@@ -155,7 +166,7 @@ function tryParseEmail(raw: string): QRContent | null {
       return null;
     }
     const inner = trimmed.slice('MATMSG:'.length).replace(/;;\s*$/, '');
-    const parts = inner.split(';');
+    const parts = splitUnescaped(inner, ';');
     let to: string | null = null;
     let subject = '';
     let body = '';
@@ -165,17 +176,17 @@ function tryParseEmail(raw: string): QRContent | null {
       if (upper.startsWith('TO:')) {
         if (!seen.has('TO')) {
           seen.add('TO');
-          to = part.slice('TO:'.length);
+          to = unescapeWifiValue(part.slice('TO:'.length));
         }
       } else if (upper.startsWith('SUB:')) {
         if (!seen.has('SUB')) {
           seen.add('SUB');
-          subject = part.slice('SUB:'.length);
+          subject = unescapeWifiValue(part.slice('SUB:'.length));
         }
       } else if (upper.startsWith('BODY:')) {
         if (!seen.has('BODY')) {
           seen.add('BODY');
-          body = part.slice('BODY:'.length);
+          body = unescapeWifiValue(part.slice('BODY:'.length));
         }
       }
     }
@@ -250,6 +261,10 @@ function tryParseSms(raw: string): QRContent | null {
     if (sep >= 0) {
       number = remainder.slice(0, sep);
       message = remainder.slice(sep + 1);
+      const field = /^(?:body|text)=/i.exec(message);
+      if (field) {
+        message = message.slice(field[0].length);
+      }
     } else {
       number = remainder;
       message = '';
@@ -326,7 +341,7 @@ function splitUnescaped(value: string, delimiter: string): string[] {
   return parts;
 }
 
-const WIFI_SECURITY = new Set(['WEP', 'WPA', 'WPA2', 'EAP', 'NOPASS', '']);
+const WIFI_SECURITY = new Set(['WEP', 'WPA', 'WPA2', 'WPA3', 'SAE', 'EAP', 'NOPASS', '']);
 
 function tryParseWifi(raw: string): QRContent | null {
   const trimmed = raw.trim();
@@ -345,6 +360,7 @@ function tryParseWifi(raw: string): QRContent | null {
   let security = 'nopass';
   let ssid: string | null = null;
   let password: string | null = null;
+  let hidden = false;
   let hasSecurity = false;
   for (const field of fields) {
     if (field === '') {
@@ -387,6 +403,8 @@ function tryParseWifi(raw: string): QRContent | null {
       ssid = unescapeWifiValue(value);
     } else if (key === 'P') {
       password = unescapeWifiValue(value);
+    } else if (key === 'H') {
+      hidden = /^(true|1|yes)$/i.test(unescapeWifiValue(value).trim());
     }
   }
   if (ssid == null) {
@@ -402,6 +420,7 @@ function tryParseWifi(raw: string): QRContent | null {
     security,
     hasPassword,
     password: hasPassword ? password : null,
+    hidden,
   };
 }
 
@@ -426,6 +445,43 @@ function vcardUnescape(value: string): string {
     .replace(/\\\\/g, '\\');
 }
 
+function formatVCardAddress(raw: string): string | null {
+  const parts = splitUnescaped(raw, ';').map((part) => vcardUnescape(part).trim());
+  const usable = parts.filter((part) => part.length > 0);
+  return usable.length > 0 ? usable.join(', ') : null;
+}
+
+function contactContent(
+  name: string | null,
+  organization: string | null,
+  phones: string[],
+  emails: string[],
+  addresses: string[],
+  urls: string[],
+): Extract<QRContent, { kind: 'contact' }> | null {
+  if (
+    name == null &&
+    organization == null &&
+    phones.length === 0 &&
+    emails.length === 0 &&
+    addresses.length === 0 &&
+    urls.length === 0
+  ) {
+    return null;
+  }
+  return {
+    kind: 'contact',
+    name,
+    organization,
+    phones,
+    emails,
+    addresses,
+    urls,
+    phone: phones[0] ?? null,
+    email: emails[0] ?? null,
+  };
+}
+
 function tryParseContact(raw: string): QRContent | null {
   const trimmed = raw.trim();
   if (hasControls(trimmed.replace(/\r/g, '').replace(/\n/g, '')) && /[\x00-\x1F\x7F]/.test(trimmed)) {
@@ -441,9 +497,12 @@ function tryParseContact(raw: string): QRContent | null {
     }
     const lines = unfoldVCardLines(trimmed);
     let name: string | null = null;
-    let phone: string | null = null;
-    let email: string | null = null;
-    const seen = new Set<string>();
+    let structuredName: string | null = null;
+    let organization: string | null = null;
+    const phones: string[] = [];
+    const emails: string[] = [];
+    const addresses: string[] = [];
+    const urls: string[] = [];
     for (const line of lines) {
       const colon = line.indexOf(':');
       if (colon < 0) {
@@ -451,25 +510,42 @@ function tryParseContact(raw: string): QRContent | null {
       }
       const keyPart = line.slice(0, colon).split(';')[0].toUpperCase();
       const value = line.slice(colon + 1);
-      if (keyPart === 'FN' && !seen.has('FN')) {
-        seen.add('FN');
+      if (keyPart === 'FN' && name == null) {
         name = vcardUnescape(value).trim() || null;
-      } else if (keyPart === 'TEL' && !seen.has('TEL')) {
-        seen.add('TEL');
-        phone = vcardUnescape(value).trim() || null;
-      } else if (keyPart === 'EMAIL' && !seen.has('EMAIL')) {
-        seen.add('EMAIL');
-        email = vcardUnescape(value).trim() || null;
-      } else if (keyPart === 'N' && name == null && !seen.has('N')) {
-        seen.add('N');
-        const nValue = vcardUnescape(value).trim();
-        name = nValue.length > 0 ? nValue : null;
+      } else if (keyPart === 'N' && structuredName == null) {
+        structuredName = vcardUnescape(value).trim() || null;
+      } else if (keyPart === 'ORG' && organization == null) {
+        organization = vcardUnescape(value).trim() || null;
+      } else if (keyPart === 'TEL') {
+        const phone = vcardUnescape(value).trim();
+        if (phone.length > 0) {
+          phones.push(phone);
+        }
+      } else if (keyPart === 'EMAIL') {
+        const email = vcardUnescape(value).trim();
+        if (email.length > 0) {
+          emails.push(email);
+        }
+      } else if (keyPart === 'ADR') {
+        const address = formatVCardAddress(value);
+        if (address) {
+          addresses.push(address);
+        }
+      } else if (keyPart === 'URL') {
+        const url = vcardUnescape(value).trim();
+        if (url.length > 0) {
+          urls.push(url);
+        }
       }
     }
-    if (name == null && phone == null && email == null) {
-      return null;
-    }
-    return { kind: 'contact', name, phone, email };
+    return contactContent(
+      name ?? structuredName,
+      organization,
+      phones,
+      emails,
+      addresses,
+      urls,
+    );
   }
   if (/^MECARD:/i.test(trimmed)) {
     if (!/;\s*$/.test(trimmed)) {
@@ -478,9 +554,11 @@ function tryParseContact(raw: string): QRContent | null {
     const inner = trimmed.slice('MECARD:'.length).replace(/;+\s*$/, '');
     const fields = splitUnescaped(inner, ';');
     let name: string | null = null;
-    let phone: string | null = null;
-    let email: string | null = null;
-    const seen = new Set<string>();
+    let organization: string | null = null;
+    const phones: string[] = [];
+    const emails: string[] = [];
+    const addresses: string[] = [];
+    const urls: string[] = [];
     for (const field of fields) {
       if (field === '') {
         continue;
@@ -508,30 +586,87 @@ function tryParseContact(raw: string): QRContent | null {
       }
       const key = field.slice(0, colon).toUpperCase();
       const value = unescapeWifiValue(field.slice(colon + 1)).trim();
-      if (seen.has(key)) {
+      if (value.length === 0) {
         continue;
       }
-      seen.add(key);
       if (key === 'N' && name == null) {
-        name = value.length > 0 ? value : null;
-      } else if ((key === 'TEL' || key === 'VOICE') && phone == null) {
-        phone = value.length > 0 ? value : null;
-      } else if ((key === 'EMAIL' || key === 'EM') && email == null) {
-        email = value.length > 0 ? value : null;
+        name = value;
+      } else if (key === 'ORG' && organization == null) {
+        organization = value;
+      } else if (key === 'TEL' || key === 'VOICE') {
+        phones.push(value);
+      } else if (key === 'EMAIL' || key === 'EM') {
+        emails.push(value);
+      } else if (key === 'ADR') {
+        addresses.push(value);
+      } else if (key === 'URL') {
+        urls.push(value);
       }
     }
-    if (name == null && phone == null && email == null) {
-      return null;
-    }
-    return { kind: 'contact', name, phone, email };
+    return contactContent(name, organization, phones, emails, addresses, urls);
   }
   return null;
+}
+
+const ICAL_DATE = /^(\d{4})(\d{2})(\d{2})$/;
+const ICAL_DATE_TIME = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/;
+
+function isValidICalDate(value: string, allDay: boolean): boolean {
+  if (allDay) {
+    const match = ICAL_DATE.exec(value);
+    if (!match) {
+      return false;
+    }
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const instant = new Date(Date.UTC(Number(match[1]), month - 1, day));
+    return (
+      instant.getUTCFullYear() === Number(match[1]) &&
+      instant.getUTCMonth() === month - 1 &&
+      instant.getUTCDate() === day
+    );
+  }
+  const match = ICAL_DATE_TIME.exec(value);
+  if (!match) {
+    return false;
+  }
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  if (hour > 23 || minute > 59 || second > 60) {
+    return false;
+  }
+  const instant = new Date(
+    Date.UTC(Number(match[1]), month - 1, day, hour, minute, second),
+  );
+  return (
+    instant.getUTCFullYear() === Number(match[1]) &&
+    instant.getUTCMonth() === month - 1 &&
+    instant.getUTCDate() === day
+  );
+}
+
+function parseICalParams(rawKey: string): { name: string; params: Record<string, string> } {
+  const parts = rawKey.split(';');
+  const name = parts[0].toUpperCase();
+  const params: Record<string, string> = {};
+  for (const part of parts.slice(1)) {
+    const eq = part.indexOf('=');
+    if (eq < 0) {
+      continue;
+    }
+    params[part.slice(0, eq).toUpperCase()] = part.slice(eq + 1);
+  }
+  return { name, params };
 }
 
 function tryParseCalendar(raw: string): QRContent | null {
   const trimmed = raw.trim();
   const upper = trimmed.toUpperCase();
-  if (!upper.includes('BEGIN:VEVENT') || !upper.includes('END:VEVENT')) {
+  const beginCount = upper.split('BEGIN:VEVENT').length - 1;
+  if (beginCount !== 1 || !upper.includes('END:VEVENT')) {
     return null;
   }
   const lines = unfoldVCardLines(trimmed);
@@ -539,32 +674,72 @@ function tryParseCalendar(raw: string): QRContent | null {
   let start: string | null = null;
   let end: string | null = null;
   let location: string | null = null;
+  let notes: string | null = null;
+  let url: string | null = null;
+  let timeZone: string | null = null;
+  let allDay = false;
+  let timeKind: Extract<QRContent, { kind: 'calendar' }>['timeKind'] = 'local';
   const seen = new Set<string>();
   for (const line of lines) {
     const colon = line.indexOf(':');
     if (colon < 0) {
       continue;
     }
-    const key = line.slice(0, colon).split(';')[0].toUpperCase();
+    const { name, params } = parseICalParams(line.slice(0, colon));
     const value = line.slice(colon + 1).trim();
-    if (seen.has(key)) {
+    if (seen.has(name)) {
       continue;
     }
-    if (key === 'SUMMARY') {
-      seen.add(key);
+    if (name === 'SUMMARY') {
+      seen.add(name);
       title = vcardUnescape(value) || null;
-    } else if (key === 'DTSTART') {
-      seen.add(key);
+    } else if (name === 'DTSTART') {
+      seen.add(name);
       start = value || null;
-    } else if (key === 'DTEND') {
-      seen.add(key);
+      const valueType = (params.VALUE ?? '').toUpperCase();
+      if (valueType === 'DATE' || ICAL_DATE.test(value)) {
+        allDay = true;
+        timeKind = 'allDay';
+      } else if (value.endsWith('Z')) {
+        timeKind = 'utc';
+      } else if (params.TZID) {
+        timeKind = 'namedZone';
+        timeZone = params.TZID;
+      } else {
+        timeKind = 'local';
+      }
+    } else if (name === 'DTEND') {
+      seen.add(name);
       end = value || null;
-    } else if (key === 'LOCATION') {
-      seen.add(key);
+    } else if (name === 'LOCATION') {
+      seen.add(name);
       location = vcardUnescape(value) || null;
+    } else if (name === 'DESCRIPTION') {
+      seen.add(name);
+      notes = vcardUnescape(value) || null;
+    } else if (name === 'URL') {
+      seen.add(name);
+      url = vcardUnescape(value) || null;
     }
   }
-  return { kind: 'calendar', title, start, end, location };
+  if (start == null || !isValidICalDate(start, allDay)) {
+    return null;
+  }
+  if (end != null && !isValidICalDate(end, allDay || ICAL_DATE.test(end))) {
+    return null;
+  }
+  return {
+    kind: 'calendar',
+    title,
+    start,
+    end,
+    location,
+    notes,
+    url,
+    timeZone,
+    allDay,
+    timeKind,
+  };
 }
 
 function tryParseOtp(raw: string): QRContent | null {
@@ -665,7 +840,11 @@ function displayForContent(content: QRContent, raw: string): string {
       );
     case 'contact':
       return toSafeSummary(
-        content.name ?? content.phone ?? content.email ?? 'Contact',
+        content.name ??
+          content.organization ??
+          content.phone ??
+          content.email ??
+          'Contact',
       );
     case 'calendar':
       return toSafeSummary(content.title ?? 'Calendar event');

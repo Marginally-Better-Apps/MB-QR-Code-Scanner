@@ -11,6 +11,7 @@ export type BootstrapResult = {
   engine: 'visionkit' | 'avfoundation' | 'fixture';
   fixturesEnabled: boolean;
   nativeImageFixture?: string;
+  historyFixture?: string;
 };
 
 function argumentValue(argv: string[], flag: string): string | undefined {
@@ -35,6 +36,7 @@ export function bootstrapApp(input?: {
     cameraFixture: capabilities?.cameraFixture,
     scannerFixture: capabilities?.scannerFixture,
     nativeImageFixture: capabilities?.nativeImageFixture,
+    historyFixture: capabilities?.historyFixture,
     ...input?.defaults,
   };
   const cameraFixture =
@@ -43,6 +45,8 @@ export function bootstrapApp(input?: {
     argumentValue(argv, '--scanner-fixture') ?? defaults.scannerFixture;
   const nativeImageFixture =
     argumentValue(argv, '--native-image-fixture') ?? defaults.nativeImageFixture;
+  const historyFixture =
+    argumentValue(argv, '--history-fixture') ?? defaults.historyFixture;
 
   const cameraAccess: CameraAccessProviding =
     (fixturesEnabled ? cameraAccessFromFixture(cameraFixture) : null) ??
@@ -85,5 +89,6 @@ export function bootstrapApp(input?: {
     engine,
     fixturesEnabled,
     nativeImageFixture: fixturesEnabled ? nativeImageFixture : undefined,
+    historyFixture: fixturesEnabled ? historyFixture : undefined,
   };
 }

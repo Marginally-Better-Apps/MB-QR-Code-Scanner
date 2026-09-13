@@ -3,10 +3,12 @@ import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { t } from '@/i18n';
+import { t, type MessageKey } from '@/i18n';
 import {
   defaultResultActionDeps,
   dispatchResultAction,
+  resolvePrimarySystemAction,
+  type ResultActionCapabilities,
   type ResultActionDeps,
 } from '@/scanner/actionRouter';
 import { parseQRPayload } from '@/scanner/payloadParser';
@@ -16,23 +18,69 @@ type Props = {
   payload: string;
   onClear: () => void;
   actionDeps?: ResultActionDeps;
+  actionCapabilities?: Partial<ResultActionCapabilities>;
 };
 
-export function StickyResultBar({ payload, onClear, actionDeps }: Props) {
+const PRIMARY_LABEL: Record<
+  NonNullable<ReturnType<typeof resolvePrimarySystemAction>>['action'],
+  MessageKey
+> = {
+  openUrl: 'openLink',
+  openApp: 'openAppLink',
+  composeEmail: 'composeEmail',
+  call: 'call',
+  sendSms: 'sendSms',
+  openLocation: 'openMap',
+  addContact: 'addContact',
+  addEvent: 'addEvent',
+  joinWifi: 'joinWifi',
+};
+
+const PRIMARY_SYMBOL = {
+  openUrl: 'arrow.up.right.square',
+  openApp: 'arrow.up.right.square',
+  composeEmail: 'envelope',
+  call: 'phone',
+  sendSms: 'message',
+  openLocation: 'map',
+  addContact: 'person.crop.circle.badge.plus',
+  addEvent: 'calendar.badge.plus',
+  joinWifi: 'wifi',
+} as const;
+
+export function StickyResultBar({
+  payload,
+  onClear,
+  actionDeps,
+  actionCapabilities,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
   const [didCopy, setDidCopy] = useState(false);
   const glass = isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
 
   const parsed = useMemo(() => parseQRPayload(payload), [payload]);
   const view = useMemo(() => describeResultForDisplay(parsed), [parsed]);
-  const deps = useMemo(() => actionDeps ?? defaultResultActionDeps(), [actionDeps]);
-
-  const canOpen = parsed.content.kind === 'url' || parsed.content.kind === 'customScheme';
-  const openAction = parsed.content.kind === 'customScheme' ? 'openApp' : 'openUrl';
-  const openLabel = parsed.content.kind === 'customScheme' ? t('openAppLink') : t('openLink');
+  const deps = useMemo(() => {
+    const base = actionDeps ?? defaultResultActionDeps();
+    if (!actionCapabilities) {
+      return base;
+    }
+    return {
+      ...base,
+      capabilities: { ...base.capabilities, ...actionCapabilities },
+    };
+  }, [actionDeps, actionCapabilities]);
+  const primary = useMemo(
+    () => resolvePrimarySystemAction(parsed, deps.capabilities),
+    [parsed, deps.capabilities],
+  );
+  const openLabel = primary ? t(PRIMARY_LABEL[primary.action]) : '';
 
   async function handleOpen() {
-    await dispatchResultAction(parsed, openAction, deps);
+    if (!primary) {
+      return;
+    }
+    await dispatchResultAction(parsed, primary.action, deps);
   }
 
   async function handleCopy() {
@@ -96,6 +144,133 @@ export function StickyResultBar({ payload, onClear, actionDeps }: Props) {
           {view.full}
         </Text>
       </View>
+    ) : view.kind === 'email' ? (
+      <View style={styles.preview}>
+        <Text testID="sticky-result-email-to" numberOfLines={1} style={styles.host}>
+          {`${t('emailTo')} ${view.to}`}
+        </Text>
+        {view.subject.length > 0 ? (
+          <Text testID="sticky-result-email-subject" numberOfLines={1} style={styles.path}>
+            {`${t('emailSubject')} ${view.subject}`}
+          </Text>
+        ) : null}
+        {view.body.length > 0 ? (
+          <Text testID="sticky-result-email-body" numberOfLines={1} style={styles.path}>
+            {`${t('emailBody')} ${view.body}`}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'phone' ? (
+      <View style={styles.preview}>
+        <Text testID="sticky-result-phone" numberOfLines={1} style={styles.host}>
+          {view.displayNumber}
+        </Text>
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'sms' ? (
+      <View style={styles.preview}>
+        <Text testID="sticky-result-sms-number" numberOfLines={1} style={styles.host}>
+          {view.displayNumber}
+        </Text>
+        {view.message.length > 0 ? (
+          <Text testID="sticky-result-sms-body" numberOfLines={1} style={styles.path}>
+            {view.message}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'geo' ? (
+      <View style={styles.preview}>
+        <Text testID="sticky-result-geo-coords" numberOfLines={1} style={styles.host}>
+          {`${view.latitude}, ${view.longitude}`}
+        </Text>
+        {view.query ? (
+          <Text testID="sticky-result-geo-query" numberOfLines={1} style={styles.path}>
+            {view.query}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'contact' ? (
+      <View style={styles.preview}>
+        <Text testID="sticky-result-contact-name" numberOfLines={1} style={styles.host}>
+          {view.name ?? t('contactUntitled')}
+        </Text>
+        {view.organization ? (
+          <Text testID="sticky-result-contact-org" numberOfLines={1} style={styles.path}>
+            {view.organization}
+          </Text>
+        ) : null}
+        {view.phones[0] ? (
+          <Text testID="sticky-result-contact-phone" numberOfLines={1} style={styles.path}>
+            {view.phones[0]}
+          </Text>
+        ) : null}
+        {view.emails[0] ? (
+          <Text testID="sticky-result-contact-email" numberOfLines={1} style={styles.path}>
+            {view.emails[0]}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'calendar' ? (
+      <View style={styles.preview}>
+        <Text testID="sticky-result-event-title" numberOfLines={1} style={styles.host}>
+          {view.title}
+        </Text>
+        <Text testID="sticky-result-event-when" numberOfLines={1} style={styles.path}>
+          {view.whenLabel}
+        </Text>
+        {view.location ? (
+          <Text testID="sticky-result-event-location" numberOfLines={1} style={styles.path}>
+            {view.location}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'wifi' ? (
+      <View style={styles.preview}>
+        <Text
+          testID="sticky-result-wifi-ssid"
+          accessibilityLabel={`${t('wifiNetwork')} ${view.ssid}`}
+          numberOfLines={1}
+          style={styles.host}>
+          {view.ssid}
+        </Text>
+        <Text testID="sticky-result-wifi-security" numberOfLines={1} style={styles.path}>
+          {view.security}
+        </Text>
+        {view.passwordMasked ? (
+          <Text
+            testID="sticky-result-wifi-password"
+            accessibilityLabel={t('wifiPasswordHidden')}
+            numberOfLines={1}
+            style={styles.path}>
+            {view.passwordMasked}
+          </Text>
+        ) : null}
+        {!primary ? (
+          <Text testID="sticky-result-wifi-unavailable" numberOfLines={1} style={styles.path}>
+            {t('wifiJoinUnavailable')}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
     ) : (
       <Text
         testID="sticky-result-payload"
@@ -109,17 +284,13 @@ export function StickyResultBar({ payload, onClear, actionDeps }: Props) {
   const fullText =
     view.kind === 'web'
       ? view.fullDestination
-      : view.kind === 'text'
-        ? view.full
-        : view.kind === 'custom'
-          ? view.full
-          : view.full;
+      : view.full;
 
   const body = (
     <View>
       <View style={styles.row}>
         <View style={styles.previewContainer}>{preview}</View>
-        {canOpen ? (
+        {primary ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={openLabel}
@@ -130,7 +301,7 @@ export function StickyResultBar({ payload, onClear, actionDeps }: Props) {
             style={styles.iconButton}
             hitSlop={8}>
             <SymbolView
-              name="arrow.up.right.square"
+              name={PRIMARY_SYMBOL[primary.action]}
               size={18}
               tintColor="#fff"
               pointerEvents="none"

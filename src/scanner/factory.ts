@@ -4,8 +4,15 @@ import { cameraAccessFromFixture } from './cameraFixtures';
 import { decideScannerEngine } from './engineSelector';
 import {
   EDGE_CODE_FIXTURE,
+  CALENDAR_CODE_FIXTURE,
+  CONTACT_CODE_FIXTURE,
+  WIFI_CODE_FIXTURE,
+  EMAIL_CODE_FIXTURE,
+  GEO_CODE_FIXTURE,
+  PHONE_CODE_FIXTURE,
   ScannerObservationFixtureSource,
   SINGLE_CODE_FIXTURE,
+  SMS_CODE_FIXTURE,
   THREE_CODE_FIXTURE,
   TWO_CODE_FIXTURE,
 } from './fixtures';
@@ -56,6 +63,7 @@ export function makeObservationSource(
           engineID: 'fixture.single-code',
           clock,
           startupFrame: SINGLE_CODE_FIXTURE,
+          stabilizeStartup: true,
         });
       case 'edge-codes':
         return new ScannerObservationFixtureSource({
@@ -74,6 +82,48 @@ export function makeObservationSource(
           engineID: 'fixture.three-codes',
           clock,
           startupFrame: THREE_CODE_FIXTURE,
+        });
+      case 'email-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.email-code',
+          clock,
+          startupFrame: EMAIL_CODE_FIXTURE,
+        });
+      case 'phone-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.phone-code',
+          clock,
+          startupFrame: PHONE_CODE_FIXTURE,
+        });
+      case 'sms-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.sms-code',
+          clock,
+          startupFrame: SMS_CODE_FIXTURE,
+        });
+      case 'geo-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.geo-code',
+          clock,
+          startupFrame: GEO_CODE_FIXTURE,
+        });
+      case 'contact-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.contact-code',
+          clock,
+          startupFrame: CONTACT_CODE_FIXTURE,
+        });
+      case 'calendar-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.calendar-code',
+          clock,
+          startupFrame: CALENDAR_CODE_FIXTURE,
+        });
+      case 'wifi-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.wifi-code',
+          clock,
+          startupFrame: WIFI_CODE_FIXTURE,
         });
       default:
         break;
