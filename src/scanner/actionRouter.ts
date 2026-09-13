@@ -67,6 +67,8 @@ export type ResultActionDeps = {
   copyText: (text: string) => Promise<unknown> | unknown;
   shareText: (text: string) => Promise<unknown> | unknown;
   canOpenURL?: (url: string) => Promise<boolean> | boolean;
+  /** Resolved display name the OS exposes for the destination app, if any. */
+  getAppNameForURL?: (url: string) => Promise<string | null> | string | null;
   capabilities?: Partial<ResultActionCapabilities>;
   presentContact?: (draft: ContactDraft) => Promise<ContactPresentationResult>;
   presentEvent?: (draft: CalendarDraft) => Promise<CalendarPresentationResult>;

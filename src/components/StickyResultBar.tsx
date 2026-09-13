@@ -73,7 +73,8 @@ export function StickyResultBar({
   const glass = surface.kind === 'liquidGlass';
 
   const parsed = useMemo(() => parseQRPayload(payload), [payload]);
-  const view = useMemo(() => describeResultForDisplay(parsed), [parsed]);
+  const [customAppName, setCustomAppName] = useState<string | null>(null);
+  const [customAvailable, setCustomAvailable] = useState<boolean | null>(null);
   const deps = useMemo(() => {
     const base = actionDeps ?? defaultResultActionDeps();
     if (!actionCapabilities) {
@@ -87,6 +88,40 @@ export function StickyResultBar({
   const resolvedPrimary = useMemo(
     () => resolvePrimarySystemAction(parsed, deps.capabilities),
     [parsed, deps.capabilities],
+  );
+  useEffect(() => {
+    let cancelled = false;
+    if (resolvedPrimary?.action !== 'openApp') {
+      setCustomAppName(null);
+      setCustomAvailable(null);
+      return;
+    }
+    const url = resolvedPrimary.url;
+    const nameCheck = deps.getAppNameForURL
+      ? Promise.resolve(deps.getAppNameForURL(url))
+      : Promise.resolve(null);
+    void nameCheck.then((name) => {
+      if (!cancelled && typeof name === 'string' && name.trim().length > 0) {
+        setCustomAppName(name.trim());
+      } else if (!cancelled) {
+        setCustomAppName(null);
+      }
+    });
+    const availabilityCheck = deps.canOpenURL
+      ? Promise.resolve(deps.canOpenURL(url))
+      : Promise.resolve(true);
+    void availabilityCheck.then((allowed) => {
+      if (!cancelled) {
+        setCustomAvailable(allowed === true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [deps, resolvedPrimary]);
+  const view = useMemo(
+    () => describeResultForDisplay(parsed, { appName: customAppName }),
+    [parsed, customAppName],
   );
   const authFormat = useMemo(() => recognizeAuthQr(payload)?.format ?? null, [payload]);
   const secretSession = parsed.sensitivity === 'sessionOnly';
@@ -112,14 +147,20 @@ export function StickyResultBar({
   }, [deps, resolvedPrimary]);
 
   const authPending = resolvedPrimary?.action === 'openAuth' && authOpenable === null;
+  const customUnavailable =
+    resolvedPrimary?.action === 'openApp' && customAvailable === false;
   const primary =
     resolvedPrimary?.action === 'openAuth' && authOpenable !== true
       ? null
-      : resolvedPrimary;
+      : resolvedPrimary?.action === 'openApp' && customUnavailable
+        ? null
+        : resolvedPrimary;
   const openLabel = primary
     ? primary.action === 'openAuth' && authFormat === 'fido-hybrid'
       ? t('connectNearby')
-      : t(PRIMARY_LABEL[primary.action])
+      : primary.action === 'openApp' && customAppName
+        ? t('openInApp', { app: customAppName })
+        : t(PRIMARY_LABEL[primary.action])
     : '';
 
   async function handleOpen() {
@@ -188,6 +229,34 @@ export function StickyResultBar({
           maxFontSizeMultiplier={2.2}>
           {view.remainderPreview}
         </Text>
+        {view.appName ? (
+          <Text
+            testID="sticky-result-app-name"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={styles.path}
+            maxFontSizeMultiplier={2.2}>
+            {view.appName}
+          </Text>
+        ) : null}
+        {view.isPayment ? (
+          <Text
+            testID="sticky-result-payment-note"
+            numberOfLines={2}
+            style={styles.path}
+            maxFontSizeMultiplier={2.2}>
+            {t('paymentUnverified')}
+          </Text>
+        ) : null}
+        {customUnavailable ? (
+          <Text
+            testID="sticky-result-app-unavailable"
+            numberOfLines={2}
+            style={styles.path}
+            maxFontSizeMultiplier={2.2}>
+            {t('customAppUnavailable')}
+          </Text>
+        ) : null}
         <Text
           testID="sticky-result-payload"
           numberOfLines={1}
