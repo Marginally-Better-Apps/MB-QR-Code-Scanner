@@ -1,0 +1,14 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "calendar-code"
+- assertVisible: "Team Meeting"
+- assertVisible: "Add Event"
+- startRecording: calendar-payload-acceptance
+- tapOn:
+    id: "sticky-result-open"
+- assertVisible: "Team Meeting"
+- stopRecording

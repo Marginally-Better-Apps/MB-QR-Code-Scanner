@@ -47,6 +47,11 @@ export type QRContent =
       start: string | null;
       end: string | null;
       location: string | null;
+      notes: string | null;
+      url: string | null;
+      timeZone: string | null;
+      allDay: boolean;
+      timeKind: 'allDay' | 'utc' | 'local' | 'namedZone';
     }
   | { kind: 'otp'; label: string | null; issuer: string | null }
   | { kind: 'customScheme'; scheme: string; remainder: string };
@@ -595,10 +600,65 @@ function tryParseContact(raw: string): QRContent | null {
   return null;
 }
 
+const ICAL_DATE = /^(\d{4})(\d{2})(\d{2})$/;
+const ICAL_DATE_TIME = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})(Z)?$/;
+
+function isValidICalDate(value: string, allDay: boolean): boolean {
+  if (allDay) {
+    const match = ICAL_DATE.exec(value);
+    if (!match) {
+      return false;
+    }
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const instant = new Date(Date.UTC(Number(match[1]), month - 1, day));
+    return (
+      instant.getUTCFullYear() === Number(match[1]) &&
+      instant.getUTCMonth() === month - 1 &&
+      instant.getUTCDate() === day
+    );
+  }
+  const match = ICAL_DATE_TIME.exec(value);
+  if (!match) {
+    return false;
+  }
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  if (hour > 23 || minute > 59 || second > 60) {
+    return false;
+  }
+  const instant = new Date(
+    Date.UTC(Number(match[1]), month - 1, day, hour, minute, second),
+  );
+  return (
+    instant.getUTCFullYear() === Number(match[1]) &&
+    instant.getUTCMonth() === month - 1 &&
+    instant.getUTCDate() === day
+  );
+}
+
+function parseICalParams(rawKey: string): { name: string; params: Record<string, string> } {
+  const parts = rawKey.split(';');
+  const name = parts[0].toUpperCase();
+  const params: Record<string, string> = {};
+  for (const part of parts.slice(1)) {
+    const eq = part.indexOf('=');
+    if (eq < 0) {
+      continue;
+    }
+    params[part.slice(0, eq).toUpperCase()] = part.slice(eq + 1);
+  }
+  return { name, params };
+}
+
 function tryParseCalendar(raw: string): QRContent | null {
   const trimmed = raw.trim();
   const upper = trimmed.toUpperCase();
-  if (!upper.includes('BEGIN:VEVENT') || !upper.includes('END:VEVENT')) {
+  const beginCount = upper.split('BEGIN:VEVENT').length - 1;
+  if (beginCount !== 1 || !upper.includes('END:VEVENT')) {
     return null;
   }
   const lines = unfoldVCardLines(trimmed);
@@ -606,32 +666,72 @@ function tryParseCalendar(raw: string): QRContent | null {
   let start: string | null = null;
   let end: string | null = null;
   let location: string | null = null;
+  let notes: string | null = null;
+  let url: string | null = null;
+  let timeZone: string | null = null;
+  let allDay = false;
+  let timeKind: Extract<QRContent, { kind: 'calendar' }>['timeKind'] = 'local';
   const seen = new Set<string>();
   for (const line of lines) {
     const colon = line.indexOf(':');
     if (colon < 0) {
       continue;
     }
-    const key = line.slice(0, colon).split(';')[0].toUpperCase();
+    const { name, params } = parseICalParams(line.slice(0, colon));
     const value = line.slice(colon + 1).trim();
-    if (seen.has(key)) {
+    if (seen.has(name)) {
       continue;
     }
-    if (key === 'SUMMARY') {
-      seen.add(key);
+    if (name === 'SUMMARY') {
+      seen.add(name);
       title = vcardUnescape(value) || null;
-    } else if (key === 'DTSTART') {
-      seen.add(key);
+    } else if (name === 'DTSTART') {
+      seen.add(name);
       start = value || null;
-    } else if (key === 'DTEND') {
-      seen.add(key);
+      const valueType = (params.VALUE ?? '').toUpperCase();
+      if (valueType === 'DATE' || ICAL_DATE.test(value)) {
+        allDay = true;
+        timeKind = 'allDay';
+      } else if (value.endsWith('Z')) {
+        timeKind = 'utc';
+      } else if (params.TZID) {
+        timeKind = 'namedZone';
+        timeZone = params.TZID;
+      } else {
+        timeKind = 'local';
+      }
+    } else if (name === 'DTEND') {
+      seen.add(name);
       end = value || null;
-    } else if (key === 'LOCATION') {
-      seen.add(key);
+    } else if (name === 'LOCATION') {
+      seen.add(name);
       location = vcardUnescape(value) || null;
+    } else if (name === 'DESCRIPTION') {
+      seen.add(name);
+      notes = vcardUnescape(value) || null;
+    } else if (name === 'URL') {
+      seen.add(name);
+      url = vcardUnescape(value) || null;
     }
   }
-  return { kind: 'calendar', title, start, end, location };
+  if (start == null || !isValidICalDate(start, allDay)) {
+    return null;
+  }
+  if (end != null && !isValidICalDate(end, allDay || ICAL_DATE.test(end))) {
+    return null;
+  }
+  return {
+    kind: 'calendar',
+    title,
+    start,
+    end,
+    location,
+    notes,
+    url,
+    timeZone,
+    allDay,
+    timeKind,
+  };
 }
 
 function tryParseOtp(raw: string): QRContent | null {

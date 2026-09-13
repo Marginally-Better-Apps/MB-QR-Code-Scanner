@@ -13,8 +13,10 @@ function mockDeps() {
       sendSms: true,
       openLocation: true,
       addContact: true,
+      addEvent: true,
     },
     presentContact: jest.fn(async () => 'saved' as const),
+    presentEvent: jest.fn(async () => 'saved' as const),
   };
 }
 
@@ -219,6 +221,24 @@ describe('ActionRouter (ACT-02)', () => {
     expect(blocked.presentContact).not.toHaveBeenCalled();
     await dispatchResultAction(parsed, 'copy', blocked);
     expect(blocked.copyText).toHaveBeenCalledWith(raw);
+  });
+
+  test('addEvent presents a system confirmation only after explicit dispatch', async () => {
+    const raw =
+      'BEGIN:VEVENT\nSUMMARY:Team Meeting\nDTSTART:20260912T140000Z\nDTEND:20260912T150000Z\nLOCATION:Room 1\nEND:VEVENT';
+    const parsed = parseQRPayload(raw);
+    expect(parsed.content.kind).toBe('calendar');
+    const deps = mockDeps();
+    expect(deps.presentEvent).not.toHaveBeenCalled();
+    await dispatchResultAction(parsed, 'addEvent', deps);
+    expect(deps.presentEvent).toHaveBeenCalledTimes(1);
+    expect(deps.presentEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Team Meeting',
+        timeKind: 'utc',
+        originalPayload: raw,
+      }),
+    );
   });
 
   test('router performs no network fetch and has no side effects on import', async () => {

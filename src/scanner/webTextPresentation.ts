@@ -54,6 +54,13 @@ export type ResultViewModel =
       urls: string[];
       full: string;
     }
+  | {
+      kind: 'calendar';
+      title: string;
+      whenLabel: string;
+      location: string | null;
+      full: string;
+    }
   | { kind: 'other'; preview: string; full: string };
 
 const BIDI_AND_INVISIBLE_RE =
@@ -252,6 +259,22 @@ export function normalizePhoneForDisplay(number: string): string {
   return hasPlus ? `+${digits}` : digits;
 }
 
+function calendarWhenLabel(
+  content: Extract<ParsedQRPayload['content'], { kind: 'calendar' }>,
+): string {
+  const start = content.start ?? '';
+  if (content.timeKind === 'allDay') {
+    return sanitizeVisibleText(`All day ${start}`);
+  }
+  if (content.timeKind === 'utc') {
+    return sanitizeVisibleText(`UTC ${start}`);
+  }
+  if (content.timeKind === 'namedZone' && content.timeZone) {
+    return sanitizeVisibleText(`${content.timeZone} ${start}`);
+  }
+  return sanitizeVisibleText(`Local ${start}`);
+}
+
 export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewModel {
   const { content } = parsed;
   switch (content.kind) {
@@ -323,6 +346,15 @@ export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewMod
         emails: content.emails.map((email) => sanitizeVisibleText(email)),
         addresses: content.addresses.map((address) => sanitizeVisibleText(address)),
         urls: content.urls.map((url) => sanitizeVisibleText(url)),
+        full: parsed.originalPayload,
+      };
+    }
+    case 'calendar': {
+      return {
+        kind: 'calendar',
+        title: sanitizeVisibleText(content.title ?? 'Calendar event'),
+        whenLabel: calendarWhenLabel(content),
+        location: content.location ? sanitizeVisibleText(content.location) : null,
         full: parsed.originalPayload,
       };
     }
