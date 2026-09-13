@@ -146,14 +146,16 @@ export function StickyResultBar({
           testID="sticky-result-host"
           numberOfLines={1}
           ellipsizeMode="tail"
-          style={styles.host}>
+          style={styles.host}
+          maxFontSizeMultiplier={2.2}>
           {view.host}
         </Text>
         <Text
           testID="sticky-result-path"
           numberOfLines={1}
           ellipsizeMode="middle"
-          style={styles.path}>
+          style={styles.path}
+          maxFontSizeMultiplier={2.2}>
           {view.pathPreview}
         </Text>
         {/* Back-compat single-line payload for existing sticky-session tests.
@@ -162,7 +164,9 @@ export function StickyResultBar({
           testID="sticky-result-payload"
           numberOfLines={1}
           ellipsizeMode="middle"
-          style={styles.compatPayload}>
+          style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.fullDestination}
         </Text>
       </View>
@@ -172,118 +176,149 @@ export function StickyResultBar({
           testID="sticky-result-scheme"
           numberOfLines={1}
           ellipsizeMode="tail"
-          style={styles.scheme}>
+          style={styles.scheme}
+          maxFontSizeMultiplier={2.2}>
           {view.scheme}
         </Text>
         <Text
           testID="sticky-result-custom-remainder"
           numberOfLines={1}
           ellipsizeMode="middle"
-          style={styles.path}>
+          style={styles.path}
+          maxFontSizeMultiplier={2.2}>
           {view.remainderPreview}
         </Text>
         <Text
           testID="sticky-result-payload"
           numberOfLines={1}
           ellipsizeMode="middle"
-          style={styles.compatPayload}>
+          style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.full}
         </Text>
       </View>
     ) : view.kind === 'email' ? (
       <View style={styles.preview}>
-        <Text testID="sticky-result-email-to" numberOfLines={1} style={styles.host}>
+        <Text testID="sticky-result-email-to" numberOfLines={1} style={styles.host}
+          maxFontSizeMultiplier={2.2}>
           {`${t('emailTo')} ${view.to}`}
         </Text>
         {view.subject.length > 0 ? (
-          <Text testID="sticky-result-email-subject" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-email-subject" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {`${t('emailSubject')} ${view.subject}`}
           </Text>
         ) : null}
         {view.body.length > 0 ? (
-          <Text testID="sticky-result-email-body" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-email-body" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {`${t('emailBody')} ${view.body}`}
           </Text>
         ) : null}
-        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.full}
         </Text>
       </View>
     ) : view.kind === 'phone' ? (
       <View style={styles.preview}>
-        <Text testID="sticky-result-phone" numberOfLines={1} style={styles.host}>
+        <Text testID="sticky-result-phone" numberOfLines={1} style={styles.host}
+          maxFontSizeMultiplier={2.2}>
           {view.displayNumber}
         </Text>
-        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.full}
         </Text>
       </View>
     ) : view.kind === 'sms' ? (
       <View style={styles.preview}>
-        <Text testID="sticky-result-sms-number" numberOfLines={1} style={styles.host}>
+        <Text testID="sticky-result-sms-number" numberOfLines={1} style={styles.host}
+          maxFontSizeMultiplier={2.2}>
           {view.displayNumber}
         </Text>
         {view.message.length > 0 ? (
-          <Text testID="sticky-result-sms-body" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-sms-body" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {view.message}
           </Text>
         ) : null}
-        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.full}
         </Text>
       </View>
     ) : view.kind === 'geo' ? (
       <View style={styles.preview}>
-        <Text testID="sticky-result-geo-coords" numberOfLines={1} style={styles.host}>
+        <Text testID="sticky-result-geo-coords" numberOfLines={1} style={styles.host}
+          maxFontSizeMultiplier={2.2}>
           {`${view.latitude}, ${view.longitude}`}
         </Text>
         {view.query ? (
-          <Text testID="sticky-result-geo-query" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-geo-query" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {view.query}
           </Text>
         ) : null}
-        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.full}
         </Text>
       </View>
     ) : view.kind === 'contact' ? (
       <View style={styles.preview}>
-        <Text testID="sticky-result-contact-name" numberOfLines={1} style={styles.host}>
+        <Text testID="sticky-result-contact-name" numberOfLines={1} style={styles.host}
+          maxFontSizeMultiplier={2.2}>
           {view.name ?? t('contactUntitled')}
         </Text>
         {view.organization ? (
-          <Text testID="sticky-result-contact-org" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-contact-org" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {view.organization}
           </Text>
         ) : null}
         {view.phones[0] ? (
-          <Text testID="sticky-result-contact-phone" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-contact-phone" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {view.phones[0]}
           </Text>
         ) : null}
         {view.emails[0] ? (
-          <Text testID="sticky-result-contact-email" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-contact-email" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {view.emails[0]}
           </Text>
         ) : null}
-        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.full}
         </Text>
       </View>
     ) : view.kind === 'calendar' ? (
       <View style={styles.preview}>
-        <Text testID="sticky-result-event-title" numberOfLines={1} style={styles.host}>
+        <Text testID="sticky-result-event-title" numberOfLines={1} style={styles.host}
+          maxFontSizeMultiplier={2.2}>
           {view.title}
         </Text>
-        <Text testID="sticky-result-event-when" numberOfLines={1} style={styles.path}>
+        <Text testID="sticky-result-event-when" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
           {view.whenLabel}
         </Text>
         {view.location ? (
-          <Text testID="sticky-result-event-location" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-event-location" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {view.location}
           </Text>
         ) : null}
-        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.full}
         </Text>
       </View>
@@ -293,10 +328,12 @@ export function StickyResultBar({
           testID="sticky-result-wifi-ssid"
           accessibilityLabel={`${t('wifiNetwork')} ${view.ssid}`}
           numberOfLines={1}
-          style={styles.host}>
+          style={styles.host}
+          maxFontSizeMultiplier={2.2}>
           {view.ssid}
         </Text>
-        <Text testID="sticky-result-wifi-security" numberOfLines={1} style={styles.path}>
+        <Text testID="sticky-result-wifi-security" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
           {view.security}
         </Text>
         {view.passwordMasked ? (
@@ -304,16 +341,20 @@ export function StickyResultBar({
             testID="sticky-result-wifi-password"
             accessibilityLabel={t('wifiPasswordHidden')}
             numberOfLines={1}
-            style={styles.path}>
+            style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {view.passwordMasked}
           </Text>
         ) : null}
         {!primary ? (
-          <Text testID="sticky-result-wifi-unavailable" numberOfLines={1} style={styles.path}>
+          <Text testID="sticky-result-wifi-unavailable" numberOfLines={1} style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {t('wifiJoinUnavailable')}
           </Text>
         ) : null}
-        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}
+          accessible={false}
+          importantForAccessibility="no">
           {view.full}
         </Text>
       </View>
@@ -323,21 +364,25 @@ export function StickyResultBar({
           testID="sticky-result-payload"
           numberOfLines={expanded ? undefined : 1}
           ellipsizeMode="middle"
-          style={styles.payload}>
+          style={styles.payload}
+          maxFontSizeMultiplier={2.2}>
           {view.kind === 'text' ? view.preview : view.preview}
         </Text>
         {authFormat === 'otpauth-migration' ? (
-          <Text testID="sticky-result-auth-note" style={styles.path}>
+          <Text testID="sticky-result-auth-note" style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {t('authMigrationUnsupported')}
           </Text>
         ) : null}
         {authFormat === 'fido-hybrid' && !authPending ? (
-          <Text testID="sticky-result-auth-note" style={styles.path}>
+          <Text testID="sticky-result-auth-note" style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {primary ? t('authFidoConfirm') : t('authFidoUnavailable')}
           </Text>
         ) : null}
         {authFormat === 'otpauth' && !primary && !authPending ? (
-          <Text testID="sticky-result-auth-note" style={styles.path}>
+          <Text testID="sticky-result-auth-note" style={styles.path}
+          maxFontSizeMultiplier={2.2}>
             {t('authOtpUnavailable')}
           </Text>
         ) : null}
@@ -350,8 +395,8 @@ export function StickyResultBar({
       : view.full;
 
   const body = (
-    <View>
-      <View style={styles.row}>
+    <View accessible={false}>
+      <View style={styles.actionsRow} testID="sticky-result-actions">
         <View style={styles.previewContainer}>{preview}</View>
         {primary ? (
           <Pressable
@@ -366,7 +411,7 @@ export function StickyResultBar({
             <SymbolView
               name={PRIMARY_SYMBOL[primary.action]}
               size={18}
-              tintColor="#fff"
+              tintColor={surface.contentColor}
               pointerEvents="none"
             />
           </Pressable>
@@ -385,7 +430,7 @@ export function StickyResultBar({
               <SymbolView
                 name={didCopy ? 'checkmark' : 'doc.on.clipboard'}
                 size={18}
-                tintColor="#fff"
+                tintColor={surface.contentColor}
                 pointerEvents="none"
               />
             </Pressable>
@@ -401,7 +446,7 @@ export function StickyResultBar({
               <SymbolView
                 name="square.and.arrow.up"
                 size={18}
-                tintColor="#fff"
+                tintColor={surface.contentColor}
                 pointerEvents="none"
               />
             </Pressable>
@@ -417,7 +462,7 @@ export function StickyResultBar({
           <SymbolView
             name={expanded ? 'chevron.down' : 'chevron.up'}
             size={18}
-            tintColor="#fff"
+            tintColor={surface.contentColor}
             pointerEvents="none"
           />
         </Pressable>
@@ -432,7 +477,7 @@ export function StickyResultBar({
           <SymbolView
             name="xmark"
             size={18}
-            tintColor="#fff"
+            tintColor={surface.contentColor}
             pointerEvents="none"
           />
         </Pressable>
@@ -442,7 +487,8 @@ export function StickyResultBar({
           <Text
             testID="sticky-result-full-payload"
             selectable
-            style={styles.detailText}>
+            style={styles.detailText}
+          maxFontSizeMultiplier={2.2}>
             {fullText}
           </Text>
         </View>
@@ -455,11 +501,16 @@ export function StickyResultBar({
       <GlassView
         testID="sticky-result-accessory"
         accessibilityLabel={t('scanResult')}
-        accessibilityHint={surface.kind}
         style={styles.bar}
         glassEffectStyle="regular"
         colorScheme="dark"
         isInteractive>
+        <View
+          testID={`chrome-surface-${surface.kind}`}
+          accessible={false}
+          importantForAccessibility="no"
+          style={styles.chromeProbe}
+        />
         {body}
       </GlassView>
     );
@@ -469,8 +520,13 @@ export function StickyResultBar({
     <View
       testID="sticky-result-accessory"
       accessibilityLabel={t('scanResult')}
-      accessibilityHint={surface.kind}
       style={[styles.bar, chromeContainerStyle(surface)]}>
+      <View
+        testID={`chrome-surface-${surface.kind}`}
+        accessible={false}
+        importantForAccessibility="no"
+        style={styles.chromeProbe}
+      />
       {body}
     </View>
   );
@@ -482,13 +538,28 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
+  chromeProbe: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
   row: {
     minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
   },
+  actionsRow: {
+    minHeight: 44,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
   previewContainer: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: '40%',
+    minWidth: 120,
     paddingLeft: 14,
     paddingRight: 8,
     justifyContent: 'center',
@@ -531,6 +602,8 @@ const styles = StyleSheet.create({
   iconButton: {
     width: 44,
     height: 44,
+    minWidth: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -340,8 +340,11 @@ export function HistoryScreen({
             accessibilityLabel={t('historyUndo')}
             testID="history-undo"
             onPress={handleUndo}
-            hitSlop={8}>
-            <Text style={styles.undoAction}>{t('historyUndo')}</Text>
+            hitSlop={8}
+            style={styles.undoButton}>
+            <Text style={styles.undoAction} maxFontSizeMultiplier={2.2}>
+              {t('historyUndo')}
+            </Text>
           </Pressable>
         </View>
       ) : null}
@@ -514,5 +517,12 @@ const styles = StyleSheet.create({
     color: '#0a84ff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  undoButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
 });

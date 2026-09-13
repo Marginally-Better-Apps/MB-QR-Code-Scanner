@@ -8,6 +8,7 @@ describe('chrome appearance (QLT-01)', () => {
         liquidGlassAvailable: true,
         reduceTransparency: false,
         increaseContrast: false,
+        reduceMotion: false,
       }),
     ).toMatchSnapshot('current-liquid-glass');
   });
@@ -18,6 +19,7 @@ describe('chrome appearance (QLT-01)', () => {
       liquidGlassAvailable: false,
       reduceTransparency: false,
       increaseContrast: false,
+      reduceMotion: false,
     });
     expect(surface.kind).toBe('semanticOpaque');
     expect(surface.backgroundColor).not.toMatch(/rgba?\([^)]+,\s*0?\.\d+\s*\)/i);
@@ -30,6 +32,7 @@ describe('chrome appearance (QLT-01)', () => {
       liquidGlassAvailable: true,
       reduceTransparency: true,
       increaseContrast: false,
+      reduceMotion: false,
     });
     expect(surface.kind).toBe('semanticOpaque');
     expect(surface.backgroundColor).toBe('#1c1c1e');
@@ -42,15 +45,17 @@ describe('chrome appearance (QLT-01)', () => {
       liquidGlassAvailable: false,
       reduceTransparency: false,
       increaseContrast: true,
+      reduceMotion: false,
     });
     const canvas = resolveChromeSurface({
       tone: 'onCanvas',
       liquidGlassAvailable: false,
       reduceTransparency: false,
       increaseContrast: true,
+      reduceMotion: false,
     });
     expect(media.borderWidth).toBeGreaterThanOrEqual(2);
-    expect(media.contentColor).toBe('#ffffff');
+    expect(media.contentColor).toBe('#fff');
     expect(media.backgroundColor).toBe('#000000');
     expect(canvas.borderWidth).toBeGreaterThanOrEqual(2);
     expect(canvas.contentColor).toBe('#000000');

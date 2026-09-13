@@ -37,11 +37,17 @@ export function MultiCodeChooser({ candidates, onSelect }: Props) {
     <View
       testID="multi-code-chooser"
       accessibilityLabel={t('selectCode')}
-      accessibilityHint={surface.kind}
+      accessibilityRole="list"
       style={[styles.list, !glass && chromeContainerStyle(surface)]}>
-      {ordered.map((candidate) => {
+      <View
+        testID={`chrome-surface-${surface.kind}`}
+        accessible={false}
+        importantForAccessibility="no"
+        style={styles.chromeProbe}
+      />
+      {ordered.map((candidate, index) => {
         const parsed = parseQRPayload(candidate.rawPayload);
-        const label = `${parsed.content.kind}, ${parsed.displaySummary}`;
+        const label = `${index + 1} of ${ordered.length}, ${parsed.content.kind}, ${parsed.displaySummary}`;
         return (
           <Pressable
             key={candidate.id}
@@ -51,10 +57,14 @@ export function MultiCodeChooser({ candidates, onSelect }: Props) {
             accessibilityLabel={label}
             onPress={() => onSelect(candidate.id)}
             style={styles.row}>
-            <Text numberOfLines={1} style={styles.kind}>
+            <Text numberOfLines={1} style={styles.kind} maxFontSizeMultiplier={2.2}>
               {parsed.content.kind}
             </Text>
-            <Text numberOfLines={1} ellipsizeMode="middle" style={styles.summary}>
+            <Text
+              numberOfLines={2}
+              ellipsizeMode="middle"
+              style={styles.summary}
+              maxFontSizeMultiplier={2.2}>
               {parsed.displaySummary}
             </Text>
           </Pressable>
@@ -83,10 +93,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
+  chromeProbe: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
   row: {
     minHeight: 44,
     minWidth: 44,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 14,
@@ -98,7 +115,9 @@ const styles = StyleSheet.create({
     color: '#FFD60A',
   },
   summary: {
-    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: '60%',
     fontSize: 15,
     color: '#fff',
   },

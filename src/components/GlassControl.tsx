@@ -56,10 +56,7 @@ export function GlassControl({
 
   if (!glass) {
     return (
-      <View
-        testID={`${testID}-chrome`}
-        accessibilityLabel={surface.kind}
-        style={style}>
+      <View testID={`${testID}-chrome-${surface.kind}`} style={style}>
         {pressable}
       </View>
     );
@@ -67,8 +64,7 @@ export function GlassControl({
 
   return (
     <GlassView
-      testID={`${testID}-chrome`}
-      accessibilityLabel={surface.kind}
+      testID={`${testID}-chrome-${surface.kind}`}
       style={[shapeStyle, style]}
       glassEffectStyle="regular"
       isInteractive
