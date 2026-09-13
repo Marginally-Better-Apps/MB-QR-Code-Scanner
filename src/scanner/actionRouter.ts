@@ -6,6 +6,7 @@ export type ResultActionCapabilities = {
   sendSms: boolean;
   openLocation: boolean;
   addContact: boolean;
+  addEvent: boolean;
 };
 
 export const DEFAULT_RESULT_ACTION_CAPABILITIES: ResultActionCapabilities = {
@@ -14,6 +15,7 @@ export const DEFAULT_RESULT_ACTION_CAPABILITIES: ResultActionCapabilities = {
   sendSms: true,
   openLocation: true,
   addContact: true,
+  addEvent: true,
 };
 
 export type ContactDraft = {
@@ -28,6 +30,21 @@ export type ContactDraft = {
 
 export type ContactPresentationResult = 'saved' | 'cancelled' | 'unavailable';
 
+export type CalendarDraft = {
+  title: string | null;
+  start: string | null;
+  end: string | null;
+  location: string | null;
+  notes: string | null;
+  url: string | null;
+  timeZone: string | null;
+  allDay: boolean;
+  timeKind: 'allDay' | 'utc' | 'local' | 'namedZone';
+  originalPayload: string;
+};
+
+export type CalendarPresentationResult = 'saved' | 'cancelled' | 'unavailable';
+
 export type ResultActionDeps = {
   openURL: (url: string) => Promise<unknown> | unknown;
   copyText: (text: string) => Promise<unknown> | unknown;
@@ -35,6 +52,7 @@ export type ResultActionDeps = {
   canOpenURL?: (url: string) => Promise<boolean> | boolean;
   capabilities?: Partial<ResultActionCapabilities>;
   presentContact?: (draft: ContactDraft) => Promise<ContactPresentationResult>;
+  presentEvent?: (draft: CalendarDraft) => Promise<CalendarPresentationResult>;
 };
 
 export type PrimarySystemAction = {
@@ -47,6 +65,7 @@ export type PrimarySystemAction = {
     | 'sendSms'
     | 'openLocation'
     | 'addContact'
+    | 'addEvent'
   >;
   url: string;
 };
@@ -63,6 +82,25 @@ export function contactDraftFromPayload(parsed: ParsedQRPayload): ContactDraft {
     emails: content.emails,
     addresses: content.addresses,
     urls: content.urls,
+    originalPayload: parsed.originalPayload,
+  };
+}
+
+export function calendarDraftFromPayload(parsed: ParsedQRPayload): CalendarDraft {
+  if (parsed.content.kind !== 'calendar') {
+    throw new Error('calendar draft requires a parsed calendar result');
+  }
+  const { content } = parsed;
+  return {
+    title: content.title,
+    start: content.start,
+    end: content.end,
+    location: content.location,
+    notes: content.notes,
+    url: content.url,
+    timeZone: content.timeZone,
+    allDay: content.allDay,
+    timeKind: content.timeKind,
     originalPayload: parsed.originalPayload,
   };
 }
@@ -166,6 +204,7 @@ function capabilityFlag(
     case 'sendSms':
     case 'openLocation':
     case 'addContact':
+    case 'addEvent':
       return action;
     default:
       return null;
@@ -199,6 +238,10 @@ export function resolvePrimarySystemAction(
     case 'contact':
       return caps.addContact
         ? { action: 'addContact', url: parsed.originalPayload }
+        : null;
+    case 'calendar':
+      return caps.addEvent
+        ? { action: 'addEvent', url: parsed.originalPayload }
         : null;
     default:
       return null;
@@ -258,6 +301,19 @@ export async function dispatchResultAction(
       }
       return;
     }
+    case 'addEvent': {
+      if (parsed.content.kind !== 'calendar') {
+        throw new Error('addEvent requires a parsed calendar result');
+      }
+      if (deps.capabilities?.addEvent === false || !deps.presentEvent) {
+        throw new Error('Action "addEvent" is unavailable');
+      }
+      const result = await deps.presentEvent(calendarDraftFromPayload(parsed));
+      if (result === 'unavailable') {
+        throw new Error('Action "addEvent" is unavailable');
+      }
+      return;
+    }
     case 'copy': {
       await deps.copyText(parsed.originalPayload);
       return;
@@ -284,6 +340,13 @@ export function defaultResultActionDeps(): ResultActionDeps {
     shareText: (text: string) => Share.share({ message: text }),
     canOpenURL: (url: string) => Linking.canOpenURL(url),
     presentContact: async (draft) => {
+      const result = await Share.share({ message: draft.originalPayload });
+      if (result?.action === Share.dismissedAction) {
+        return 'cancelled';
+      }
+      return 'saved';
+    },
+    presentEvent: async (draft) => {
       const result = await Share.share({ message: draft.originalPayload });
       if (result?.action === Share.dismissedAction) {
         return 'cancelled';

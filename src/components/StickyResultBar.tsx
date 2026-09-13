@@ -32,6 +32,7 @@ const PRIMARY_LABEL: Record<
   sendSms: 'sendSms',
   openLocation: 'openMap',
   addContact: 'addContact',
+  addEvent: 'addEvent',
 };
 
 const PRIMARY_SYMBOL = {
@@ -42,6 +43,7 @@ const PRIMARY_SYMBOL = {
   sendSms: 'message',
   openLocation: 'map',
   addContact: 'person.crop.circle.badge.plus',
+  addEvent: 'calendar.badge.plus',
 } as const;
 
 export function StickyResultBar({
@@ -214,6 +216,23 @@ export function StickyResultBar({
         {view.emails[0] ? (
           <Text testID="sticky-result-contact-email" numberOfLines={1} style={styles.path}>
             {view.emails[0]}
+          </Text>
+        ) : null}
+        <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>
+          {view.full}
+        </Text>
+      </View>
+    ) : view.kind === 'calendar' ? (
+      <View style={styles.preview}>
+        <Text testID="sticky-result-event-title" numberOfLines={1} style={styles.host}>
+          {view.title}
+        </Text>
+        <Text testID="sticky-result-event-when" numberOfLines={1} style={styles.path}>
+          {view.whenLabel}
+        </Text>
+        {view.location ? (
+          <Text testID="sticky-result-event-location" numberOfLines={1} style={styles.path}>
+            {view.location}
           </Text>
         ) : null}
         <Text testID="sticky-result-payload" numberOfLines={1} style={styles.compatPayload}>

@@ -33,6 +33,7 @@ export type {
   VisionKitScannerPlatform,
 } from './visionKit';
 export {
+  CALENDAR_CODE_FIXTURE,
   CONTACT_CODE_FIXTURE,
   EDGE_CODE_FIXTURE,
   EMAIL_CODE_FIXTURE,

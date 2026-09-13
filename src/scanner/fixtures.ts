@@ -103,6 +103,14 @@ export const CONTACT_CODE_FIXTURE: ScannerFixtureDetection[] = [
   },
 ];
 
+export const CALENDAR_CODE_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload:
+      'BEGIN:VEVENT\nSUMMARY:Team Meeting\nDTSTART:20260912T140000Z\nDTEND:20260912T150000Z\nLOCATION:Room 1\nEND:VEVENT',
+    displayBounds: COMMS_BOUNDS,
+  },
+];
+
 export const SINGLE_CODE_FIXTURE: ScannerFixtureDetection[] = [
   {
     rawPayload: 'https://example.com/fixture',
