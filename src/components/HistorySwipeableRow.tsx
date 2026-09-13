@@ -85,12 +85,12 @@ export function HistorySwipeableRow({ direction, onDelete, children }: Props) {
       <Pressable
         testID="history-row-swipe-trailing"
         onPress={() => animateTo(true)}
-        style={styles.testHit}
+        style={[styles.testHit, edge === 'left' ? styles.testHitLeft : styles.testHitRight]}
       />
       <Pressable
         testID="history-row-swipe-full"
         onPress={onDelete}
-        style={styles.testHit}
+        style={[styles.testHit, edge === 'left' ? styles.testHitLeft : styles.testHitRight]}
       />
     </View>
   );
@@ -129,8 +129,14 @@ const styles = StyleSheet.create({
   },
   testHit: {
     position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
+    top: 4,
+    width: 44,
+    height: 44,
+  },
+  testHitRight: {
+    right: 0,
+  },
+  testHitLeft: {
+    left: 0,
   },
 });
