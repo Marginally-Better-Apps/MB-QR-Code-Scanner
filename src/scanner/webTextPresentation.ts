@@ -61,6 +61,14 @@ export type ResultViewModel =
       location: string | null;
       full: string;
     }
+  | {
+      kind: 'wifi';
+      ssid: string;
+      security: string;
+      passwordMasked: string | null;
+      hidden: boolean;
+      full: string;
+    }
   | { kind: 'other'; preview: string; full: string };
 
 const BIDI_AND_INVISIBLE_RE =
@@ -355,6 +363,16 @@ export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewMod
         title: sanitizeVisibleText(content.title ?? 'Calendar event'),
         whenLabel: calendarWhenLabel(content),
         location: content.location ? sanitizeVisibleText(content.location) : null,
+        full: parsed.originalPayload,
+      };
+    }
+    case 'wifi': {
+      return {
+        kind: 'wifi',
+        ssid: sanitizeVisibleText(content.ssid),
+        security: sanitizeVisibleText(content.security),
+        passwordMasked: content.hasPassword ? '••••••••' : null,
+        hidden: content.hidden,
         full: parsed.originalPayload,
       };
     }

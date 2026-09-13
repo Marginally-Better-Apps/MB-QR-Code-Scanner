@@ -44,6 +44,7 @@ export {
   SMS_CODE_FIXTURE,
   THREE_CODE_FIXTURE,
   TWO_CODE_FIXTURE,
+  WIFI_CODE_FIXTURE,
 } from './fixtures';
 export type { ScannerFixtureDetection } from './fixtures';
 export { makeCameraAccess, makeObservationSource } from './factory';

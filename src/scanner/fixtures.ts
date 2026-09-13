@@ -111,6 +111,13 @@ export const CALENDAR_CODE_FIXTURE: ScannerFixtureDetection[] = [
   },
 ];
 
+export const WIFI_CODE_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload: 'WIFI:T:WPA;S:HomeNet;P:supersecret;;',
+    displayBounds: COMMS_BOUNDS,
+  },
+];
+
 export const SINGLE_CODE_FIXTURE: ScannerFixtureDetection[] = [
   {
     rawPayload: 'https://example.com/fixture',

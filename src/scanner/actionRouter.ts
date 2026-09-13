@@ -7,6 +7,7 @@ export type ResultActionCapabilities = {
   openLocation: boolean;
   addContact: boolean;
   addEvent: boolean;
+  joinWifi: boolean;
 };
 
 export const DEFAULT_RESULT_ACTION_CAPABILITIES: ResultActionCapabilities = {
@@ -16,6 +17,7 @@ export const DEFAULT_RESULT_ACTION_CAPABILITIES: ResultActionCapabilities = {
   openLocation: true,
   addContact: true,
   addEvent: true,
+  joinWifi: false,
 };
 
 export type ContactDraft = {
@@ -45,6 +47,16 @@ export type CalendarDraft = {
 
 export type CalendarPresentationResult = 'saved' | 'cancelled' | 'unavailable';
 
+export type WifiDraft = {
+  ssid: string;
+  security: string;
+  hasPassword: boolean;
+  hidden: boolean;
+  originalPayload: string;
+};
+
+export type WifiJoinResult = 'joined' | 'cancelled' | 'failed' | 'unavailable';
+
 export type ResultActionDeps = {
   openURL: (url: string) => Promise<unknown> | unknown;
   copyText: (text: string) => Promise<unknown> | unknown;
@@ -53,6 +65,7 @@ export type ResultActionDeps = {
   capabilities?: Partial<ResultActionCapabilities>;
   presentContact?: (draft: ContactDraft) => Promise<ContactPresentationResult>;
   presentEvent?: (draft: CalendarDraft) => Promise<CalendarPresentationResult>;
+  joinWifi?: (draft: WifiDraft & { password: string | null }) => Promise<WifiJoinResult>;
 };
 
 export type PrimarySystemAction = {
@@ -66,6 +79,7 @@ export type PrimarySystemAction = {
     | 'openLocation'
     | 'addContact'
     | 'addEvent'
+    | 'joinWifi'
   >;
   url: string;
 };
@@ -101,6 +115,20 @@ export function calendarDraftFromPayload(parsed: ParsedQRPayload): CalendarDraft
     timeZone: content.timeZone,
     allDay: content.allDay,
     timeKind: content.timeKind,
+    originalPayload: parsed.originalPayload,
+  };
+}
+
+export function wifiDraftFromPayload(parsed: ParsedQRPayload): WifiDraft & { password: string | null } {
+  if (parsed.content.kind !== 'wifi') {
+    throw new Error('wifi draft requires a parsed Wi-Fi result');
+  }
+  return {
+    ssid: parsed.content.ssid,
+    security: parsed.content.security,
+    hasPassword: parsed.content.hasPassword,
+    hidden: parsed.content.hidden,
+    password: parsed.content.password,
     originalPayload: parsed.originalPayload,
   };
 }
@@ -205,6 +233,7 @@ function capabilityFlag(
     case 'openLocation':
     case 'addContact':
     case 'addEvent':
+    case 'joinWifi':
       return action;
     default:
       return null;
@@ -242,6 +271,10 @@ export function resolvePrimarySystemAction(
     case 'calendar':
       return caps.addEvent
         ? { action: 'addEvent', url: parsed.originalPayload }
+        : null;
+    case 'wifi':
+      return caps.joinWifi
+        ? { action: 'joinWifi', url: parsed.originalPayload }
         : null;
     default:
       return null;
@@ -314,6 +347,19 @@ export async function dispatchResultAction(
       }
       return;
     }
+    case 'joinWifi': {
+      if (parsed.content.kind !== 'wifi') {
+        throw new Error('joinWifi requires a parsed Wi-Fi result');
+      }
+      if (deps.capabilities?.joinWifi === false || !deps.joinWifi) {
+        throw new Error('Action "joinWifi" is unavailable');
+      }
+      const result = await deps.joinWifi(wifiDraftFromPayload(parsed));
+      if (result === 'unavailable' || result === 'failed') {
+        throw new Error(`Action "joinWifi" is ${result}`);
+      }
+      return;
+    }
     case 'copy': {
       await deps.copyText(parsed.originalPayload);
       return;
@@ -353,5 +399,6 @@ export function defaultResultActionDeps(): ResultActionDeps {
       }
       return 'saved';
     },
+    joinWifi: async () => 'unavailable',
   };
 }
