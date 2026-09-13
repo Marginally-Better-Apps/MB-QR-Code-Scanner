@@ -12,7 +12,9 @@ function mockDeps() {
       call: true,
       sendSms: true,
       openLocation: true,
+      addContact: true,
     },
+    presentContact: jest.fn(async () => 'saved' as const),
   };
 }
 
@@ -178,6 +180,45 @@ describe('ActionRouter (ACT-02)', () => {
       await expect(dispatchResultAction(text, action, deps)).rejects.toThrow();
       expect(deps.openURL).not.toHaveBeenCalled();
     }
+  });
+
+  test('addContact presents a system confirmation only after explicit dispatch', async () => {
+    const raw =
+      'BEGIN:VCARD\nVERSION:3.0\nFN:Jane Doe\nORG:Acme Labs\nTEL:+14155552671\nEND:VCARD';
+    const parsed = parseQRPayload(raw);
+    expect(parsed.content.kind).toBe('contact');
+    const deps = mockDeps();
+
+    expect(deps.presentContact).not.toHaveBeenCalled();
+    await dispatchResultAction(parsed, 'addContact', deps);
+    expect(deps.presentContact).toHaveBeenCalledTimes(1);
+    expect(deps.presentContact).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Jane Doe',
+        organization: 'Acme Labs',
+        originalPayload: raw,
+      }),
+    );
+    expect(deps.openURL).not.toHaveBeenCalled();
+    expect(deps.copyText).not.toHaveBeenCalled();
+  });
+
+  test('addContact cancel leaves Contacts unchanged and unavailable keeps copy/share', async () => {
+    const raw = 'BEGIN:VCARD\nVERSION:3.0\nFN:Pat Lee\nTEL:+14155550100\nEND:VCARD';
+    const parsed = parseQRPayload(raw);
+    const cancelled = mockDeps();
+    cancelled.presentContact.mockResolvedValue('cancelled');
+    await dispatchResultAction(parsed, 'addContact', cancelled);
+    expect(cancelled.copyText).not.toHaveBeenCalled();
+
+    const blocked = mockDeps();
+    blocked.capabilities.addContact = false;
+    await expect(dispatchResultAction(parsed, 'addContact', blocked)).rejects.toThrow(
+      /unavailable/i,
+    );
+    expect(blocked.presentContact).not.toHaveBeenCalled();
+    await dispatchResultAction(parsed, 'copy', blocked);
+    expect(blocked.copyText).toHaveBeenCalledWith(raw);
   });
 
   test('router performs no network fetch and has no side effects on import', async () => {

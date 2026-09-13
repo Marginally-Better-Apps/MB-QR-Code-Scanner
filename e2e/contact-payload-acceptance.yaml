@@ -1,0 +1,15 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "contact-code"
+- assertVisible: "Jane Doe"
+- assertVisible: "Acme Labs"
+- assertVisible: "Add Contact"
+- startRecording: contact-payload-acceptance
+- tapOn:
+    id: "sticky-result-open"
+- assertVisible: "Jane Doe"
+- stopRecording

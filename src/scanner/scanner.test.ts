@@ -260,6 +260,11 @@ describe('scanner observation protocol', () => {
       { name: 'phone-code', payload: 'tel:+1 (415) 555-2671' },
       { name: 'sms-code', payload: 'sms:+14155552671?body=Running%20late' },
       { name: 'geo-code', payload: 'geo:37.7749,-122.4194?q=Ferry+Building' },
+      {
+        name: 'contact-code',
+        payload:
+          'BEGIN:VCARD\nVERSION:3.0\nFN:Jane Doe\nORG:Acme Labs\nTEL:+14155552671\nEMAIL:jane@example.com\nEND:VCARD',
+      },
     ];
     for (const { name, payload } of cases) {
       const source = makeObservationSource({

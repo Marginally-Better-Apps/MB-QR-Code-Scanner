@@ -5,6 +5,7 @@ export type ResultActionCapabilities = {
   call: boolean;
   sendSms: boolean;
   openLocation: boolean;
+  addContact: boolean;
 };
 
 export const DEFAULT_RESULT_ACTION_CAPABILITIES: ResultActionCapabilities = {
@@ -12,7 +13,20 @@ export const DEFAULT_RESULT_ACTION_CAPABILITIES: ResultActionCapabilities = {
   call: true,
   sendSms: true,
   openLocation: true,
+  addContact: true,
 };
+
+export type ContactDraft = {
+  name: string | null;
+  organization: string | null;
+  phones: string[];
+  emails: string[];
+  addresses: string[];
+  urls: string[];
+  originalPayload: string;
+};
+
+export type ContactPresentationResult = 'saved' | 'cancelled' | 'unavailable';
 
 export type ResultActionDeps = {
   openURL: (url: string) => Promise<unknown> | unknown;
@@ -20,15 +34,38 @@ export type ResultActionDeps = {
   shareText: (text: string) => Promise<unknown> | unknown;
   canOpenURL?: (url: string) => Promise<boolean> | boolean;
   capabilities?: Partial<ResultActionCapabilities>;
+  presentContact?: (draft: ContactDraft) => Promise<ContactPresentationResult>;
 };
 
 export type PrimarySystemAction = {
   action: Extract<
     QRAction,
-    'openUrl' | 'openApp' | 'composeEmail' | 'call' | 'sendSms' | 'openLocation'
+    | 'openUrl'
+    | 'openApp'
+    | 'composeEmail'
+    | 'call'
+    | 'sendSms'
+    | 'openLocation'
+    | 'addContact'
   >;
   url: string;
 };
+
+export function contactDraftFromPayload(parsed: ParsedQRPayload): ContactDraft {
+  if (parsed.content.kind !== 'contact') {
+    throw new Error('contact draft requires a parsed contact result');
+  }
+  const { content } = parsed;
+  return {
+    name: content.name,
+    organization: content.organization,
+    phones: content.phones,
+    emails: content.emails,
+    addresses: content.addresses,
+    urls: content.urls,
+    originalPayload: parsed.originalPayload,
+  };
+}
 
 function digitsForDialing(number: string): string {
   const trimmed = number.trim();
@@ -128,6 +165,7 @@ function capabilityFlag(
     case 'call':
     case 'sendSms':
     case 'openLocation':
+    case 'addContact':
       return action;
     default:
       return null;
@@ -157,6 +195,10 @@ export function resolvePrimarySystemAction(
     case 'geo':
       return caps.openLocation
         ? { action: 'openLocation', url: mapsURL(parsed.content) }
+        : null;
+    case 'contact':
+      return caps.addContact
+        ? { action: 'addContact', url: parsed.originalPayload }
         : null;
     default:
       return null;
@@ -203,6 +245,19 @@ export async function dispatchResultAction(
     case 'openLocation':
       await openSystemURL(parsed, action, deps);
       return;
+    case 'addContact': {
+      if (parsed.content.kind !== 'contact') {
+        throw new Error('addContact requires a parsed contact result');
+      }
+      if (deps.capabilities?.addContact === false || !deps.presentContact) {
+        throw new Error('Action "addContact" is unavailable');
+      }
+      const result = await deps.presentContact(contactDraftFromPayload(parsed));
+      if (result === 'unavailable') {
+        throw new Error('Action "addContact" is unavailable');
+      }
+      return;
+    }
     case 'copy': {
       await deps.copyText(parsed.originalPayload);
       return;
@@ -228,5 +283,12 @@ export function defaultResultActionDeps(): ResultActionDeps {
     copyText: (text: string) => Clipboard.setStringAsync(text),
     shareText: (text: string) => Share.share({ message: text }),
     canOpenURL: (url: string) => Linking.canOpenURL(url),
+    presentContact: async (draft) => {
+      const result = await Share.share({ message: draft.originalPayload });
+      if (result?.action === Share.dismissedAction) {
+        return 'cancelled';
+      }
+      return 'saved';
+    },
   };
 }
