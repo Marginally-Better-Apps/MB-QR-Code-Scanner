@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 
@@ -572,6 +573,36 @@ describe('HistoryScreen (HIS-04)', () => {
 
     fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
     expect(screen.getByTestId('history-row-delete')).toBeTruthy();
+  });
+
+  test('Undo puts the exact row back after the parent list has already dropped it', async () => {
+    const stored = event({ id: 'url-42', summary: 'example.com/today' });
+    function Harness() {
+      const [items, setItems] = useState([stored]);
+      return (
+        <HistoryScreen
+          events={items}
+          now={NOW}
+          timeZone="UTC"
+          locale="en-US"
+          scheduleUndoExpiry={() => {}}
+          onDelete={(id) => {
+            setItems((current) => current.filter((item) => item.id !== id));
+          }}
+          onUndo={() => {
+            // Parent refresh can lag the tap. The row must reappear anyway.
+          }}
+        />
+      );
+    }
+
+    render(<Harness />);
+    fireEvent.press(screen.getByTestId('history-row-swipe-trailing'));
+    fireEvent.press(screen.getByTestId('history-row-delete'));
+    expect(screen.queryByText('example.com/today')).toBeNull();
+
+    fireEvent.press(screen.getByTestId('history-undo'));
+    expect(screen.getByText('example.com/today')).toBeTruthy();
   });
 
   test('provider actions delete and restore without an events prop', () => {

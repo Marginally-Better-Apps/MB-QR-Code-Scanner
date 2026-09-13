@@ -69,6 +69,7 @@ export function HistoryScreen({
   const resolvedDirection = direction ?? layoutDirection(I18nManager.isRTL);
   const [selected, setSelected] = useState<StoredHistoryEvent | null>(null);
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [restoredEvents, setRestoredEvents] = useState<StoredHistoryEvent[]>([]);
   const [pendingUndo, setPendingUndo] = useState<StoredHistoryEvent | null>(null);
   const undoGeneration = useRef(0);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,7 +82,11 @@ export function HistoryScreen({
     };
   }, []);
 
-  const visibleEvents = events.filter((event) => !hiddenIds.includes(event.id));
+  const mergedEvents = [
+    ...events,
+    ...restoredEvents.filter((event) => !events.some((item) => item.id === event.id)),
+  ].sort((left, right) => Date.parse(right.acceptedAt) - Date.parse(left.acceptedAt));
+  const visibleEvents = mergedEvents.filter((event) => !hiddenIds.includes(event.id));
 
   const sections = groupHistoryEvents(visibleEvents, {
     now: resolvedNow,
@@ -117,6 +122,7 @@ export function HistoryScreen({
 
   function handleDelete(event: StoredHistoryEvent) {
     setHiddenIds((ids) => (ids.includes(event.id) ? ids : [...ids, event.id]));
+    setRestoredEvents((current) => current.filter((item) => item.id !== event.id));
     if (selected?.id === event.id) {
       setSelected(null);
     }
@@ -131,6 +137,9 @@ export function HistoryScreen({
     const event = pendingUndo;
     undoGeneration.current += 1;
     setHiddenIds((ids) => ids.filter((id) => id !== event.id));
+    setRestoredEvents((current) =>
+      current.some((item) => item.id === event.id) ? current : [...current, event],
+    );
     setPendingUndo(null);
     void Promise.resolve(restoreEvent?.(event));
   }

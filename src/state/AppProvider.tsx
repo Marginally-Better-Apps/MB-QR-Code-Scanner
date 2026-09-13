@@ -45,8 +45,11 @@ export function AppProvider({
         await refreshHistory();
       },
       restoreEvent: async (event) => {
-        await historyStoreRef.current?.restore(event);
-        await refreshHistory();
+        try {
+          await historyStoreRef.current?.restore(event);
+        } finally {
+          await refreshHistory();
+        }
       },
       clearEvents: async () => {
         await historyStoreRef.current?.clear();

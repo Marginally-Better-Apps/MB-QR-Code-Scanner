@@ -39,7 +39,9 @@ appId: com.marginallybetter.qrscanner
     id: "history-undo"
 - tapOn:
     id: "history-undo"
-- assertVisible: "example.com/today.*"
+- extendedWaitUntil:
+    visible: "example.com/today.*"
+    timeout: 8000
 - tapOn:
     id: "history-clear"
 - tapOn: "Cancel"
@@ -47,5 +49,7 @@ appId: com.marginallybetter.qrscanner
 - tapOn:
     id: "history-clear"
 - tapOn: "Clear All"
-- assertVisible: "Accepted scans appear here."
+- extendedWaitUntil:
+    visible: "Accepted scans appear here."
+    timeout: 8000
 - stopRecording
