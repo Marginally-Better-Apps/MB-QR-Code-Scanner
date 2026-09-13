@@ -7,6 +7,9 @@ import {
   CALENDAR_CODE_FIXTURE,
   CONTACT_CODE_FIXTURE,
   WIFI_CODE_FIXTURE,
+  OTP_CODE_FIXTURE,
+  OTP_MIGRATION_CODE_FIXTURE,
+  PASSKEY_CODE_FIXTURE,
   EMAIL_CODE_FIXTURE,
   GEO_CODE_FIXTURE,
   PHONE_CODE_FIXTURE,
@@ -124,6 +127,24 @@ export function makeObservationSource(
           engineID: 'fixture.wifi-code',
           clock,
           startupFrame: WIFI_CODE_FIXTURE,
+        });
+      case 'otp-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.otp-code',
+          clock,
+          startupFrame: OTP_CODE_FIXTURE,
+        });
+      case 'otp-migration-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.otp-migration-code',
+          clock,
+          startupFrame: OTP_MIGRATION_CODE_FIXTURE,
+        });
+      case 'passkey-code':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.passkey-code',
+          clock,
+          startupFrame: PASSKEY_CODE_FIXTURE,
         });
       default:
         break;

@@ -1,6 +1,6 @@
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 import { SymbolView } from 'expo-symbols';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { t, type MessageKey } from '@/i18n';
@@ -11,6 +11,7 @@ import {
   type ResultActionCapabilities,
   type ResultActionDeps,
 } from '@/scanner/actionRouter';
+import { recognizeAuthQr } from '@/scanner/authQr';
 import { parseQRPayload } from '@/scanner/payloadParser';
 import { describeResultForDisplay } from '@/scanner/webTextPresentation';
 
@@ -34,6 +35,7 @@ const PRIMARY_LABEL: Record<
   addContact: 'addContact',
   addEvent: 'addEvent',
   joinWifi: 'joinWifi',
+  openAuth: 'openPasswords',
 };
 
 const PRIMARY_SYMBOL = {
@@ -46,6 +48,7 @@ const PRIMARY_SYMBOL = {
   addContact: 'person.crop.circle.badge.plus',
   addEvent: 'calendar.badge.plus',
   joinWifi: 'wifi',
+  openAuth: 'lock.shield',
 } as const;
 
 export function StickyResultBar({
@@ -70,11 +73,43 @@ export function StickyResultBar({
       capabilities: { ...base.capabilities, ...actionCapabilities },
     };
   }, [actionDeps, actionCapabilities]);
-  const primary = useMemo(
+  const resolvedPrimary = useMemo(
     () => resolvePrimarySystemAction(parsed, deps.capabilities),
     [parsed, deps.capabilities],
   );
-  const openLabel = primary ? t(PRIMARY_LABEL[primary.action]) : '';
+  const authFormat = useMemo(() => recognizeAuthQr(payload)?.format ?? null, [payload]);
+  const secretSession = parsed.sensitivity === 'sessionOnly';
+  const [authOpenable, setAuthOpenable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (resolvedPrimary?.action !== 'openAuth') {
+      setAuthOpenable(null);
+      return;
+    }
+    const check = deps.canOpenURL
+      ? Promise.resolve(deps.canOpenURL(resolvedPrimary.url))
+      : Promise.resolve(false);
+    void check.then((allowed) => {
+      if (!cancelled) {
+        setAuthOpenable(allowed === true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [deps, resolvedPrimary]);
+
+  const authPending = resolvedPrimary?.action === 'openAuth' && authOpenable === null;
+  const primary =
+    resolvedPrimary?.action === 'openAuth' && authOpenable !== true
+      ? null
+      : resolvedPrimary;
+  const openLabel = primary
+    ? primary.action === 'openAuth' && authFormat === 'fido-hybrid'
+      ? t('connectNearby')
+      : t(PRIMARY_LABEL[primary.action])
+    : '';
 
   async function handleOpen() {
     if (!primary) {
@@ -272,13 +307,30 @@ export function StickyResultBar({
         </Text>
       </View>
     ) : (
-      <Text
-        testID="sticky-result-payload"
-        numberOfLines={expanded ? undefined : 1}
-        ellipsizeMode="middle"
-        style={styles.payload}>
-        {view.kind === 'text' ? view.preview : view.preview}
-      </Text>
+      <View style={styles.preview}>
+        <Text
+          testID="sticky-result-payload"
+          numberOfLines={expanded ? undefined : 1}
+          ellipsizeMode="middle"
+          style={styles.payload}>
+          {view.kind === 'text' ? view.preview : view.preview}
+        </Text>
+        {authFormat === 'otpauth-migration' ? (
+          <Text testID="sticky-result-auth-note" style={styles.path}>
+            {t('authMigrationUnsupported')}
+          </Text>
+        ) : null}
+        {authFormat === 'fido-hybrid' && !authPending ? (
+          <Text testID="sticky-result-auth-note" style={styles.path}>
+            {primary ? t('authFidoConfirm') : t('authFidoUnavailable')}
+          </Text>
+        ) : null}
+        {authFormat === 'otpauth' && !primary && !authPending ? (
+          <Text testID="sticky-result-auth-note" style={styles.path}>
+            {t('authOtpUnavailable')}
+          </Text>
+        ) : null}
+      </View>
     );
 
   const fullText =
@@ -308,38 +360,42 @@ export function StickyResultBar({
             />
           </Pressable>
         ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('copy')}
-          testID="sticky-result-copy"
-          onPress={() => {
-            void handleCopy();
-          }}
-          style={styles.iconButton}
-          hitSlop={8}>
-          <SymbolView
-            name={didCopy ? 'checkmark' : 'doc.on.clipboard'}
-            size={18}
-            tintColor="#fff"
-            pointerEvents="none"
-          />
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('share')}
-          testID="sticky-result-share"
-          onPress={() => {
-            void handleShare();
-          }}
-          style={styles.iconButton}
-          hitSlop={8}>
-          <SymbolView
-            name="square.and.arrow.up"
-            size={18}
-            tintColor="#fff"
-            pointerEvents="none"
-          />
-        </Pressable>
+        {secretSession ? null : (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('copy')}
+              testID="sticky-result-copy"
+              onPress={() => {
+                void handleCopy();
+              }}
+              style={styles.iconButton}
+              hitSlop={8}>
+              <SymbolView
+                name={didCopy ? 'checkmark' : 'doc.on.clipboard'}
+                size={18}
+                tintColor="#fff"
+                pointerEvents="none"
+              />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('share')}
+              testID="sticky-result-share"
+              onPress={() => {
+                void handleShare();
+              }}
+              style={styles.iconButton}
+              hitSlop={8}>
+              <SymbolView
+                name="square.and.arrow.up"
+                size={18}
+                tintColor="#fff"
+                pointerEvents="none"
+              />
+            </Pressable>
+          </>
+        )}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={expanded ? t('hideDetails') : t('showDetails')}

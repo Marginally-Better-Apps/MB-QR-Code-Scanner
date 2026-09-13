@@ -20,7 +20,8 @@
         "CFBundleDisplayName": "QR Scanner",
         "CFBundleLocalizations": ["en", "es"],
         "LSApplicationCategoryType": "public.app-category.utilities",
-        "NSCameraUsageDescription": "QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved."
+        "NSCameraUsageDescription": "QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved.",
+        "LSApplicationQueriesSchemes": ["otpauth", "FIDO"]
       },
       "bitcode": false
     },

@@ -265,6 +265,19 @@ describe('scanner observation protocol', () => {
         payload:
           'BEGIN:VCARD\nVERSION:3.0\nFN:Jane Doe\nORG:Acme Labs\nTEL:+14155552671\nEMAIL:jane@example.com\nEND:VCARD',
       },
+      {
+        name: 'otp-code',
+        payload:
+          'otpauth://totp/Example:alice@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example',
+      },
+      {
+        name: 'otp-migration-code',
+        payload: 'otpauth-migration://offline?data=ZGlzcG9zYWJsZS1maXh0dXJl',
+      },
+      {
+        name: 'passkey-code',
+        payload: 'FIDO:/000111222333444555666777888999',
+      },
     ];
     for (const { name, payload } of cases) {
       const source = makeObservationSource({

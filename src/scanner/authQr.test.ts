@@ -1,4 +1,4 @@
-import { dispatchResultAction } from './actionRouter';
+import { dispatchResultAction, resolvePrimarySystemAction } from './actionRouter';
 import { AUTH_QR_FIXTURES, recognizeAuthQr } from './authQr';
 import { parseQRPayload } from './payloadParser';
 import { describeResultForDisplay } from './webTextPresentation';
@@ -22,9 +22,8 @@ describe('auth QR recognition (ACT-07)', () => {
     expect(parsed.sensitivity).toBe('sessionOnly');
     expect(parsed.displaySummary).toBe('Authentication code (Example)');
     expect(parsed.displaySummary).not.toContain(AUTH_QR_FIXTURES.otpauthSecret);
-    expect(parsed.actions).not.toContain('copy');
-    expect(parsed.actions).not.toContain('share');
-    expect(parsed.actions).not.toContain('openApp');
+    expect(parsed.actions).toEqual(['openAuth']);
+    expect(parsed.content.kind === 'otp' && parsed.content.format).toBe('otpauth');
   });
 
   test('recognizes otpauth-migration export blobs as secret-bearing auth, not custom schemes', () => {
@@ -42,9 +41,10 @@ describe('auth QR recognition (ACT-07)', () => {
     expect(parsed.displaySummary).toBe('Authenticator export');
     expect(parsed.displaySummary).not.toContain(AUTH_QR_FIXTURES.otpMigrationData);
     expect(parsed.displaySummary).not.toMatch(/data=/i);
-    expect(parsed.actions).not.toContain('copy');
-    expect(parsed.actions).not.toContain('share');
-    expect(parsed.actions).not.toContain('openApp');
+    expect(parsed.actions).toEqual([]);
+    expect(parsed.content.kind === 'otp' && parsed.content.format).toBe(
+      'otpauth-migration',
+    );
   });
 
   test('recognizes FIDO hybrid QR digit payloads without decoding the tunnel secret', () => {
@@ -61,6 +61,7 @@ describe('auth QR recognition (ACT-07)', () => {
     expect(parsed.sensitivity).toBe('sessionOnly');
     expect(parsed.displaySummary).toBe('Passkey sign-in');
     expect(parsed.displaySummary).not.toContain(AUTH_QR_FIXTURES.fidoDigits);
+    expect(parsed.actions).toEqual(['openAuth']);
     expect(parsed.actions).not.toContain('copy');
     expect(parsed.actions).not.toContain('share');
     expect(parsed.actions).not.toContain('openApp');
@@ -88,6 +89,94 @@ describe('auth QR recognition (ACT-07)', () => {
       expect(serialized).not.toContain(AUTH_QR_FIXTURES.fidoDigits);
       expect(serialized).not.toContain(raw);
     }
+  });
+
+  test('openAuth hands the exact otpauth or FIDO payload to the system after a confirmed dispatch', async () => {
+    const otp = parseQRPayload(AUTH_QR_FIXTURES.otpauthTotp);
+    expect(resolvePrimarySystemAction(otp)).toEqual({
+      action: 'openAuth',
+      url: AUTH_QR_FIXTURES.otpauthTotp,
+    });
+    const otpDeps = {
+      openURL: jest.fn(async () => {}),
+      copyText: jest.fn(async () => {}),
+      shareText: jest.fn(async () => {}),
+      canOpenURL: jest.fn(async () => true),
+    };
+    await dispatchResultAction(otp, 'openAuth', otpDeps);
+    expect(otpDeps.openURL).toHaveBeenCalledWith(AUTH_QR_FIXTURES.otpauthTotp);
+    expect(otpDeps.copyText).not.toHaveBeenCalled();
+
+    const fido = parseQRPayload(AUTH_QR_FIXTURES.fidoHybrid);
+    expect(resolvePrimarySystemAction(fido)).toEqual({
+      action: 'openAuth',
+      url: AUTH_QR_FIXTURES.fidoHybrid,
+    });
+    const fidoDeps = {
+      openURL: jest.fn(async () => {}),
+      copyText: jest.fn(async () => {}),
+      shareText: jest.fn(async () => {}),
+      canOpenURL: jest.fn(async () => true),
+    };
+    await dispatchResultAction(fido, 'openAuth', fidoDeps);
+    expect(fidoDeps.openURL).toHaveBeenCalledWith(AUTH_QR_FIXTURES.fidoHybrid);
+  });
+
+  test('openAuth refuses migration exports and stays unavailable when canOpenURL is false', async () => {
+    const migration = parseQRPayload(AUTH_QR_FIXTURES.otpMigration);
+    expect(resolvePrimarySystemAction(migration)).toBeNull();
+    const deps = {
+      openURL: jest.fn(async () => {}),
+      copyText: jest.fn(async () => {}),
+      shareText: jest.fn(async () => {}),
+      canOpenURL: jest.fn(async () => true),
+    };
+    await expect(dispatchResultAction(migration, 'openAuth', deps)).rejects.toThrow(
+      /refuses authenticator exports/i,
+    );
+    expect(deps.openURL).not.toHaveBeenCalled();
+
+    const otp = parseQRPayload(AUTH_QR_FIXTURES.otpauthTotp);
+    const blocked = {
+      openURL: jest.fn(async () => {}),
+      copyText: jest.fn(async () => {}),
+      shareText: jest.fn(async () => {}),
+      canOpenURL: jest.fn(async () => false),
+    };
+    await expect(dispatchResultAction(otp, 'openAuth', blocked)).rejects.toThrow(/unavailable/i);
+    expect(blocked.openURL).not.toHaveBeenCalled();
+  });
+
+  test('copy and share refuse session-only auth secrets', async () => {
+    for (const raw of [
+      AUTH_QR_FIXTURES.otpauthTotp,
+      AUTH_QR_FIXTURES.otpMigration,
+      AUTH_QR_FIXTURES.fidoHybrid,
+    ]) {
+      const parsed = parseQRPayload(raw);
+      const deps = {
+        openURL: jest.fn(async () => {}),
+        copyText: jest.fn(async () => {}),
+        shareText: jest.fn(async () => {}),
+      };
+      await expect(dispatchResultAction(parsed, 'copy', deps)).rejects.toThrow(
+        /session-only/i,
+      );
+      await expect(dispatchResultAction(parsed, 'share', deps)).rejects.toThrow(
+        /session-only/i,
+      );
+      expect(deps.copyText).not.toHaveBeenCalled();
+      expect(deps.shareText).not.toHaveBeenCalled();
+    }
+  });
+
+  test('Info.plist declares otpauth and FIDO query schemes', () => {
+    const app = require('../../app.json') as {
+      expo: { ios: { infoPlist: { LSApplicationQueriesSchemes?: string[] } } };
+    };
+    expect(app.expo.ios.infoPlist.LSApplicationQueriesSchemes).toEqual(
+      expect.arrayContaining(['otpauth', 'FIDO']),
+    );
   });
 
   test('authenticate remains unimplemented and never opens, copies, or shares', async () => {

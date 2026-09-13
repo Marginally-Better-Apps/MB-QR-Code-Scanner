@@ -188,7 +188,35 @@ describe('sticky session result UI (SCN-04)', () => {
 
     expect(screen.getByText('Authentication code (Example)')).toBeTruthy();
     expect(screen.queryByText(/Authenticate/i)).toBeNull();
+    expect(screen.queryByTestId('sticky-result-copy')).toBeNull();
+    expect(screen.queryByTestId('sticky-result-share')).toBeNull();
     expect(screen.queryByText(AUTH_QR_FIXTURES.otpauthSecret)).toBeNull();
     expect(screen.queryByText(AUTH_QR_FIXTURES.otpauthTotp)).toBeNull();
+  });
+
+  test('session-only authentication results drop on background', async () => {
+    const { source, store } = stickySession();
+    await store.activateScanner();
+    render(<ScannerScreen session={store} engine="visionkit" />);
+
+    act(() => {
+      source.emit([
+        {
+          rawPayload: AUTH_QR_FIXTURES.otpauthTotp,
+          displayBounds: bounds(),
+        },
+      ]);
+    });
+    expect(screen.getByText('Authentication code (Example)')).toBeTruthy();
+
+    act(() => {
+      store.handleLifecycle('background');
+    });
+    act(() => {
+      store.handleLifecycle('active');
+    });
+
+    expect(screen.queryByTestId('sticky-result-accessory')).toBeNull();
+    expect(screen.queryByText('Authentication code (Example)')).toBeNull();
   });
 });

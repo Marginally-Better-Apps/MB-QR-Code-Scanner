@@ -48,6 +48,14 @@ const en = {
   wifiNetwork: 'Wi-Fi',
   wifiPasswordHidden: 'Password hidden',
   wifiJoinUnavailable: 'Joining Wi-Fi is not available on this build.',
+  openPasswords: 'Open Passwords',
+  connectNearby: 'Connect nearby device',
+  authMigrationUnsupported:
+    'This is an authenticator export. The app will not import or forward it.',
+  authFidoConfirm:
+    'The system will ask to connect to the nearby device. Bluetooth must be on.',
+  authFidoUnavailable: 'The Camera app can still handle passkey QR codes.',
+  authOtpUnavailable: 'Passwords is not available for this code on this device.',
   back: 'Back',
   clear: 'Clear',
   showDetails: 'Show details',
@@ -121,6 +129,14 @@ const es: typeof en = {
   wifiNetwork: 'Wi-Fi',
   wifiPasswordHidden: 'Contraseña oculta',
   wifiJoinUnavailable: 'Unirse a Wi-Fi no está disponible en esta compilación.',
+  openPasswords: 'Abrir Contraseñas',
+  connectNearby: 'Conectar dispositivo cercano',
+  authMigrationUnsupported:
+    'Esto es una exportación de autenticador. La app no la importará ni la reenviará.',
+  authFidoConfirm:
+    'El sistema pedirá conectar con el dispositivo cercano. Bluetooth debe estar activado.',
+  authFidoUnavailable: 'La app Cámara aún puede gestionar los códigos QR de llave de acceso.',
+  authOtpUnavailable: 'Contraseñas no está disponible para este código en este dispositivo.',
   back: 'Atrás',
   clear: 'Borrar',
   showDetails: 'Mostrar detalles',

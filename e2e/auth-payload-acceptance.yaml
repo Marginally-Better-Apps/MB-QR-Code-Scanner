@@ -1,0 +1,29 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "otp-code"
+- assertVisible: "Authentication code (Example)"
+- assertNotVisible: "Authenticate"
+- assertNotVisible: "JBSWY3DPEHPK3PXP"
+- startRecording: auth-payload-acceptance
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "otp-migration-code"
+- assertVisible: "Authenticator export"
+- assertVisible: "This is an authenticator export. The app will not import or forward it."
+- assertNotVisible: "Authenticate"
+- assertNotVisible: "ZGlzcG9zYWJsZS1maXh0dXJl"
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "passkey-code"
+- assertVisible: "Passkey sign-in"
+- assertNotVisible: "Authenticate"
+- assertNotVisible: "000111222333444555666777888999"
+- stopRecording
