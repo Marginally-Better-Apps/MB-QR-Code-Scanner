@@ -1,6 +1,7 @@
 import { parseQRPayload } from './payloadParser';
 import {
   describeResultForDisplay,
+  redactedWifiPayload,
   sanitizeVisibleText,
 } from './webTextPresentation';
 
@@ -151,6 +152,41 @@ describe('web/text safe presentation (ACT-02)', () => {
     }
     expect(view.full).toBe(raw);
     expect(view.preview).toContain('geo:999,999');
+  });
+
+  test('wifi view-model masks the password everywhere including the full payload', () => {
+    const raw = 'WIFI:T:WPA;S:HomeNet;P:supersecret;;';
+    const parsed = parseQRPayload(raw);
+    expect(parsed.content.kind).toBe('wifi');
+    const view = describeResultForDisplay(parsed);
+    expect(view.kind).toBe('wifi');
+    if (view.kind !== 'wifi') {
+      throw new Error('expected wifi view-model');
+    }
+    expect(view.ssid).toBe('HomeNet');
+    expect(view.passwordMasked).toBe('••••••••');
+    // The expanded detail and compat payload must never carry the password.
+    expect(view.full).not.toContain('supersecret');
+    expect(view.full).toContain('HomeNet');
+    expect(JSON.stringify(view)).not.toContain('supersecret');
+  });
+
+  test('redacted wifi payload drops the password but keeps SSID and security', () => {
+    const parsed = parseQRPayload('WIFI:T:WPA;S:HomeNet;P:supersecret;H:true;;');
+    if (parsed.content.kind !== 'wifi') {
+      throw new Error('expected wifi content');
+    }
+    const redacted = redactedWifiPayload(parsed.content);
+    expect(redacted).not.toContain('supersecret');
+    expect(redacted).toContain('HomeNet');
+    expect(redacted).toContain('WPA');
+    const reparsed = parseQRPayload(redacted);
+    expect(reparsed.content.kind).toBe('wifi');
+    if (reparsed.content.kind === 'wifi') {
+      expect(reparsed.content.ssid).toBe('HomeNet');
+      expect(reparsed.content.hasPassword).toBe(false);
+      expect(reparsed.content.password).toBeNull();
+    }
   });
 
   test('sanitizer never returns raw controls and always truncates with ellipsis', () => {

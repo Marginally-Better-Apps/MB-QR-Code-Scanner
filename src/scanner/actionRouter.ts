@@ -1,4 +1,9 @@
-import type { ParsedQRPayload, QRAction, QRContent } from './payloadParser';
+import {
+  isBlockedCustomScheme,
+  type ParsedQRPayload,
+  type QRAction,
+  type QRContent,
+} from './payloadParser';
 
 export type ResultActionCapabilities = {
   composeEmail: boolean;
@@ -189,6 +194,9 @@ function systemURLForAction(parsed: ParsedQRPayload, action: QRAction): string {
       if (content.kind !== 'customScheme') {
         throw new Error('openApp requires a custom-scheme result');
       }
+      if (isBlockedCustomScheme(content.scheme)) {
+        throw new Error(`openApp refuses "${content.scheme}" destinations`);
+      }
       const raw = parsed.originalPayload.trim();
       if (raw.length === 0) {
         throw new Error('openApp requires a non-empty destination');
@@ -250,6 +258,9 @@ export function resolvePrimarySystemAction(
     case 'url':
       return { action: 'openUrl', url: parsed.content.url };
     case 'customScheme': {
+      if (isBlockedCustomScheme(parsed.content.scheme)) {
+        return null;
+      }
       const raw = parsed.originalPayload.trim();
       return raw.length > 0 ? { action: 'openApp', url: raw } : null;
     }
