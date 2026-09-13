@@ -187,3 +187,189 @@ describe('payload parser pipeline (ACT-01)', () => {
     }
   });
 });
+
+type EmailCase = {
+  name: string;
+  raw: string;
+  to: string;
+  subject: string;
+  body: string;
+};
+
+type SmsCase = {
+  name: string;
+  raw: string;
+  number: string;
+  message: string;
+};
+
+type PhoneCase = {
+  name: string;
+  raw: string;
+  number: string;
+};
+
+type GeoCase = {
+  name: string;
+  raw: string;
+  latitude: number;
+  longitude: number;
+  query: string | null;
+};
+
+type FallbackCase = {
+  name: string;
+  raw: string;
+};
+
+describe('communication and location payloads (ACT-03)', () => {
+  const emails: EmailCase[] = [
+    {
+      name: 'mailto with subject and body',
+      raw: 'mailto:alice@example.com?subject=Hello&body=World',
+      to: 'alice@example.com',
+      subject: 'Hello',
+      body: 'World',
+    },
+    {
+      name: 'mailto percent-encoded subject and body',
+      raw: 'mailto:alice@example.com?subject=Hello%20there&body=Line%201%0ALine%202',
+      to: 'alice@example.com',
+      subject: 'Hello there',
+      body: 'Line 1\nLine 2',
+    },
+    {
+      name: 'MATMSG with unicode',
+      raw: 'MATMSG:TO:josé@münchen.de;SUB:Grüße;BODY:café 🎉;;',
+      to: 'josé@münchen.de',
+      subject: 'Grüße',
+      body: 'café 🎉',
+    },
+    {
+      name: 'MATMSG escaped semicolons in subject and body',
+      raw: 'MATMSG:TO:bob@example.com;SUB:Hi\\;there;BODY:Hello\\;world;;',
+      to: 'bob@example.com',
+      subject: 'Hi;there',
+      body: 'Hello;world',
+    },
+  ];
+
+  test.each(emails)('email preserves fields: $name', ({ raw, to, subject, body }) => {
+    const parsed = parseQRPayload(raw);
+    expect(parsed.originalPayload).toBe(raw);
+    expect(parsed.content).toEqual({ kind: 'email', to, subject, body });
+    expect(parsed.actions).toEqual(['composeEmail', 'copy', 'share']);
+  });
+
+  const smsCases: SmsCase[] = [
+    {
+      name: 'SMSTO colon body',
+      raw: 'SMSTO:+14155552671:Hello there',
+      number: '+14155552671',
+      message: 'Hello there',
+    },
+    {
+      name: 'sms query body',
+      raw: 'sms:+14155552671?body=Hello%20there',
+      number: '+14155552671',
+      message: 'Hello there',
+    },
+    {
+      name: 'sms query text alias',
+      raw: 'sms:+14155552671?text=Saved%20seat',
+      number: '+14155552671',
+      message: 'Saved seat',
+    },
+    {
+      name: 'sms semicolon body field',
+      raw: 'sms:+14155552671;body=Hello there',
+      number: '+14155552671',
+      message: 'Hello there',
+    },
+    {
+      name: 'sms unicode body',
+      raw: 'sms:+14155552671?body=café%20🎉',
+      number: '+14155552671',
+      message: 'café 🎉',
+    },
+  ];
+
+  test.each(smsCases)('SMS preserves recipient and body: $name', ({ raw, number, message }) => {
+    const parsed = parseQRPayload(raw);
+    expect(parsed.originalPayload).toBe(raw);
+    expect(parsed.content).toEqual({ kind: 'sms', number, message });
+    expect(parsed.actions).toEqual(['sendSms', 'copy', 'share']);
+  });
+
+  const phones: PhoneCase[] = [
+    {
+      name: 'E.164',
+      raw: 'tel:+14155552671',
+      number: '+14155552671',
+    },
+    {
+      name: 'formatted punctuation kept on the parsed number',
+      raw: 'tel:+1 (415) 555-2671',
+      number: '+1 (415) 555-2671',
+    },
+  ];
+
+  test.each(phones)('phone keeps original payload and number: $name', ({ raw, number }) => {
+    const parsed = parseQRPayload(raw);
+    expect(parsed.originalPayload).toBe(raw);
+    expect(parsed.content).toEqual({ kind: 'phone', number });
+    expect(parsed.actions).toEqual(['call', 'copy', 'share']);
+  });
+
+  const geos: GeoCase[] = [
+    {
+      name: 'bare coordinates',
+      raw: 'geo:37.7749,-122.4194',
+      latitude: 37.7749,
+      longitude: -122.4194,
+      query: null,
+    },
+    {
+      name: 'query and altitude',
+      raw: 'geo:48.8566,2.3522,30?q=Eiffel+Tower',
+      latitude: 48.8566,
+      longitude: 2.3522,
+      query: 'Eiffel Tower',
+    },
+    {
+      name: 'unicode query',
+      raw: 'geo:35.6762,139.6503?q=東京',
+      latitude: 35.6762,
+      longitude: 139.6503,
+      query: '東京',
+    },
+  ];
+
+  test.each(geos)('geo validates coordinates: $name', ({ raw, latitude, longitude, query }) => {
+    const parsed = parseQRPayload(raw);
+    expect(parsed.originalPayload).toBe(raw);
+    expect(parsed.content).toEqual({ kind: 'geo', latitude, longitude, query });
+    expect(parsed.actions).toEqual(['openLocation', 'copy', 'share']);
+  });
+
+  const fallbacks: FallbackCase[] = [
+    { name: 'mailto without address', raw: 'mailto:' },
+    { name: 'mailto invalid address', raw: 'mailto:not-an-email-at-all' },
+    { name: 'MATMSG empty TO', raw: 'MATMSG:TO:;;' },
+    { name: 'MATMSG unterminated', raw: 'MATMSG:TO:bob@example.com;SUB:Hi;BODY:x' },
+    { name: 'tel empty', raw: 'tel:' },
+    { name: 'tel letters', raw: 'tel:abc-def' },
+    { name: 'sms empty', raw: 'sms:' },
+    { name: 'sms letters', raw: 'sms:xyz' },
+    { name: 'geo missing longitude', raw: 'geo:37.7749' },
+    { name: 'geo out of range', raw: 'geo:999,999' },
+    { name: 'geo non numeric', raw: 'geo:abc,def' },
+  ];
+
+  test.each(fallbacks)('malformed structured payload falls back with raw intact: $name', ({ raw }) => {
+    const parsed = parseQRPayload(raw);
+    expect(parsed.originalPayload).toBe(raw);
+    expect(parsed.content).toEqual({ kind: 'text', text: raw, isFallback: true });
+    expect(parsed.actions).toEqual(['copy', 'share']);
+  });
+});

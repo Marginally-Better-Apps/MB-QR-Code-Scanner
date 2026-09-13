@@ -1,13 +1,189 @@
-import type { ParsedQRPayload, QRAction } from './payloadParser';
+import type { ParsedQRPayload, QRAction, QRContent } from './payloadParser';
+
+export type ResultActionCapabilities = {
+  composeEmail: boolean;
+  call: boolean;
+  sendSms: boolean;
+  openLocation: boolean;
+};
+
+export const DEFAULT_RESULT_ACTION_CAPABILITIES: ResultActionCapabilities = {
+  composeEmail: true,
+  call: true,
+  sendSms: true,
+  openLocation: true,
+};
 
 export type ResultActionDeps = {
   openURL: (url: string) => Promise<unknown> | unknown;
   copyText: (text: string) => Promise<unknown> | unknown;
   shareText: (text: string) => Promise<unknown> | unknown;
+  canOpenURL?: (url: string) => Promise<boolean> | boolean;
+  capabilities?: Partial<ResultActionCapabilities>;
 };
 
+export type PrimarySystemAction = {
+  action: Extract<
+    QRAction,
+    'openUrl' | 'openApp' | 'composeEmail' | 'call' | 'sendSms' | 'openLocation'
+  >;
+  url: string;
+};
+
+function digitsForDialing(number: string): string {
+  const trimmed = number.trim();
+  const hasPlus = trimmed.startsWith('+');
+  const digits = trimmed.replace(/\D/g, '');
+  return hasPlus ? `+${digits}` : digits;
+}
+
+function mailtoURL(content: Extract<QRContent, { kind: 'email' }>): string {
+  const parts: string[] = [];
+  if (content.subject.length > 0) {
+    parts.push(`subject=${encodeURIComponent(content.subject)}`);
+  }
+  if (content.body.length > 0) {
+    parts.push(`body=${encodeURIComponent(content.body)}`);
+  }
+  const query = parts.length > 0 ? `?${parts.join('&')}` : '';
+  return `mailto:${content.to}${query}`;
+}
+
+function telURL(number: string): string {
+  return `tel:${digitsForDialing(number)}`;
+}
+
+function smsURL(content: Extract<QRContent, { kind: 'sms' }>): string {
+  const number = digitsForDialing(content.number);
+  if (content.message.length === 0) {
+    return `sms:${number}`;
+  }
+  return `sms:${number}&body=${encodeURIComponent(content.message)}`;
+}
+
+function mapsURL(content: Extract<QRContent, { kind: 'geo' }>): string {
+  const ll = `${content.latitude},${content.longitude}`;
+  if (content.query) {
+    return `http://maps.apple.com/?ll=${ll}&q=${encodeURIComponent(content.query)}`;
+  }
+  return `http://maps.apple.com/?ll=${ll}`;
+}
+
+function systemURLForAction(parsed: ParsedQRPayload, action: QRAction): string {
+  const { content } = parsed;
+  switch (action) {
+    case 'openUrl': {
+      if (content.kind !== 'url') {
+        throw new Error('openUrl requires a parsed web URL result');
+      }
+      if (!/^https?:\/\//i.test(content.url)) {
+        throw new Error('openUrl refuses non-http(s) destinations');
+      }
+      return content.url;
+    }
+    case 'openApp': {
+      if (content.kind !== 'customScheme') {
+        throw new Error('openApp requires a custom-scheme result');
+      }
+      const raw = parsed.originalPayload.trim();
+      if (raw.length === 0) {
+        throw new Error('openApp requires a non-empty destination');
+      }
+      return raw;
+    }
+    case 'composeEmail': {
+      if (content.kind !== 'email') {
+        throw new Error('composeEmail requires a parsed email result');
+      }
+      return mailtoURL(content);
+    }
+    case 'call': {
+      if (content.kind !== 'phone') {
+        throw new Error('call requires a parsed phone result');
+      }
+      return telURL(content.number);
+    }
+    case 'sendSms': {
+      if (content.kind !== 'sms') {
+        throw new Error('sendSms requires a parsed SMS result');
+      }
+      return smsURL(content);
+    }
+    case 'openLocation': {
+      if (content.kind !== 'geo') {
+        throw new Error('openLocation requires a parsed location result');
+      }
+      return mapsURL(content);
+    }
+    default:
+      throw new Error(`Action "${action}" has no system URL`);
+  }
+}
+
+function capabilityFlag(
+  action: QRAction,
+): keyof ResultActionCapabilities | null {
+  switch (action) {
+    case 'composeEmail':
+    case 'call':
+    case 'sendSms':
+    case 'openLocation':
+      return action;
+    default:
+      return null;
+  }
+}
+
+export function resolvePrimarySystemAction(
+  parsed: ParsedQRPayload,
+  capabilities?: Partial<ResultActionCapabilities>,
+): PrimarySystemAction | null {
+  const caps = { ...DEFAULT_RESULT_ACTION_CAPABILITIES, ...capabilities };
+  switch (parsed.content.kind) {
+    case 'url':
+      return { action: 'openUrl', url: parsed.content.url };
+    case 'customScheme': {
+      const raw = parsed.originalPayload.trim();
+      return raw.length > 0 ? { action: 'openApp', url: raw } : null;
+    }
+    case 'email':
+      return caps.composeEmail
+        ? { action: 'composeEmail', url: mailtoURL(parsed.content) }
+        : null;
+    case 'phone':
+      return caps.call ? { action: 'call', url: telURL(parsed.content.number) } : null;
+    case 'sms':
+      return caps.sendSms ? { action: 'sendSms', url: smsURL(parsed.content) } : null;
+    case 'geo':
+      return caps.openLocation
+        ? { action: 'openLocation', url: mapsURL(parsed.content) }
+        : null;
+    default:
+      return null;
+  }
+}
+
+async function openSystemURL(
+  parsed: ParsedQRPayload,
+  action: QRAction,
+  deps: ResultActionDeps,
+): Promise<void> {
+  const url = systemURLForAction(parsed, action);
+  const flag = capabilityFlag(action);
+  if (flag && deps.capabilities?.[flag] === false) {
+    throw new Error(`Action "${action}" is unavailable`);
+  }
+  if (deps.canOpenURL) {
+    const allowed = await deps.canOpenURL(url);
+    if (!allowed) {
+      throw new Error(`Action "${action}" is unavailable`);
+    }
+  }
+  await deps.openURL(url);
+}
+
 /**
- * Explicit ActionRouter for scan results (ACT-02).
+ * Explicit ActionRouter for scan results.
  *
  * System routing (openURL) happens only when the caller explicitly dispatches
  * an open action from a tap handler. Importing or rendering never opens,
@@ -19,28 +195,14 @@ export async function dispatchResultAction(
   deps: ResultActionDeps,
 ): Promise<void> {
   switch (action) {
-    case 'openUrl': {
-      if (parsed.content.kind !== 'url') {
-        throw new Error('openUrl requires a parsed web URL result');
-      }
-      const url = parsed.content.url;
-      if (!/^https?:\/\//i.test(url)) {
-        throw new Error('openUrl refuses non-http(s) destinations');
-      }
-      await deps.openURL(url);
+    case 'openUrl':
+    case 'openApp':
+    case 'composeEmail':
+    case 'call':
+    case 'sendSms':
+    case 'openLocation':
+      await openSystemURL(parsed, action, deps);
       return;
-    }
-    case 'openApp': {
-      if (parsed.content.kind !== 'customScheme') {
-        throw new Error('openApp requires a custom-scheme result');
-      }
-      const raw = parsed.originalPayload.trim();
-      if (raw.length === 0) {
-        throw new Error('openApp requires a non-empty destination');
-      }
-      await deps.openURL(raw);
-      return;
-    }
     case 'copy': {
       await deps.copyText(parsed.originalPayload);
       return;
@@ -50,7 +212,7 @@ export async function dispatchResultAction(
       return;
     }
     default: {
-      throw new Error(`Action "${action as string}" is not handled by the web/text router`);
+      throw new Error(`Action "${action as string}" is not handled by the result router`);
     }
   }
 }
@@ -65,5 +227,6 @@ export function defaultResultActionDeps(): ResultActionDeps {
     openURL: (url: string) => Linking.openURL(url),
     copyText: (text: string) => Clipboard.setStringAsync(text),
     shareText: (text: string) => Share.share({ message: text }),
+    canOpenURL: (url: string) => Linking.canOpenURL(url),
   };
 }

@@ -110,6 +110,14 @@ export const PAYLOAD_FIXTURE_CORPUS: PayloadFixture[] = [
     description: 'Legacy MATMSG email format.',
   },
   {
+    name: 'email-matmsg-escaped',
+    raw: 'MATMSG:TO:bob@example.com;SUB:Hi\\;there;BODY:Hello\\;world;;',
+    expectedKind: 'email',
+    parserIds: ['email'],
+    edgeCategories: ['escaped-delimiters'],
+    description: 'MATMSG subject and body keep escaped semicolons.',
+  },
+  {
     name: 'email-matmsg-duplicate',
     raw: 'MATMSG:TO:first@example.com;TO:second@example.com;SUB:Hi;BODY:x;;',
     expectedKind: 'email',

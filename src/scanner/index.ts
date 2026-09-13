@@ -34,8 +34,12 @@ export type {
 } from './visionKit';
 export {
   EDGE_CODE_FIXTURE,
+  EMAIL_CODE_FIXTURE,
+  GEO_CODE_FIXTURE,
+  PHONE_CODE_FIXTURE,
   ScannerObservationFixtureSource,
   SINGLE_CODE_FIXTURE,
+  SMS_CODE_FIXTURE,
   THREE_CODE_FIXTURE,
   TWO_CODE_FIXTURE,
 } from './fixtures';
@@ -57,9 +61,22 @@ export type {
 } from './payloadParser';
 export { PAYLOAD_FIXTURE_CORPUS } from './payloadFixtures';
 export type { PayloadEdgeCategory, PayloadFixture } from './payloadFixtures';
-export { dispatchResultAction, defaultResultActionDeps } from './actionRouter';
-export type { ResultActionDeps } from './actionRouter';
-export { describeResultForDisplay, sanitizeVisibleText } from './webTextPresentation';
+export {
+  DEFAULT_RESULT_ACTION_CAPABILITIES,
+  defaultResultActionDeps,
+  dispatchResultAction,
+  resolvePrimarySystemAction,
+} from './actionRouter';
+export type {
+  PrimarySystemAction,
+  ResultActionCapabilities,
+  ResultActionDeps,
+} from './actionRouter';
+export {
+  describeResultForDisplay,
+  normalizePhoneForDisplay,
+  sanitizeVisibleText,
+} from './webTextPresentation';
 export type { ResultViewModel } from './webTextPresentation';
 export {
   createInitialScanAcceptanceState,
