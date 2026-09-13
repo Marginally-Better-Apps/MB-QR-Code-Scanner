@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
 import { announceAcceptedScan } from '@/a11y/announceAcceptedScan';
+import { useAdaptiveLayout } from '@/components/adaptiveLayout';
 import {
   chromeContainerStyle,
   resolveChromeSurface,
@@ -47,6 +48,7 @@ export function ScannerScreen({
   const dark = useColorScheme() === 'dark';
   const chromePrefs = useChromePreferences();
   const highContrast = chromePrefs.increaseContrast;
+  const adaptive = useAdaptiveLayout();
   const mediaChrome = resolveChromeSurface({
     ...chromePrefs,
     tone: 'onMedia',
@@ -140,6 +142,7 @@ export function ScannerScreen({
             <ScanTargetGuide
               showCoaching={showCoaching}
               highContrast={highContrast}
+              guideSize={adaptive.guideSize}
             />
           ) : null}
           {scanner.visibleObservations.length > 0 ? (
@@ -150,7 +153,25 @@ export function ScannerScreen({
           {sticky || showChooserTrigger ? (
             <View
               testID="sticky-result-container"
-              style={[styles.stickyResults, { paddingBottom: Math.max(insets.bottom, 8) + 8 }]}
+              style={
+                adaptive.resultPlacement === 'trailing'
+                  ? [
+                      styles.trailingResults,
+                      adaptive.isRTL
+                        ? { left: Math.max(insets.left, 0) + 16 }
+                        : { right: Math.max(insets.right, 0) + 16 },
+                      {
+                        width: adaptive.stickyMaxWidth,
+                        maxWidth: adaptive.stickyMaxWidth,
+                        top: insets.top + 64,
+                        bottom: insets.bottom + 24,
+                      },
+                    ]
+                  : [
+                      styles.stickyResults,
+                      { paddingBottom: Math.max(insets.bottom, 8) + 8 },
+                    ]
+              }
               pointerEvents="box-none">
               {showChooserTrigger ? (
                 mediaChromeGlass ? (
@@ -188,6 +209,7 @@ export function ScannerScreen({
                 <MultiCodeChooser
                   candidates={candidates}
                   onSelect={(id) => session.selectCandidate(id)}
+                  onDismiss={() => setChooserOpen(false)}
                 />
               ) : null}
               {sticky ? (
@@ -288,6 +310,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: 16,
     paddingTop: 8,
+    zIndex: 2,
+  },
+  trailingResults: {
+    position: 'absolute',
+    justifyContent: 'center',
+    paddingTop: 8,
+    paddingBottom: 8,
     zIndex: 2,
   },
   chooserTrigger: {

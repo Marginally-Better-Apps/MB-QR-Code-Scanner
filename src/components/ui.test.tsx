@@ -189,27 +189,36 @@ describe('scanner UI', () => {
   });
 
   test('history is a top-right control, not a tab bar under the payload', async () => {
-    const onOpenHistory = jest.fn();
-    const store = session('authorized', 'single-code');
-    await store.activateScanner();
-    render(
-      <ScannerScreen
-        session={store}
-        engine="visionkit"
-        onOpenHistory={onOpenHistory}
-      />,
-    );
+    // Pin an iPhone-portrait window: narrow layouts dock the result at the bottom.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const dimsSpy = jest
+      .spyOn(require('react-native'), 'useWindowDimensions')
+      .mockReturnValue({ width: 390, height: 844, scale: 2, fontScale: 2 });
+    try {
+      const onOpenHistory = jest.fn();
+      const store = session('authorized', 'single-code');
+      await store.activateScanner();
+      render(
+        <ScannerScreen
+          session={store}
+          engine="visionkit"
+          onOpenHistory={onOpenHistory}
+        />,
+      );
 
-    expect(screen.getByLabelText('History')).toBeTruthy();
-    expect(screen.getByTestId('open-history')).toBeTruthy();
-    expect(screen.queryByLabelText('Scanner')).toBeNull();
-    fireEvent.press(screen.getByTestId('open-history'));
-    expect(onOpenHistory).toHaveBeenCalledTimes(1);
+      expect(screen.getByLabelText('History')).toBeTruthy();
+      expect(screen.getByTestId('open-history')).toBeTruthy();
+      expect(screen.queryByLabelText('Scanner')).toBeNull();
+      fireEvent.press(screen.getByTestId('open-history'));
+      expect(onOpenHistory).toHaveBeenCalledTimes(1);
 
-    const results = StyleSheet.flatten(
-      screen.getByTestId('sticky-result-container').props.style,
-    );
-    expect(results.paddingBottom).toBe(42);
+      const results = StyleSheet.flatten(
+        screen.getByTestId('sticky-result-container').props.style,
+      );
+      expect(results.paddingBottom).toBe(42);
+    } finally {
+      dimsSpy.mockRestore();
+    }
   });
 
   test('permission screens still offer history without a tab bar', async () => {
