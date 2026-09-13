@@ -163,6 +163,32 @@ export class HistoryStore {
     return this.pending.then(() => event);
   }
 
+  delete(id: string): Promise<void> {
+    this.pending = this.pending.then(async () => {
+      const next = this.events.filter((event) => event.id !== id);
+      if (next.length === this.events.length) {
+        return;
+      }
+      this.events = next;
+      await this.persist();
+    });
+    return this.pending;
+  }
+
+  restore(event: StoredHistoryEvent): Promise<void> {
+    this.pending = this.pending.then(async () => {
+      if (this.events.some((existing) => existing.id === event.id)) {
+        return;
+      }
+      this.events.push(event);
+      this.events.sort(
+        (left, right) => Date.parse(left.acceptedAt) - Date.parse(right.acceptedAt),
+      );
+      await this.persist();
+    });
+    return this.pending;
+  }
+
   clear(): Promise<void> {
     this.pending = this.pending.then(async () => {
       this.events = [];

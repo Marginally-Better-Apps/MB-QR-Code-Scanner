@@ -40,6 +40,16 @@ const en = {
   chooseCode: 'Choose',
   selectCode: 'Select a QR code',
   candidateCodes: 'Candidate QR codes',
+  historyDelete: 'Delete',
+  historyUndo: 'Undo',
+  historyScanDeleted: 'Scan deleted',
+  historyClearCount: 'Clear {count} scans',
+  historyClearCountOne: 'Clear 1 scan',
+  historyClearConfirmTitle: 'Clear all scans?',
+  historyClearConfirmMessage: 'This removes {count} scans from this device.',
+  historyClearConfirmMessageOne: 'This removes 1 scan from this device.',
+  historyClearConfirm: 'Clear All',
+  historyClearCancel: 'Cancel',
 };
 
 const es: typeof en = {
@@ -86,6 +96,16 @@ const es: typeof en = {
   chooseCode: 'Elegir',
   selectCode: 'Selecciona un código QR',
   candidateCodes: 'Códigos QR candidatos',
+  historyDelete: 'Eliminar',
+  historyUndo: 'Deshacer',
+  historyScanDeleted: 'Escaneo eliminado',
+  historyClearCount: 'Borrar {count} escaneos',
+  historyClearCountOne: 'Borrar 1 escaneo',
+  historyClearConfirmTitle: '¿Borrar todos los escaneos?',
+  historyClearConfirmMessage: 'Esto elimina {count} escaneos de este dispositivo.',
+  historyClearConfirmMessageOne: 'Esto elimina 1 escaneo de este dispositivo.',
+  historyClearConfirm: 'Borrar todo',
+  historyClearCancel: 'Cancelar',
 };
 
 export type MessageKey = keyof typeof en;
@@ -100,6 +120,12 @@ export function getLocale(): string {
   return currentLocale;
 }
 
-export function t(key: MessageKey): string {
-  return (currentLocale === 'es' ? es : en)[key];
+export function t(key: MessageKey, vars?: Record<string, string | number>): string {
+  let value = (currentLocale === 'es' ? es : en)[key];
+  if (vars) {
+    for (const [name, replacement] of Object.entries(vars)) {
+      value = value.replaceAll(`{${name}}`, String(replacement));
+    }
+  }
+  return value;
 }

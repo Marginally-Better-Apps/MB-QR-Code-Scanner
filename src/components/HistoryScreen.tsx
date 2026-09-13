@@ -1,17 +1,28 @@
-import { useState } from 'react';
-import { Pressable, SectionList, StyleSheet, Text, View, useColorScheme } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  I18nManager,
+  Pressable,
+  SectionList,
+  StyleSheet,
+  Text,
+  View,
+  useColorScheme,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SymbolView } from 'expo-symbols';
 
 import { GlassControl } from '@/components/GlassControl';
+import { HistorySwipeableRow } from '@/components/HistorySwipeableRow';
 import { StickyResultBar } from '@/components/StickyResultBar';
 import { groupHistoryEvents } from '@/history/historyGrouping';
 import { presentHistoryRow } from '@/history/historyRowPresentation';
 import type { StoredHistoryEvent } from '@/history/historyPolicy';
 import { presentHistoryDetailTime, replayHistoryEvent } from '@/history/historyReplay';
+import { layoutDirection, type LayoutDirection } from '@/history/historySwipe';
 import { getLocale, t } from '@/i18n';
 import type { ResultActionDeps } from '@/scanner/actionRouter';
-import { useHistoryEvents } from '@/state/historyEvents';
+import { useHistoryActions, useHistoryEvents } from '@/state/historyEvents';
 
 type Props = {
   onBack?: () => void;
@@ -20,6 +31,12 @@ type Props = {
   timeZone?: string;
   locale?: string;
   actionDeps?: ResultActionDeps;
+  onDelete?: (id: string) => void | Promise<void>;
+  onUndo?: (event: StoredHistoryEvent) => void | Promise<void>;
+  onClear?: () => void | Promise<void>;
+  direction?: LayoutDirection;
+  scheduleUndoExpiry?: (dismiss: () => void) => void;
+  undoWindowMs?: number;
 };
 
 export function HistoryScreen({
@@ -29,18 +46,43 @@ export function HistoryScreen({
   timeZone,
   locale,
   actionDeps,
+  onDelete,
+  onUndo,
+  onClear,
+  direction,
+  scheduleUndoExpiry,
+  undoWindowMs = 5000,
 }: Props) {
   const contextEvents = useHistoryEvents();
+  const contextActions = useHistoryActions();
   const events = eventsProp ?? contextEvents;
+  const deleteEvent = onDelete ?? contextActions?.deleteEvent;
+  const restoreEvent = onUndo ?? contextActions?.restoreEvent;
+  const clearEvents = onClear ?? contextActions?.clearEvents;
   const insets = useSafeAreaInsets();
   const dark = useColorScheme() === 'dark';
   const resolvedLocale = locale ?? (getLocale() === 'es' ? 'es' : 'en-US');
   const resolvedTimeZone =
     timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
   const resolvedNow = now ?? new Date();
+  const resolvedDirection = direction ?? layoutDirection(I18nManager.isRTL);
   const [selected, setSelected] = useState<StoredHistoryEvent | null>(null);
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  const [pendingUndo, setPendingUndo] = useState<StoredHistoryEvent | null>(null);
+  const undoGeneration = useRef(0);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const sections = groupHistoryEvents(events, {
+  useEffect(() => {
+    return () => {
+      if (undoTimer.current != null) {
+        clearTimeout(undoTimer.current);
+      }
+    };
+  }, []);
+
+  const visibleEvents = events.filter((event) => !hiddenIds.includes(event.id));
+
+  const sections = groupHistoryEvents(visibleEvents, {
     now: resolvedNow,
     timeZone: resolvedTimeZone,
     locale: resolvedLocale,
@@ -49,7 +91,70 @@ export function HistoryScreen({
   });
 
   const textColor = dark ? styles.lightText : null;
-  const empty = events.length === 0;
+  const empty = visibleEvents.length === 0;
+  const visibleCount = visibleEvents.length;
+
+  function armUndo(event: StoredHistoryEvent) {
+    setPendingUndo(event);
+    const generation = undoGeneration.current + 1;
+    undoGeneration.current = generation;
+    const expire = () => {
+      if (undoGeneration.current === generation) {
+        setPendingUndo(null);
+      }
+    };
+    if (undoTimer.current != null) {
+      clearTimeout(undoTimer.current);
+      undoTimer.current = null;
+    }
+    if (scheduleUndoExpiry) {
+      scheduleUndoExpiry(expire);
+      return;
+    }
+    undoTimer.current = setTimeout(expire, undoWindowMs);
+  }
+
+  function handleDelete(event: StoredHistoryEvent) {
+    setHiddenIds((ids) => (ids.includes(event.id) ? ids : [...ids, event.id]));
+    if (selected?.id === event.id) {
+      setSelected(null);
+    }
+    armUndo(event);
+    void Promise.resolve(deleteEvent?.(event.id));
+  }
+
+  function handleUndo() {
+    if (pendingUndo == null) {
+      return;
+    }
+    const event = pendingUndo;
+    undoGeneration.current += 1;
+    setHiddenIds((ids) => ids.filter((id) => id !== event.id));
+    setPendingUndo(null);
+    void Promise.resolve(restoreEvent?.(event));
+  }
+
+  function handleClearRequest() {
+    Alert.alert(
+      t('historyClearConfirmTitle'),
+      visibleCount === 1
+        ? t('historyClearConfirmMessageOne')
+        : t('historyClearConfirmMessage', { count: visibleCount }),
+      [
+        { text: t('historyClearCancel'), style: 'cancel' },
+        {
+          text: t('historyClearConfirm'),
+          style: 'destructive',
+          onPress: () => {
+            setHiddenIds(visibleEvents.map((event) => event.id));
+            setPendingUndo(null);
+            setSelected(null);
+            void Promise.resolve(clearEvents?.());
+          },
+        },
+      ],
+    );
+  }
 
   function handleBack() {
     if (selected) {
@@ -75,6 +180,9 @@ export function HistoryScreen({
         wifiTitle: t('historyWifiTitle'),
       })
     : null;
+
+  const clearLabel =
+    visibleCount === 1 ? t('historyClearCountOne') : t('historyClearCount', { count: visibleCount });
 
   return (
     <View style={[styles.container, dark && styles.darkContainer]}>
@@ -155,7 +263,17 @@ export function HistoryScreen({
             { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 24 },
           ]}
           ListHeaderComponent={
-            <Text style={[styles.title, styles.listTitle, textColor]}>{t('history')}</Text>
+            <View style={styles.listHeader}>
+              <Text style={[styles.title, styles.listTitle, textColor]}>{t('history')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={clearLabel}
+                testID="history-clear"
+                onPress={handleClearRequest}
+                style={styles.clearButton}>
+                <Text style={[styles.clearLabel, textColor]}>{clearLabel}</Text>
+              </Pressable>
+            </View>
           }
           renderSectionHeader={({ section }) => (
             <Text
@@ -172,29 +290,50 @@ export function HistoryScreen({
               wifiTitle: t('historyWifiTitle'),
             });
             return (
-              <Pressable
-                testID="history-row"
-                accessibilityRole="button"
-                accessibilityLabel={`${row.title}, ${row.timeLabel}`}
-                onPress={() => setSelected(item)}
-                style={[styles.row, dark && styles.rowDark]}>
-                <View style={[styles.iconWell, dark && styles.iconWellDark]}>
-                  <SymbolView
-                    name={row.symbol as 'qrcode'}
-                    size={18}
-                    tintColor={dark ? '#fff' : '#000'}
-                    pointerEvents="none"
-                  />
-                </View>
-                <Text style={[styles.rowTitle, textColor]} numberOfLines={1}>
-                  {row.title}
-                </Text>
-                <Text style={[styles.rowTime, textColor]}>{row.timeLabel}</Text>
-              </Pressable>
+              <HistorySwipeableRow
+                direction={resolvedDirection}
+                onDelete={() => handleDelete(item)}>
+                <Pressable
+                  testID="history-row"
+                  accessibilityRole="button"
+                  accessibilityLabel={`${row.title}, ${row.timeLabel}`}
+                  onPress={() => setSelected(item)}
+                  style={[styles.row, dark && styles.rowDark]}>
+                  <View style={[styles.iconWell, dark && styles.iconWellDark]}>
+                    <SymbolView
+                      name={row.symbol as 'qrcode'}
+                      size={18}
+                      tintColor={dark ? '#fff' : '#000'}
+                      pointerEvents="none"
+                    />
+                  </View>
+                  <Text style={[styles.rowTitle, textColor]} numberOfLines={1}>
+                    {row.title}
+                  </Text>
+                  <Text style={[styles.rowTime, textColor]}>{row.timeLabel}</Text>
+                </Pressable>
+              </HistorySwipeableRow>
             );
           }}
         />
       )}
+      {pendingUndo ? (
+        <View
+          testID="history-undo-banner"
+          style={[styles.undoBanner, { bottom: insets.bottom + 16 }, dark && styles.undoBannerDark]}>
+          <Text style={[styles.undoMessage, dark && styles.lightText]}>
+            {t('historyScanDeleted')}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('historyUndo')}
+            testID="history-undo"
+            onPress={handleUndo}
+            hitSlop={8}>
+            <Text style={styles.undoAction}>{t('historyUndo')}</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -223,9 +362,25 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
   },
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 4,
+    paddingBottom: 12,
+  },
   listTitle: {
     paddingHorizontal: 20,
-    paddingBottom: 12,
+  },
+  clearButton: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  clearLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ff3b30',
   },
   description: {
     fontSize: 16,
@@ -322,5 +477,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     opacity: 0.8,
+  },
+  undoBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 4,
+    minHeight: 48,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1c1c1e',
+  },
+  undoBannerDark: {
+    backgroundColor: '#2c2c2e',
+  },
+  undoMessage: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  undoAction: {
+    color: '#0a84ff',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
