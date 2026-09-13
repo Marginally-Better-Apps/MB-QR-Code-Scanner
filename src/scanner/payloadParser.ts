@@ -1,4 +1,5 @@
 import { recognizeAuthQr } from './authQr';
+import { toAsciiHostport } from './hostEncoding';
 
 export const PAYLOAD_PARSER_VERSION = 1;
 
@@ -134,7 +135,9 @@ function tryParseUrl(raw: string): QRContent | null {
     return {
       kind: 'url',
       url: url.href,
-      host: url.host,
+      // Normalize confusable Unicode hosts to Punycode here so summaries,
+      // history rows, and announcements can never render a spoofed host.
+      host: toAsciiHostport(url.host),
       path,
     };
   } catch {
@@ -816,6 +819,28 @@ function tryParseCustomScheme(raw: string): QRContent | null {
   return { kind: 'customScheme', scheme, remainder };
 }
 
+/**
+ * Schemes that must never be handed to the system openURL path (QLT-05).
+ * Scriptable or spoofable destinations (`javascript:`, `data:`, …) stay
+ * labeled for copy/share only. The on-device `canOpenURL` gate is a second
+ * layer, not the only one: a permissive gate must still refuse.
+ */
+const BLOCKED_CUSTOM_SCHEMES = new Set([
+  'javascript',
+  'data',
+  'vbscript',
+  'jscript',
+  'blob',
+  'filesystem',
+  'about',
+  'jar',
+  'file',
+]);
+
+export function isBlockedCustomScheme(scheme: string): boolean {
+  return BLOCKED_CUSTOM_SCHEMES.has(scheme.toLowerCase());
+}
+
 function displayForContent(content: QRContent, raw: string): string {
   switch (content.kind) {
     case 'url': {
@@ -901,7 +926,9 @@ function actionsForContent(content: QRContent): QRAction[] {
     case 'passkey':
       return ['openAuth'];
     case 'customScheme':
-      return ['openApp', 'copy', 'share'];
+      return isBlockedCustomScheme(content.scheme)
+        ? ['copy', 'share']
+        : ['openApp', 'copy', 'share'];
   }
 }
 

@@ -1,5 +1,8 @@
 import { parseQRPayload } from './payloadParser';
-import { dispatchResultAction } from './actionRouter';
+import {
+  dispatchResultAction,
+  resolvePrimarySystemAction,
+} from './actionRouter';
 
 function mockDeps() {
   return {
@@ -243,8 +246,44 @@ describe('ActionRouter (ACT-02)', () => {
     );
   });
 
-  test('router performs no network fetch and has no side effects on import', async () => {
-    const fetchSpy = jest
+  test('dangerous custom schemes never open, even when canOpenURL allows', async () => {
+    for (const raw of [
+      'javascript:alert(1)',
+      'data:text/html,<h1>hi</h1>',
+      'vbscript:msgbox(1)',
+      'file:///etc/passwd',
+      'blob:https://example.com/uuid',
+      'about:blank',
+    ]) {
+      const parsed = parseQRPayload(raw);
+      expect(parsed.content.kind).toBe('customScheme');
+      // The parser offers no open action for blocked schemes.
+      expect(parsed.actions).not.toContain('openApp');
+      expect(parsed.actions).not.toContain('openUrl');
+      // No primary Open button resolves.
+      expect(resolvePrimarySystemAction(parsed)).toBeNull();
+      // Dispatch refuses even with a permissive system gate.
+      const deps = mockDeps();
+      await expect(dispatchResultAction(parsed, 'openApp', deps)).rejects.toThrow(
+        /refuses/,
+      );
+      expect(deps.openURL).not.toHaveBeenCalled();
+      // Copy and share of the labeled payload still work after an explicit tap.
+      await dispatchResultAction(parsed, 'copy', deps);
+      expect(deps.copyText).toHaveBeenCalledWith(raw);
+    }
+  });
+
+  test('benign custom schemes still open after an explicit tap', async () => {
+    const parsed = parseQRPayload('myapp://pay?amount=10&to=bob');
+    expect(parsed.actions).toContain('openApp');
+    expect(resolvePrimarySystemAction(parsed)?.action).toBe('openApp');
+    const deps = mockDeps();
+    await dispatchResultAction(parsed, 'openApp', deps);
+    expect(deps.openURL).toHaveBeenCalledWith('myapp://pay?amount=10&to=bob');
+  });
+
+  test('router performs no network fetch and has no side effects on import', async () => {    const fetchSpy = jest
       .spyOn(globalThis, 'fetch')
       .mockRejectedValue(new Error('no net'));
     try {
