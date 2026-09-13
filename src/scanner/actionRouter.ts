@@ -80,6 +80,7 @@ export type PrimarySystemAction = {
     | 'addContact'
     | 'addEvent'
     | 'joinWifi'
+    | 'openAuth'
   >;
   url: string;
 };
@@ -276,6 +277,12 @@ export function resolvePrimarySystemAction(
       return caps.joinWifi
         ? { action: 'joinWifi', url: parsed.originalPayload }
         : null;
+    case 'otp':
+      return parsed.content.format === 'otpauth'
+        ? { action: 'openAuth', url: parsed.originalPayload.trim() }
+        : null;
+    case 'passkey':
+      return { action: 'openAuth', url: parsed.originalPayload.trim() };
     default:
       return null;
   }
@@ -361,11 +368,34 @@ export async function dispatchResultAction(
       return;
     }
     case 'copy': {
+      if (parsed.sensitivity === 'sessionOnly') {
+        throw new Error('copy refuses session-only secrets');
+      }
       await deps.copyText(parsed.originalPayload);
       return;
     }
     case 'share': {
+      if (parsed.sensitivity === 'sessionOnly') {
+        throw new Error('share refuses session-only secrets');
+      }
       await deps.shareText(parsed.originalPayload);
+      return;
+    }
+    case 'openAuth': {
+      if (parsed.content.kind !== 'otp' && parsed.content.kind !== 'passkey') {
+        throw new Error('openAuth requires a recognized auth result');
+      }
+      if (parsed.content.kind === 'otp' && parsed.content.format === 'otpauth-migration') {
+        throw new Error('openAuth refuses authenticator exports');
+      }
+      const url = parsed.originalPayload.trim();
+      if (deps.canOpenURL) {
+        const allowed = await deps.canOpenURL(url);
+        if (!allowed) {
+          throw new Error('Action "openAuth" is unavailable');
+        }
+      }
+      await deps.openURL(url);
       return;
     }
     case 'authenticate': {

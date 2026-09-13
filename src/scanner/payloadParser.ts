@@ -16,6 +16,7 @@ export type QRAction =
   | 'addEvent'
   | 'joinWifi'
   | 'authenticate'
+  | 'openAuth'
   | 'openApp';
 
 export type QRContent =
@@ -56,7 +57,12 @@ export type QRContent =
       allDay: boolean;
       timeKind: 'allDay' | 'utc' | 'local' | 'namedZone';
     }
-  | { kind: 'otp'; label: string | null; issuer: string | null }
+  | {
+      kind: 'otp';
+      label: string | null;
+      issuer: string | null;
+      format: 'otpauth' | 'otpauth-migration';
+    }
   | { kind: 'passkey' }
   | { kind: 'customScheme'; scheme: string; remainder: string };
 
@@ -752,6 +758,7 @@ function tryParseOtp(raw: string): QRContent | null {
       kind: 'otp',
       label: recognized.label,
       issuer: recognized.issuer,
+      format: 'otpauth',
     };
   }
   if (recognized.format === 'otpauth-migration') {
@@ -759,6 +766,7 @@ function tryParseOtp(raw: string): QRContent | null {
       kind: 'otp',
       label: null,
       issuer: null,
+      format: 'otpauth-migration',
     };
   }
   return null;
@@ -889,8 +897,9 @@ function actionsForContent(content: QRContent): QRAction[] {
     case 'calendar':
       return ['addEvent', 'copy', 'share'];
     case 'otp':
+      return content.format === 'otpauth' ? ['openAuth'] : [];
     case 'passkey':
-      return ['authenticate'];
+      return ['openAuth'];
     case 'customScheme':
       return ['openApp', 'copy', 'share'];
   }

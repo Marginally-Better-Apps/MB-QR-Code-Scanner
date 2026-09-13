@@ -1,3 +1,4 @@
+import { AUTH_QR_FIXTURES } from '@/scanner/authQr';
 import { CameraAccessFixtureProvider } from '@/scanner/cameraFixtures';
 import { ScannerObservationFixtureSource } from '@/scanner/fixtures';
 import { ScannerSessionStore } from '@/scanner/session';
@@ -106,6 +107,22 @@ describe('sticky session current result (SCN-04)', () => {
 
     session.handleLifecycle('active');
     expect(session.currentResult?.rawPayload).toBe('https://example.com/persist');
+  });
+
+  test('background and inactive drop session-only authentication results', async () => {
+    const { source, session } = makeSession();
+    await session.activateScanner();
+
+    source.emit([detection(AUTH_QR_FIXTURES.otpauthTotp)]);
+    expect(session.currentResult?.rawPayload).toBe(AUTH_QR_FIXTURES.otpauthTotp);
+
+    session.handleLifecycle('background');
+    expect(session.currentResult).toBeNull();
+
+    source.emit([detection(AUTH_QR_FIXTURES.fidoHybrid)]);
+    expect(session.currentResult?.rawPayload).toBe(AUTH_QR_FIXTURES.fidoHybrid);
+    session.handleLifecycle('inactive');
+    expect(session.currentResult).toBeNull();
   });
 
   test('clear removes only the current result and returns to empty', async () => {

@@ -118,6 +118,28 @@ export const WIFI_CODE_FIXTURE: ScannerFixtureDetection[] = [
   },
 ];
 
+export const OTP_CODE_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload:
+      'otpauth://totp/Example:alice@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example',
+    displayBounds: COMMS_BOUNDS,
+  },
+];
+
+export const OTP_MIGRATION_CODE_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload: 'otpauth-migration://offline?data=ZGlzcG9zYWJsZS1maXh0dXJl',
+    displayBounds: COMMS_BOUNDS,
+  },
+];
+
+export const PASSKEY_CODE_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload: 'FIDO:/000111222333444555666777888999',
+    displayBounds: COMMS_BOUNDS,
+  },
+];
+
 export const SINGLE_CODE_FIXTURE: ScannerFixtureDetection[] = [
   {
     rawPayload: 'https://example.com/fixture',

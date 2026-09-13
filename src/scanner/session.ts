@@ -4,6 +4,7 @@ import { AVFoundationScannerObservationSource } from './avFoundation';
 import { resolveCameraAccessState } from './cameraAccess';
 import { CameraAccessFixtureProvider } from './cameraFixtures';
 import { makeObservationSource } from './factory';
+import { parseQRPayload } from './payloadParser';
 import {
   rankMultiCodeCandidates,
   resolveMultiCodeWinner,
@@ -122,6 +123,7 @@ export class ScannerSessionStore {
       case 'background':
       case 'inactive':
         this.observationSource.handleLifecycle(phase);
+        this.releaseSessionOnlySecret();
         break;
       case 'active':
         this.cameraAccess.refreshAuthorization();
@@ -160,6 +162,17 @@ export class ScannerSessionStore {
   setHasPreview(hasPreview: boolean): void {
     this.hasPreview = hasPreview;
     this.emit();
+  }
+
+  private releaseSessionOnlySecret(): void {
+    if (this.currentResult == null) {
+      return;
+    }
+    const parsed = parseQRPayload(this.currentResult.rawPayload);
+    if (parsed.sensitivity === 'sessionOnly') {
+      this.currentResult = null;
+      this.manualCandidateId = null;
+    }
   }
 
   clearCurrentResult(): void {
