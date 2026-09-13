@@ -29,6 +29,10 @@ const en = {
   share: 'Share',
   openLink: 'Open link',
   openAppLink: 'Open app link',
+  openInApp: 'Open in {app}',
+  paymentUnverified:
+    'This payment request is not verified — confirm details in your payment app before paying.',
+  customAppUnavailable: 'App not installed. Copy or share the link instead.',
   website: 'Website',
   appLink: 'App link',
   composeEmail: 'Compose',
@@ -112,6 +116,10 @@ const es: typeof en = {
   share: 'Compartir',
   openLink: 'Abrir enlace',
   openAppLink: 'Abrir enlace de app',
+  openInApp: 'Abrir en {app}',
+  paymentUnverified:
+    'Esta solicitud de pago no está verificada — confirma los detalles en tu app de pago antes de pagar.',
+  customAppUnavailable: 'App no instalada. Copia o comparte el enlace.',
   website: 'Sitio web',
   appLink: 'Enlace de app',
   composeEmail: 'Redactar',

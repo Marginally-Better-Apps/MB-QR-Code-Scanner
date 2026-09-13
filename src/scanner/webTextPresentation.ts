@@ -18,6 +18,8 @@ export type ResultViewModel =
       scheme: string;
       remainderPreview: string;
       full: string;
+      appName: string | null;
+      isPayment: boolean;
     }
   | {
       kind: 'email';
@@ -176,7 +178,10 @@ function calendarWhenLabel(
   return sanitizeVisibleText(`Local ${start}`);
 }
 
-export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewModel {
+export function describeResultForDisplay(
+  parsed: ParsedQRPayload,
+  opts?: { appName?: string | null },
+): ResultViewModel {
   const { content } = parsed;
   switch (content.kind) {
     case 'url': {
@@ -195,11 +200,30 @@ export function describeResultForDisplay(parsed: ParsedQRPayload): ResultViewMod
       };
     }
     case 'customScheme': {
+      const schemeLower = content.scheme.toLowerCase();
+      const paymentSchemes = new Set([
+        'bitcoin',
+        'ethereum',
+        'litecoin',
+        'dogecoin',
+        'payto',
+        'upi',
+        'pix',
+        'sepa',
+        'venmo',
+        'paypal',
+        'cashapp',
+        'alipay',
+        'weixin',
+      ]);
       return {
         kind: 'custom',
-        scheme: sanitizeVisibleText(content.scheme.toLowerCase(), 32),
+        scheme: sanitizeVisibleText(schemeLower, 32),
         remainderPreview: sanitizePath(content.remainder, WEB_PATH_PREVIEW_MAX_LENGTH),
         full: `${content.scheme}:${content.remainder}`,
+        appName:
+          opts?.appName != null ? sanitizeVisibleText(opts.appName, 64) : null,
+        isPayment: paymentSchemes.has(schemeLower),
       };
     }
     case 'email': {
