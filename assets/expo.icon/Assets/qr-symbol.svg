@@ -1,5 +1,5 @@
 <!-- lucide "qr-code" icon (ISC license) https://lucide.dev/icons/qr-code, recolored white -->
-<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white"
+<svg xmlns="http://www.w3.org/2000/svg" width="620" height="620" viewBox="0 0 24 24" fill="none" stroke="white"
   stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round">
   <rect width="5" height="5" x="3" y="3" rx="1" />
   <rect width="5" height="5" x="16" y="3" rx="1" />
