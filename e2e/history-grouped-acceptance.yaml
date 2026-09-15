@@ -7,7 +7,7 @@ appId: com.marginallybetter.qrscanner
 - startRecording: history-grouped-acceptance
 - tapOn:
     id: "open-history"
-- assertVisible: "Accepted scans appear here."
+- assertNotVisible: "Accepted scans appear here."
 - assertVisible: "Scan a QR code"
 - tapOn:
     id: "history-scan-cta"

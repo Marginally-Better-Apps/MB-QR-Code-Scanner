@@ -1,10 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { COMPACT_GUIDE_SIZE } from '@/components/adaptiveLayout';
-import { t } from '@/i18n';
 
 type Props = {
-  showCoaching: boolean;
   highContrast?: boolean;
   /** Outer guide box size in points. Capped by adaptive layout for iPad. */
   guideSize?: number;
@@ -14,7 +12,6 @@ export const CENTER_SCAN_GUIDE_SIZE = COMPACT_GUIDE_SIZE;
 export const CENTER_SCAN_CORNER_LENGTH = 36;
 
 export function ScanTargetGuide({
-  showCoaching,
   highContrast = false,
   guideSize = CENTER_SCAN_GUIDE_SIZE,
 }: Props) {
@@ -75,14 +72,6 @@ export function ScanTargetGuide({
           style={[styles.corner, baseCorner, styles.bottomRight]}
         />
       </View>
-      {showCoaching ? (
-        <Text
-          testID="center-scan-coaching"
-          pointerEvents="none"
-          style={[styles.coaching, highContrast && styles.coachingHighContrast]}>
-          {t('scanTargetCoaching')}
-        </Text>
-      ) : null}
     </View>
   );
 }
@@ -132,21 +121,5 @@ const styles = StyleSheet.create({
     borderLeftWidth: 0,
     borderTopWidth: 0,
     borderBottomRightRadius: 12,
-  },
-  coaching: {
-    marginTop: 12,
-    maxWidth: 280,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    color: '#ffffff',
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  coachingHighContrast: {
-    backgroundColor: 'rgba(0,0,0,0.85)',
   },
 });

@@ -50,6 +50,7 @@ appId: com.marginallybetter.qrscanner
     id: "history-clear"
 - tapOn: "Clear All"
 - extendedWaitUntil:
-    visible: "Accepted scans appear here."
+    visible:
+      id: "history-empty"
     timeout: 8000
 - stopRecording

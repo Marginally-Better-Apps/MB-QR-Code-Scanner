@@ -14,7 +14,6 @@ const en = {
   pointCamera: 'Point the camera at a QR code. Scanning starts automatically.',
   cameraPurpose:
     'QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved.',
-  historyPlaceholder: 'Accepted scans appear here.',
   historyScanCta: 'Scan a QR code',
   historyToday: 'Today',
   historyYesterday: 'Yesterday',
@@ -23,7 +22,6 @@ const en = {
   historySensitiveNotSaved: 'This sensitive code was not saved.',
   historyWifiNotSaved: 'The Wi-Fi network was not saved.',
   liveScanArea: 'Live camera scan area',
-  scanTargetCoaching: 'Place code near here. Codes anywhere in view are recognized.',
   copy: 'Copy',
   open: 'Open',
   share: 'Share',
@@ -100,7 +98,6 @@ const es: typeof en = {
   pointCamera: 'Apunta la cámara a un código QR. El escaneo comienza automáticamente.',
   cameraPurpose:
     'QR Scanner reconoce códigos QR en este dispositivo. Los fotogramas de la cámara nunca se suben ni se guardan.',
-  historyPlaceholder: 'Los escaneos aceptados aparecen aquí.',
   historyScanCta: 'Escanear un código QR',
   historyToday: 'Hoy',
   historyYesterday: 'Ayer',
@@ -109,8 +106,6 @@ const es: typeof en = {
   historySensitiveNotSaved: 'Este código confidencial no se guardó.',
   historyWifiNotSaved: 'La red Wi-Fi no se guardó.',
   liveScanArea: 'Área de escaneo con cámara en vivo',
-  scanTargetCoaching:
-    'Coloca el código cerca de aquí. Se reconocen los códigos en cualquier parte de la vista.',
   copy: 'Copiar',
   open: 'Abrir',
   share: 'Compartir',
