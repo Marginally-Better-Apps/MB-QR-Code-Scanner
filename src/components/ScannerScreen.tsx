@@ -64,19 +64,7 @@ export function ScannerScreen({
   const isLiveForGuide =
     scanner.cameraAccessState === 'ready' &&
     !scanner.engineID.startsWith('fixture');
-  const [coachingExpired, setCoachingExpired] = useState(false);
   const [chooserOpen, setChooserOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isLiveForGuide || scanner.hasAcceptedScan) {
-      return;
-    }
-    const id = setTimeout(
-      () => setCoachingExpired(true),
-      SCAN_TARGET_COACHING_TIMEOUT_MS,
-    );
-    return () => clearTimeout(id);
-  }, [isLiveForGuide, scanner.hasAcceptedScan]);
 
   const stickyPayload = scanner.currentResult?.rawPayload ?? null;
   useEffect(() => {
@@ -85,8 +73,6 @@ export function ScannerScreen({
     }
     announceAcceptedScan(stickyPayload);
   }, [stickyPayload]);
-
-  const showCoaching = !scanner.hasAcceptedScan && !coachingExpired;
 
   let body;
   switch (scanner.cameraAccessState) {
@@ -145,7 +131,6 @@ export function ScannerScreen({
           ) : null}
           {isLiveCamera ? (
             <ScanTargetGuide
-              showCoaching={showCoaching}
               highContrast={highContrast}
               guideSize={adaptive.guideSize}
             />
@@ -283,8 +268,6 @@ export function ScannerScreen({
     </View>
   );
 }
-
-export const SCAN_TARGET_COACHING_TIMEOUT_MS = 12000;
 
 function ObservationHighlights({
   observations,

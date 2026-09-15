@@ -11,7 +11,9 @@ appId: com.marginallybetter.qrscanner
 - assertNotVisible: "Point the camera at a QR code. Scanning starts automatically."
 - tapOn:
     id: "open-history"
-- assertVisible: "Accepted scans appear here."
+- assertVisible:
+    id: "history-empty"
+- assertNotVisible: "Accepted scans appear here."
 - tapOn:
     id: "history-back"
 - assertVisible:

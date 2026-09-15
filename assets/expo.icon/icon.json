@@ -9,7 +9,7 @@
           "image-name" : "qr-symbol.svg",
           "name" : "qr-symbol",
           "position" : {
-            "scale" : 0.82,
+            "scale" : 0.72,
             "translation-in-points" : [
               0,
               0

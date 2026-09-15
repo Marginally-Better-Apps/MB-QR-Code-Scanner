@@ -15,7 +15,9 @@ appId: com.marginallybetter.qrscanner
 - startRecording: full-frame-scan-acceptance
 - tapOn:
     id: "open-history"
-- assertVisible: "Accepted scans appear here."
+- assertVisible:
+    id: "history-empty"
+- assertNotVisible: "Accepted scans appear here."
 - tapOn:
     id: "history-back"
 - assertVisible: "https://example.com/edge-left"

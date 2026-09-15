@@ -336,7 +336,7 @@ describe('scanner UI', () => {
     const onBack = jest.fn();
     render(<HistoryScreen onBack={onBack} />);
     expect(screen.getByText('History')).toBeTruthy();
-    expect(screen.getByText('Accepted scans appear here.')).toBeTruthy();
+    expect(screen.queryByText('Accepted scans appear here.')).toBeNull();
     expect(screen.getByLabelText('Back')).toBeTruthy();
     fireEvent.press(screen.getByTestId('history-back'));
     expect(onBack).toHaveBeenCalledTimes(1);
@@ -346,7 +346,7 @@ describe('scanner UI', () => {
     setLocale('es');
     render(<HistoryScreen />);
     expect(screen.getByText('Historial')).toBeTruthy();
-    expect(screen.getByText('Los escaneos aceptados aparecen aquí.')).toBeTruthy();
+    expect(screen.queryByText('Los escaneos aceptados aparecen aquí.')).toBeNull();
     expect(screen.getByLabelText('Atrás')).toBeTruthy();
   });
 
@@ -396,7 +396,7 @@ describe('center scan target (SCN-02)', () => {
     }
   });
 
-  test('first-use coaching disappears after the first accepted scan and never returns', async () => {
+  test('does not add coaching copy around the scan target', async () => {
     const source = new NativeEngineObservationSource('visionkit');
     const store = new ScannerSessionStore({
       cameraAccess: new CameraAccessFixtureProvider({ authorization: 'authorized' }),
@@ -405,12 +405,12 @@ describe('center scan target (SCN-02)', () => {
     await store.activateScanner();
     render(<ScannerScreen session={store} engine="visionkit" />);
 
-    expect(screen.getByTestId('center-scan-coaching')).toBeTruthy();
+    expect(screen.queryByTestId('center-scan-coaching')).toBeNull();
     expect(
-      screen.getByText(
+      screen.queryByText(
         'Place code near here. Codes anywhere in view are recognized.',
       ),
-    ).toBeTruthy();
+    ).toBeNull();
 
     act(() => {
       publishNativeObservations('visionkit', [
@@ -538,21 +538,4 @@ describe('center scan target (SCN-02)', () => {
     ).toEqual(ScannerRecognitionRegion.fullPreview);
   });
 
-  test('coaching is time-limited even without a scan', async () => {
-    jest.useFakeTimers();
-    try {
-      const store = session('authorized');
-      await store.activateScanner();
-      render(<ScannerScreen session={store} engine="visionkit" />);
-
-      expect(screen.getByTestId('center-scan-coaching')).toBeTruthy();
-      act(() => {
-        jest.advanceTimersByTime(15000);
-      });
-      expect(screen.queryByTestId('center-scan-coaching')).toBeNull();
-      expect(screen.getByTestId('center-scan-guide')).toBeTruthy();
-    } finally {
-      jest.useRealTimers();
-    }
-  });
 });

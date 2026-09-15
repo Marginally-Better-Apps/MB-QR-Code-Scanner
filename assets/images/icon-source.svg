@@ -10,7 +10,7 @@
     </radialGradient>
   </defs>
   <rect width="512" height="512" fill="url(#background)"/>
-  <g transform="translate(46 46) scale(.82)" fill="#FFFFFF">
+  <g transform="translate(71.68 71.68) scale(.72)" fill="#FFFFFF">
     <path d="M48 48h128V16H16v160h32z"/>
     <path d="M176 176V80H80v96zm-64-64h32v32h-32Zm216-64h136v128h32V16H328z"/>
     <path d="M432 176V80h-96v96zm-64-64h32v32h-32ZM176 464H48V336H16v160h160z"/>
