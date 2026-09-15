@@ -146,12 +146,12 @@ describe('HistoryScreen (HIS-02)', () => {
     setLocale('en');
   });
 
-  test('empty state explains accepted scans and offers a path back to Scanner', () => {
+  test('empty state offers a path back to Scanner without redundant copy', () => {
     const onBack = jest.fn();
     render(<HistoryScreen onBack={onBack} />);
 
     expect(screen.getByText('History')).toBeTruthy();
-    expect(screen.getByText('Accepted scans appear here.')).toBeTruthy();
+    expect(screen.queryByText('Accepted scans appear here.')).toBeNull();
     expect(screen.getByLabelText('Back')).toBeTruthy();
     expect(screen.getByLabelText('Scan a QR code')).toBeTruthy();
     fireEvent.press(screen.getByTestId('history-scan-cta'));
@@ -164,7 +164,7 @@ describe('HistoryScreen (HIS-02)', () => {
     setLocale('es');
     render(<HistoryScreen />);
     expect(screen.getByText('Historial')).toBeTruthy();
-    expect(screen.getByText('Los escaneos aceptados aparecen aquí.')).toBeTruthy();
+    expect(screen.queryByText('Los escaneos aceptados aparecen aquí.')).toBeNull();
     expect(screen.getByLabelText('Atrás')).toBeTruthy();
     expect(screen.getByLabelText('Escanear un código QR')).toBeTruthy();
   });

@@ -3,6 +3,8 @@ import type { AVFoundationScannerPlatform } from './avFoundation';
 import { cameraAccessFromFixture } from './cameraFixtures';
 import { decideScannerEngine } from './engineSelector';
 import {
+  ACCEPTANCE_FIRST_FIXTURE,
+  ACCEPTANCE_SECOND_FIXTURE,
   EDGE_CODE_FIXTURE,
   CALENDAR_CODE_FIXTURE,
   CONTACT_CODE_FIXTURE,
@@ -66,6 +68,20 @@ export function makeObservationSource(
           engineID: 'fixture.single-code',
           clock,
           startupFrame: SINGLE_CODE_FIXTURE,
+          stabilizeStartup: true,
+        });
+      case 'acceptance-first':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.acceptance-first',
+          clock,
+          startupFrame: ACCEPTANCE_FIRST_FIXTURE,
+          stabilizeStartup: true,
+        });
+      case 'acceptance-second':
+        return new ScannerObservationFixtureSource({
+          engineID: 'fixture.acceptance-second',
+          clock,
+          startupFrame: ACCEPTANCE_SECOND_FIXTURE,
           stabilizeStartup: true,
         });
       case 'edge-codes':

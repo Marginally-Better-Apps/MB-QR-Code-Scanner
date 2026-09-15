@@ -147,6 +147,25 @@ export const SINGLE_CODE_FIXTURE: ScannerFixtureDetection[] = [
   },
 ];
 
+export const ACCEPTANCE_FIRST_URL = 'https://example.com/acceptance-first';
+export const ACCEPTANCE_SECOND_URL = 'https://example.com/acceptance-second';
+
+const ACCEPTANCE_BOUNDS: Rect = { x: 0.2, y: 0.3, width: 0.6, height: 0.25 };
+
+export const ACCEPTANCE_FIRST_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload: ACCEPTANCE_FIRST_URL,
+    displayBounds: ACCEPTANCE_BOUNDS,
+  },
+];
+
+export const ACCEPTANCE_SECOND_FIXTURE: ScannerFixtureDetection[] = [
+  {
+    rawPayload: ACCEPTANCE_SECOND_URL,
+    displayBounds: ACCEPTANCE_BOUNDS,
+  },
+];
+
 export const EDGE_CODE_FIXTURE: ScannerFixtureDetection[] = [
   {
     rawPayload: 'https://example.com/edge-left',

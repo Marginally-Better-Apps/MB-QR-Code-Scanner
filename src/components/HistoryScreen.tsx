@@ -353,7 +353,6 @@ export function HistoryScreen({
       ) : empty ? (
         <View testID="history-empty" style={styles.empty}>
           <Text style={[styles.title, textColor]}>{t('history')}</Text>
-          <Text style={[styles.description, textColor]}>{t('historyPlaceholder')}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('historyScanCta')}
@@ -435,11 +434,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#ff3b30',
-  },
-  description: {
-    fontSize: 16,
-    textAlign: 'center',
-    opacity: 0.7,
   },
   cta: {
     marginTop: 8,

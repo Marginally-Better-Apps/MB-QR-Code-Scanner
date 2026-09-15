@@ -26,6 +26,10 @@ import { StickyResultBar } from '@/components/StickyResultBar';
 import { UnavailableState } from '@/components/UnavailableState';
 import { useScannerSession } from '@/hooks/useScanner';
 import { t } from '@/i18n';
+import {
+  ACCEPTANCE_FIRST_URL,
+  ACCEPTANCE_SECOND_URL,
+} from '@/scanner/fixtures';
 import { stableCandidateId } from '@/scanner/multiCode';
 import type { ScannerObservation, ScannerSessionStore } from '@/scanner';
 import type { NativeEngineKind } from '@/components/ScannerPreview';
@@ -60,19 +64,7 @@ export function ScannerScreen({
   const isLiveForGuide =
     scanner.cameraAccessState === 'ready' &&
     !scanner.engineID.startsWith('fixture');
-  const [coachingExpired, setCoachingExpired] = useState(false);
   const [chooserOpen, setChooserOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isLiveForGuide || scanner.hasAcceptedScan) {
-      return;
-    }
-    const id = setTimeout(
-      () => setCoachingExpired(true),
-      SCAN_TARGET_COACHING_TIMEOUT_MS,
-    );
-    return () => clearTimeout(id);
-  }, [isLiveForGuide, scanner.hasAcceptedScan]);
 
   const stickyPayload = scanner.currentResult?.rawPayload ?? null;
   useEffect(() => {
@@ -81,8 +73,6 @@ export function ScannerScreen({
     }
     announceAcceptedScan(stickyPayload);
   }, [stickyPayload]);
-
-  const showCoaching = !scanner.hasAcceptedScan && !coachingExpired;
 
   let body;
   switch (scanner.cameraAccessState) {
@@ -141,7 +131,6 @@ export function ScannerScreen({
           ) : null}
           {isLiveCamera ? (
             <ScanTargetGuide
-              showCoaching={showCoaching}
               highContrast={highContrast}
               guideSize={adaptive.guideSize}
             />
@@ -231,6 +220,38 @@ export function ScannerScreen({
   return (
     <View style={[styles.fill, lightChrome && styles.canvasFill]}>
       {body}
+      {!isLiveForGuide && scanner.cameraAccessState === 'ready' ? (
+        <View
+          testID="fixture-controls"
+          style={[styles.fixtureControls, { top: insets.top + 8 }]}
+          pointerEvents="box-none"
+          accessibilityLabel="Acceptance fixture controls">
+          <Pressable
+            testID="fixture-inject-first"
+            accessibilityRole="button"
+            accessibilityLabel="Inject first acceptance code"
+            onPress={() => session.debugFixtureInject(ACCEPTANCE_FIRST_URL)}
+            style={styles.fixtureButton}>
+            <Text style={styles.fixtureButtonText}>First</Text>
+          </Pressable>
+          <Pressable
+            testID="fixture-clear"
+            accessibilityRole="button"
+            accessibilityLabel="Remove acceptance code"
+            onPress={() => session.debugFixtureClear()}
+            style={styles.fixtureButton}>
+            <Text style={styles.fixtureButtonText}>Clear</Text>
+          </Pressable>
+          <Pressable
+            testID="fixture-inject-second"
+            accessibilityRole="button"
+            accessibilityLabel="Inject second acceptance code"
+            onPress={() => session.debugFixtureInject(ACCEPTANCE_SECOND_URL)}
+            style={styles.fixtureButton}>
+            <Text style={styles.fixtureButtonText}>Second</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <GlassControl
         accessibilityLabel={t('history')}
         testID="open-history"
@@ -247,8 +268,6 @@ export function ScannerScreen({
     </View>
   );
 }
-
-export const SCAN_TARGET_COACHING_TIMEOUT_MS = 12000;
 
 function ObservationHighlights({
   observations,
@@ -346,5 +365,26 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     zIndex: 3,
+  },
+  fixtureControls: {
+    position: 'absolute',
+    left: 16,
+    zIndex: 3,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  fixtureButton: {
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  fixtureButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

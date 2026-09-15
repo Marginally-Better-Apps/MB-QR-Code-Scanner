@@ -1,6 +1,7 @@
 import type { AcceptedScan, ScanAcceptanceState } from './acceptance';
 import { createInitialScanAcceptanceState, updateScanAcceptance } from './acceptance';
 import { AVFoundationScannerObservationSource } from './avFoundation';
+import { ScannerObservationFixtureSource } from './fixtures';
 import { resolveCameraAccessState } from './cameraAccess';
 import { CameraAccessFixtureProvider } from './cameraFixtures';
 import { makeObservationSource } from './factory';
@@ -307,6 +308,41 @@ export class ScannerSessionStore {
     this.currentResult = null;
     this.manualCandidateId = null;
     this.emit();
+  }
+
+  /**
+   * Debug-only fixture injection for the QLT-06 acceptance journey.
+   * Forwards to the fixture observation source when the session runs on
+   * fixtures; safely no-ops on live camera engines. Emits twice so the
+   * injected payload passes the acceptance gate and is recorded.
+   */
+  debugFixtureInject(rawPayload: string): void {
+    if (this.disposed) {
+      return;
+    }
+    if (!(this.observationSource instanceof ScannerObservationFixtureSource)) {
+      return;
+    }
+    const detection = {
+      rawPayload,
+      displayBounds: { x: 0.2, y: 0.3, width: 0.6, height: 0.25 },
+    };
+    this.observationSource.emit([detection]);
+    this.observationSource.emit([detection]);
+  }
+
+  /**
+   * Debug-only fixture removal for the QLT-06 acceptance journey.
+   * Emits an empty frame so Maestro can prove the sticky result remains.
+   */
+  debugFixtureClear(): void {
+    if (this.disposed) {
+      return;
+    }
+    if (!(this.observationSource instanceof ScannerObservationFixtureSource)) {
+      return;
+    }
+    this.observationSource.emit([]);
   }
 
   /**
