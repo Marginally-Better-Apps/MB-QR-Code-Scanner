@@ -1,6 +1,6 @@
 {
   "fill" : {
-    "automatic-gradient" : "extended-srgb:0.17647,0.83137,0.74902,1.00000"
+    "automatic-gradient" : "extended-srgb:0.06275,0.08235,0.18431,1.00000"
   },
   "groups" : [
     {
@@ -9,7 +9,7 @@
           "image-name" : "qr-symbol.svg",
           "name" : "qr-symbol",
           "position" : {
-            "scale" : 1,
+            "scale" : 0.82,
             "translation-in-points" : [
               0,
               0
@@ -17,13 +17,9 @@
           }
         }
       ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
-      },
       "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
+        "enabled" : false,
+        "value" : 1
       }
     }
   ],
