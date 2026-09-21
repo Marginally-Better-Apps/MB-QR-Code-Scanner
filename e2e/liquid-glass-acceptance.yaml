@@ -10,5 +10,5 @@ appId: com.marginallybetter.qrscanner
 - assertVisible:
     id: "sticky-result-accessory"
 - assertVisible:
-    id: "history-button"
+    id: "open-history"
 - stopRecording
