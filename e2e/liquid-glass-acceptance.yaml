@@ -5,7 +5,7 @@ appId: com.marginallybetter.qrscanner
     arguments:
       cameraFixture: "authorized"
       scannerFixture: "single-code"
-- assertVisible: "example.com"
+- assertVisible: "https://example.com/fixture"
 - startRecording: liquid-glass-acceptance
 - assertVisible:
     id: "sticky-result-accessory"
