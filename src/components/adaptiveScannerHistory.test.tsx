@@ -378,7 +378,7 @@ describe('adaptive scanner and history (QLT-03)', () => {
     render(<ScannerScreen session={store} engine="visionkit" />);
 
     expect(
-      screen.getByTestId('sticky-result-host').props.maxFontSizeMultiplier,
+      screen.getByTestId('sticky-result-url').props.maxFontSizeMultiplier,
     ).toBe(2.2);
   });
 

@@ -64,7 +64,7 @@ describe('custom handoff presentation (ACT-09)', () => {
 
     expect(screen.getByTestId('sticky-result-scheme').props.children).toMatch(/acmetest/);
     expect(screen.getByTestId('sticky-result-app-name').props.children).toBe('Acme Pay');
-    expect(screen.queryByTestId('sticky-result-host')).toBeNull();
+    expect(screen.queryByTestId('sticky-result-url')).toBeNull();
     // Open label names the resolved app; nothing opened on render.
     expect(screen.getByLabelText('Open in Acme Pay')).toBeTruthy();
     expect(deps.openURL).not.toHaveBeenCalled();

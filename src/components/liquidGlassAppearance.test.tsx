@@ -79,9 +79,12 @@ describe('Liquid Glass surfaces (QLT-01)', () => {
       expect(screen.getByTestId('chrome-surface-liquidGlass')).toBeTruthy();
     });
     expect(screen.getByTestId('sticky-result-accessory').props.colorScheme).toBe('dark');
-    expect(StyleSheet.flatten(screen.getByTestId('sticky-result-host').props.style).color).toBe(
+    expect(StyleSheet.flatten(screen.getByTestId('sticky-result-url').props.style).color).toBe(
       '#fff',
     );
+    expect(
+      StyleSheet.flatten(screen.getByTestId('sticky-result-accessory').props.style),
+    ).toEqual(expect.objectContaining({ borderRadius: 24, borderCurve: 'continuous' }));
   });
 
   test('fallback sticky accessory uses an opaque semantic fill', async () => {

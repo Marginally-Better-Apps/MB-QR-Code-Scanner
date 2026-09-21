@@ -99,7 +99,9 @@ describe('scanner UI', () => {
     await store.activateScanner();
     render(<ScannerScreen session={store} engine="visionkit" />);
 
-    expect(screen.getByText('https://example.com/fixture')).toBeTruthy();
+    expect(screen.getByTestId('sticky-result-url').props.children).toBe(
+      'https://example.com/fixture',
+    );
     expect(screen.getAllByTestId('sticky-result-accessory')).toHaveLength(1);
     expect(screen.getAllByTestId('sticky-result-payload')).toHaveLength(1);
     expect(screen.getByLabelText('Copy')).toBeTruthy();
@@ -127,9 +129,8 @@ describe('scanner UI', () => {
     await store.activateScanner();
     render(<ScannerScreen session={store} engine="avfoundation" />);
 
-    // ACT-02: web results emphasize the normalized host; the host stays readable.
-    const host = screen.getByTestId('sticky-result-host');
-    expect(StyleSheet.flatten(host.props.style)).toEqual(
+    const url = screen.getByTestId('sticky-result-url');
+    expect(StyleSheet.flatten(url.props.style)).toEqual(
       expect.objectContaining({ color: '#fff' }),
     );
     expect(screen.getByText('doc.on.clipboard').props.tintColor).toBe('#fff');

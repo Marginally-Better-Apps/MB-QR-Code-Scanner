@@ -231,7 +231,6 @@ export function HistoryScreen({
 
   const listHeader = (
     <View style={styles.listHeader}>
-      <Text style={[styles.title, styles.listTitle, textColor]}>{t('history')}</Text>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={clearLabel}
@@ -246,7 +245,7 @@ export function HistoryScreen({
   const listContentStyle = [
     styles.listContent,
     wideHistory && styles.wideListContent,
-    { paddingTop: insets.top + 64, paddingBottom: insets.bottom + 24 },
+    { paddingTop: insets.top + 116, paddingBottom: insets.bottom + 24 },
   ];
 
   const listBody = wideHistory ? (
@@ -312,6 +311,18 @@ export function HistoryScreen({
         />
       </GlassControl>
 
+      {!selected ? (
+        <Text
+          testID="history-title"
+          style={[
+            styles.pageTitle,
+            { top: insets.top + 60 },
+            textColor,
+          ]}>
+          {t('history')}
+        </Text>
+      ) : null}
+
       {selected && replay && selectedTime && selectedRow ? (
         <View
           testID="history-detail"
@@ -352,7 +363,6 @@ export function HistoryScreen({
         </View>
       ) : empty ? (
         <View testID="history-empty" style={styles.empty}>
-          <Text style={[styles.title, textColor]}>{t('history')}</Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('historyScanCta')}
@@ -415,15 +425,21 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
   },
+  pageTitle: {
+    position: 'absolute',
+    left: 20,
+    zIndex: 2,
+    fontSize: 34,
+    lineHeight: 41,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
   listHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     paddingRight: 4,
     paddingBottom: 12,
-  },
-  listTitle: {
-    paddingHorizontal: 20,
   },
   clearButton: {
     minHeight: 44,

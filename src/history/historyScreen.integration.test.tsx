@@ -173,7 +173,9 @@ describe('history store to HistoryScreen (HIS-02)', () => {
 
     fireEvent.press(screen.getByText('example.com/today'));
     expect(screen.getByTestId('sticky-result-open')).toBeTruthy();
-    expect(screen.getByTestId('sticky-result-host').props.children).toBe('example.com');
+    expect(screen.getByTestId('sticky-result-url').props.children).toBe(
+      'https://example.com/today',
+    );
 
     fireEvent.press(screen.getByTestId('sticky-result-open'));
     expect(deps.openURL).toHaveBeenCalledWith(

@@ -3,7 +3,6 @@ import {
   isGlassEffectAPIAvailable,
   isLiquidGlassAvailable,
 } from 'expo-glass-effect';
-import { StyleSheet } from 'react-native';
 
 import { StickyResultBar } from '@/components/StickyResultBar';
 import { setLocale } from '@/i18n';
@@ -55,7 +54,7 @@ describe('web links and plain text actions (ACT-02)', () => {
     (isLiquidGlassAvailable as jest.Mock).mockReturnValue(false);
   });
 
-  test('web result emphasizes the normalized host and keeps the path inspectable', () => {
+  test('web result stays on one clean line with full details available on demand', () => {
     const deps = mockDeps();
     render(
       <StickyResultBar
@@ -65,13 +64,12 @@ describe('web links and plain text actions (ACT-02)', () => {
       />,
     );
 
-    const host = screen.getByTestId('sticky-result-host');
-    expect(host.props.children).toBe('example.com');
-    const hostStyle = StyleSheet.flatten(host.props.style);
-    expect(hostStyle.fontWeight).toMatch(/70|80|bold/);
+    const url = screen.getByTestId('sticky-result-url');
+    expect(url.props.children).toBe('https://example.com/Some/Path?q=1');
+    expect(url.props.numberOfLines).toBe(1);
+    expect(url.props.ellipsizeMode).toBe('middle');
 
-    // Path stays inspectable in the collapsed row and the expanded detail.
-    expect(screen.getByTestId('sticky-result-path')).toBeTruthy();
+    expect(screen.queryByTestId('sticky-result-path')).toBeNull();
     fireEvent.press(screen.getByTestId('sticky-result-expand'));
     expect(screen.getByTestId('sticky-result-detail')).toBeTruthy();
     expect(screen.getByTestId('sticky-result-full-payload')).toBeTruthy();
@@ -82,12 +80,11 @@ describe('web links and plain text actions (ACT-02)', () => {
     const raw = `https://example.com/${'a'.repeat(2000)}`;
     render(<StickyResultBar payload={raw} onClear={() => {}} actionDeps={deps} />);
 
-    const path = screen.getByTestId('sticky-result-path');
-    expect(path.props.numberOfLines).toBe(1);
-    expect(path.props.ellipsizeMode).toBe('middle');
-    const preview: string = String(path.props.children);
-    expect(preview.length).toBeLessThan(raw.length);
-    expect(preview).toMatch(/…/);
+    const url = screen.getByTestId('sticky-result-url');
+    expect(url.props.numberOfLines).toBe(1);
+    expect(url.props.ellipsizeMode).toBe('middle');
+    expect(url.props.children.length).toBeLessThan(raw.length);
+    expect(url.props.children).toMatch(/…/);
   });
 
   test('unicode hosts render as punycode and hostile text cannot impersonate UI', () => {
@@ -99,7 +96,7 @@ describe('web links and plain text actions (ACT-02)', () => {
         actionDeps={deps}
       />,
     );
-    expect(screen.getByTestId('sticky-result-host').props.children).toMatch(/xn--/);
+    expect(screen.getByTestId('sticky-result-url').props.children).toMatch(/xn--/);
 
     rerender(
       <StickyResultBar
@@ -109,7 +106,7 @@ describe('web links and plain text actions (ACT-02)', () => {
       />,
     );
     // Falls back to text: no website host styling, no embedded newline.
-    expect(screen.queryByTestId('sticky-result-host')).toBeNull();
+    expect(screen.queryByTestId('sticky-result-url')).toBeNull();
     const payload = screen.getByTestId('sticky-result-payload');
     expect(String(payload.props.children)).not.toMatch(/[\n\r]/);
   });
@@ -185,7 +182,7 @@ describe('web links and plain text actions (ACT-02)', () => {
     );
 
     expect(screen.getByTestId('sticky-result-scheme').props.children).toMatch(/myapp/);
-    expect(screen.queryByTestId('sticky-result-host')).toBeNull();
+    expect(screen.queryByTestId('sticky-result-url')).toBeNull();
     // Still copyable/shareable.
     expect(screen.getByTestId('sticky-result-copy')).toBeTruthy();
     expect(screen.getByTestId('sticky-result-share')).toBeTruthy();

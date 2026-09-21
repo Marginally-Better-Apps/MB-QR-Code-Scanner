@@ -180,24 +180,21 @@ export function StickyResultBar({
     await dispatchResultAction(parsed, 'share', deps);
   }
 
+  const visibleWebUrl =
+    view.kind === 'web'
+      ? `${view.fullDestination.toLowerCase().startsWith('http://') ? 'http://' : 'https://'}${view.host}${view.pathPreview}`
+      : null;
+
   const preview =
     view.kind === 'web' ? (
       <View style={styles.preview}>
         <Text
-          testID="sticky-result-host"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-          style={styles.host}
-          maxFontSizeMultiplier={2.2}>
-          {view.host}
-        </Text>
-        <Text
-          testID="sticky-result-path"
+          testID="sticky-result-url"
           numberOfLines={1}
           ellipsizeMode="middle"
-          style={styles.path}
+          style={styles.url}
           maxFontSizeMultiplier={2.2}>
-          {view.pathPreview}
+          {visibleWebUrl}
         </Text>
         {/* Back-compat single-line payload for existing sticky-session tests.
             Safe truncated destination; equals the raw payload for ordinary URLs. */}
@@ -535,7 +532,6 @@ export function StickyResultBar({
             pointerEvents="none"
           />
         </Pressable>
-        <View style={styles.separator} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('clear')}
@@ -616,7 +612,8 @@ export function StickyResultBar({
 const styles = StyleSheet.create({
   bar: {
     minHeight: 44,
-    borderRadius: 12,
+    borderRadius: 24,
+    borderCurve: 'continuous',
     overflow: 'hidden',
   },
   chromeProbe: {
@@ -654,6 +651,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#fff',
   },
+  url: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#fff',
+  },
   host: {
     fontSize: 15,
     fontWeight: '700',
@@ -674,11 +676,6 @@ const styles = StyleSheet.create({
     height: 1,
     width: 1,
     overflow: 'hidden',
-  },
-  separator: {
-    width: StyleSheet.hairlineWidth,
-    height: 20,
-    backgroundColor: 'rgba(235,235,245,0.36)',
   },
   iconButton: {
     width: 44,

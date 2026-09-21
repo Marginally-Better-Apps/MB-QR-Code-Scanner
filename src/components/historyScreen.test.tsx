@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 
 import { HistoryScreen } from '@/components/HistoryScreen';
 import {
@@ -150,7 +150,11 @@ describe('HistoryScreen (HIS-02)', () => {
     const onBack = jest.fn();
     render(<HistoryScreen onBack={onBack} />);
 
-    expect(screen.getByText('History')).toBeTruthy();
+    const title = screen.getByTestId('history-title');
+    expect(title.props.children).toBe('History');
+    expect(StyleSheet.flatten(title.props.style)).toEqual(
+      expect.objectContaining({ position: 'absolute', left: 20 }),
+    );
     expect(screen.queryByText('Accepted scans appear here.')).toBeNull();
     expect(screen.getByLabelText('Back')).toBeTruthy();
     expect(screen.getByLabelText('Scan a QR code')).toBeTruthy();
@@ -248,7 +252,9 @@ describe('HistoryScreen (HIS-02)', () => {
     expect(screen.getByTestId('sticky-result-open')).toBeTruthy();
     expect(screen.getByTestId('sticky-result-copy')).toBeTruthy();
     expect(screen.getByTestId('sticky-result-share')).toBeTruthy();
-    expect(screen.getByTestId('sticky-result-host').props.children).toBe('example.com');
+    expect(screen.getByTestId('sticky-result-url').props.children).toBe(
+      'https://example.com/today',
+    );
     expect(screen.queryByText('stale stored summary')).toBeNull();
   });
 
