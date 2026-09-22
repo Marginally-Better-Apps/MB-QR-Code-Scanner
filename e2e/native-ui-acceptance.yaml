@@ -17,6 +17,7 @@ appId: com.marginallybetter.qrscanner
 - tapOn: ".*three-top.*"
 - assertVisible: "Copy"
 - tapOn: "Copy"
+- assertNotVisible: "Copy"
 - tapOn:
     id: "open-history"
 - assertVisible: "Today"

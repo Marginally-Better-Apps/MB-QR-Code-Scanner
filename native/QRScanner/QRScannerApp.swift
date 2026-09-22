@@ -29,7 +29,9 @@ final class ScannerModel {
   enum CameraState { case requesting, ready, denied, restricted, unavailable }
   var cameraState: CameraState = .requesting
   var isCapturing = false
-  var session = ScanSession()
+  @ObservationIgnored private var session = ScanSession()
+  private(set) var results: [ScanPayload] = []
+  private(set) var highlights: [Detection] = []
   var events: [HistoryEvent] = []
   var error: String?
   var showingHistory = false
@@ -106,6 +108,7 @@ final class ScannerModel {
           self.receive(Self.fixture(fixtureName))
         } else {
           self.session.expire(at: Date())
+          self.publishSession()
         }
         try? await Task.sleep(for: .milliseconds(100))
       }
@@ -117,6 +120,7 @@ final class ScannerModel {
     timer?.cancel()
     timer = nil
     session.pause()
+    publishSession()
     announced.removeAll()
   }
 
@@ -124,6 +128,7 @@ final class ScannerModel {
     guard isCapturing, !showingHistory else { return }
     let now = Date()
     let accepted = session.receive(observations, at: now)
+    publishSession()
     for payload in accepted {
       let parsed = ScanPayload(payload)
       do {
@@ -137,6 +142,18 @@ final class ScannerModel {
       }
     }
     if !accepted.isEmpty { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+  }
+
+  func dismiss(_ payload: ScanPayload) {
+    session.dismiss(payload.original)
+    publishSession()
+  }
+
+  private func publishSession() {
+    // Camera bookkeeping must not rebuild an open native menu every frame.
+    let nextResults = session.results.map { ScanPayload($0.payload) }
+    if results != nextResults { results = nextResults }
+    if highlights != session.highlights { highlights = session.highlights }
   }
 
   func delete(_ event: HistoryEvent) {

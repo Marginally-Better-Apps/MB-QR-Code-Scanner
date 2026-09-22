@@ -23,7 +23,7 @@ struct ResultsPanel: View {
             .frame(minHeight: rowHeight)
             .contentShape(Rectangle())
           }
-          .buttonStyle(.plain)
+          .tint(.primary)
           .accessibilityLabel(payload.title)
           .accessibilityIdentifier("scan-result-row")
         }
@@ -102,6 +102,7 @@ struct ResultMenu<Label: View>: View {
         Button("Dismiss", systemImage: "xmark", action: onDismiss)
       }
     } label: { label() }
+    .menuActionDismissBehavior(.enabled)
     .alert("This action is unavailable.", isPresented: $openFailed) { Button("OK", role: .cancel) {} }
     .confirmationDialog("Verify this payment in the destination app before paying.", isPresented: $confirmPayment, titleVisibility: .visible) {
       Button("Open app link", action: open)

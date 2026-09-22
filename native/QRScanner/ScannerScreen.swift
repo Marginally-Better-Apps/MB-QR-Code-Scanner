@@ -18,16 +18,7 @@ struct ScannerScreen: View {
             // Deterministic simulator scene for UI checks, never used by live capture.
             LinearGradient(colors: [.indigo.opacity(0.7), .black, .teal.opacity(0.5)], startPoint: .topLeading, endPoint: .bottomTrailing).ignoresSafeArea()
           }
-          GeometryReader { frame in
-            ForEach(model.session.highlights) { detection in
-              RoundedRectangle(cornerRadius: 8)
-                .stroke(.yellow, lineWidth: 2)
-                .frame(width: detection.bounds.width * frame.size.width, height: detection.bounds.height * frame.size.height)
-                .position(x: detection.bounds.midX * frame.size.width, y: detection.bounds.midY * frame.size.height)
-                .accessibilityHidden(true)
-                .accessibilityIdentifier("scanner-observation-bounds")
-            }
-          }.ignoresSafeArea().allowsHitTesting(false)
+          DetectionHighlights(model: model).ignoresSafeArea().allowsHitTesting(false)
         } else {
           permissionView
         }
@@ -45,9 +36,9 @@ struct ScannerScreen: View {
         .padding(.top, 8)
       }
       .safeAreaInset(edge: .bottom, spacing: 0) {
-        if !model.session.results.isEmpty && model.cameraState == .ready {
-          ResultsPanel(results: model.session.results.map { ScanPayload($0.payload) }, maxHeight: geometry.size.height * 0.38,
-            onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.session.dismiss($0.original) })
+        if !model.results.isEmpty && model.cameraState == .ready {
+          ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
+            onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
             .frame(maxWidth: 540)
             .padding(.horizontal, 16)
             .padding(.bottom, 8)
@@ -82,6 +73,22 @@ struct ScannerScreen: View {
       case .ready: EmptyView()
       }
     }.foregroundStyle(.white).padding(24)
+  }
+}
+
+private struct DetectionHighlights: View {
+  let model: ScannerModel
+  var body: some View {
+    GeometryReader { frame in
+      ForEach(model.highlights) { detection in
+        RoundedRectangle(cornerRadius: 8)
+          .stroke(.yellow, lineWidth: 2)
+          .frame(width: detection.bounds.width * frame.size.width, height: detection.bounds.height * frame.size.height)
+          .position(x: detection.bounds.midX * frame.size.width, y: detection.bounds.midY * frame.size.height)
+          .accessibilityHidden(true)
+          .accessibilityIdentifier("scanner-observation-bounds")
+      }
+    }
   }
 }
 
