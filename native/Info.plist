@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleDisplayName</key><string>QR Scanner</string>
+  <key>CFBundleLocalizations</key><array><string>en</string><string>es</string></array>
+  <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+  <key>NSCameraUsageDescription</key><string>QR Scanner recognizes QR codes on this device. Camera frames are never uploaded or saved.</string>
+  <key>NSContactsUsageDescription</key><string>Add a scanned contact with your permission.</string>
+  <key>NSCalendarsWriteOnlyAccessUsageDescription</key><string>Add a scanned event with your permission.</string>
+  <key>LSApplicationQueriesSchemes</key><array><string>otpauth</string><string>FIDO</string></array>
+  <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLSchemes</key><array><string>qrscanner</string></array></dict></array>
+  <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+  <key>UISupportedInterfaceOrientations~ipad</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationPortraitUpsideDown</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+</dict></plist>

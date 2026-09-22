@@ -3,7 +3,7 @@
 # Usage: ./scripts/record-demo.sh [e2e/flow.yaml] [artifacts/demo.mp4] [iPhone|iPad]
 set -euo pipefail
 
-FLOW="${1:-e2e/smoke.yaml}"
+FLOW="${1:-e2e/native-ui-acceptance.yaml}"
 OUTPUT="${2:-artifacts/qr-scanner-demo.mp4}"
 DEVICE_FAMILY="${3:-iPhone}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -24,16 +24,12 @@ fi
 cd "$ROOT_DIR"
 DEVICE_ID="$(./scripts/select-simulator.py "$DEVICE_FAMILY")"
 
-if [[ ! -d ios/QRScanner.xcworkspace ]]; then
-  CI=1 npx expo prebuild --platform ios
-fi
-
 xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
 xcrun simctl bootstatus "$DEVICE_ID" -b
 open -a Simulator --args -CurrentDeviceUDID "$DEVICE_ID"
 
-FORCE_BUNDLING=1 RCT_NO_LAUNCH_PACKAGER=1 xcodebuild \
-  -workspace ios/QRScanner.xcworkspace \
+xcodebuild \
+  -project native/QRScanner.xcodeproj \
   -scheme QRScanner \
   -configuration Release \
   -destination "platform=iOS Simulator,id=${DEVICE_ID}" \
