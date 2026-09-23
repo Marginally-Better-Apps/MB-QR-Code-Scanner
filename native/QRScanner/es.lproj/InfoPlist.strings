@@ -1,0 +1,3 @@
+"NSCameraUsageDescription" = "QR Scanner reconoce códigos QR en este dispositivo. Los fotogramas de la cámara nunca se suben ni se guardan.";
+"NSContactsUsageDescription" = "Añade un contacto escaneado con tu permiso.";
+"NSCalendarsWriteOnlyAccessUsageDescription" = "Añade un evento escaneado con tu permiso.";

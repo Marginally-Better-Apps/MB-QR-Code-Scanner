@@ -1,19 +1,7 @@
-# Accessibility interaction audit checklist (QLT-02)
+# Accessibility checks
 
-Manual VoiceOver pass for issue #30. Automated coverage lives in `accessibilityInteraction.test.tsx`, `ui.test.tsx`, and the QLT-01 chrome tests.
+The SwiftUI app uses native navigation, menus, buttons, list rows, and swipe actions. Result and History labels contain sanitized display text. Detection outlines are decorative and hidden from VoiceOver.
 
-## Critical path
+Verify VoiceOver can open each result menu, invoke an action, navigate History, delete a row, and Undo. Confirm Dynamic Type scales row heights, long values remain available in Details, and Reduce Transparency replaces glass with an opaque system background.
 
-- [ ] Cold launch with VoiceOver: permission / ready state is a single understandable summary
-- [ ] Accept one code: one announcement with the safe summary, no per-frame chatter
-- [ ] Sticky actions: Open, Copy, Share, Details, Clear in that order, all hittable at 44 pt
-- [ ] Two codes: chooser order matches on-screen top-to-bottom / left-to-right positions
-- [ ] History delete: Delete action available without relying on color; Undo is 44 pt
-- [ ] Redacted / Wi-Fi / auth results: no secret spoken; Copy/Share absent for session-only auth
-- [ ] Reduce Motion: history swipe settles without spring bounce
-- [ ] Reduced Transparency + Increase Contrast: chrome stays opaque and bordered, text remains readable
-- [ ] Dynamic Type XXXL: sticky actions wrap instead of clipping off-screen
-
-## Evidence
-
-Attach a short VoiceOver recording of scan → sticky actions → history delete/undo when recording hardware is available.
+On iPad, verify portrait, landscape, and narrow Split View. Run the physical checks in `physical-checklist.md` before shipping.

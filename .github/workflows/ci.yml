@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, 'story/**']
   workflow_dispatch:
 
 concurrency:
@@ -15,135 +15,59 @@ permissions:
   contents: read
 
 jobs:
-  scripts:
-    name: Release policy tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - name: Install JavaScript dependencies
-        run: npm ci
-      - name: Test semantic versioning
-        run: python3 scripts/test-semantic-version.py
-      - name: Test simulator selection
-        run: python3 scripts/test-select-simulator.py
-      - name: Test CI workflow safeguards
-        run: python3 scripts/test-ci-workflows.py
-      - name: Test Autoloader preview page
-        run: python3 scripts/test-write-autoloader-page.py
-      - name: Test history storage policy
-        run: python3 scripts/test-history-storage.py
-      - name: Test acceptance journey
-        run: python3 scripts/test-acceptance-journey.py
-      - name: Test scanner and UI
-        run: npm test
-      - name: Typecheck
-        run: npm run typecheck
-
-  ios:
-    name: iOS build (iPhone Simulator)
+  native:
+    name: Native tests and iOS build
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install JavaScript dependencies
-        run: npm ci
-
-      - name: Select iOS 26 SDK Xcode
+      - name: Select Xcode 26+
         run: |
           set -euo pipefail
           shopt -s nullglob
           candidates=(/Applications/Xcode_26*.app /Applications/Xcode_27*.app)
-          if [[ ${#candidates[@]} -eq 0 ]]; then
-            echo "error: no Xcode 26+ install found" >&2
-            ls -d /Applications/Xcode*.app >&2 || true
-            exit 1
-          fi
+          test ${#candidates[@]} -gt 0
           XCODE_APP="$(printf '%s\n' "${candidates[@]}" | sort -V | tail -1)"
           sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
           xcodebuild -version
-          xcrun --sdk iphonesimulator --show-sdk-version
-
-      - name: Test native QR image decoder
+      - name: Test Swift parser, History migration, and scan lifecycle
+        run: swift test
+      - name: Test native image decoding and preview geometry
         run: ./scripts/test-native-qr-decoder.sh
-
-      - name: Fingerprint Xcode toolchain
-        id: xcode
+      - name: Test release tooling
         run: |
-          set -euo pipefail
-          xcodebuild -version
-          echo "cache-key=$(xcodebuild -version | shasum -a 256 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-
-      - name: Select and boot simulator
-        id: simulator
+          python3 scripts/test-semantic-version.py
+          python3 scripts/test-select-simulator.py
+          python3 scripts/test-write-autoloader-page.py
+          python3 scripts/test-ci-workflows.py
+      - name: Build standalone iOS app
         run: |
-          set -euo pipefail
+          xcodebuild build -project native/QRScanner.xcodeproj -scheme QRScanner \
+            -configuration Release -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData/CI CODE_SIGNING_ALLOWED=NO
+          python3 scripts/test-built-app.py DerivedData/CI/Build/Products/Release-iphonesimulator/QRScanner.app
+      - name: Set up Java for Maestro
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Maestro
+        run: |
+          curl -Ls https://get.maestro.mobile.dev | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+      - name: Verify native multi-code panel and repeat swipe-delete
+        run: |
           DEVICE_ID="$(./scripts/select-simulator.py iPhone)"
-          echo "id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
-          xcrun simctl boot "$DEVICE_ID" 2>/dev/null || true
-
-      - name: Generate iOS project
-        run: CI=1 npx expo prebuild --platform ios --no-install
-
-      - name: Cache CocoaPods
-        id: pods-cache
-        uses: actions/cache@v4
+          xcrun simctl boot "$DEVICE_ID" || true
+          xcrun simctl bootstatus "$DEVICE_ID" -b
+          ./scripts/test-native-qr-decoder.sh "$DEVICE_ID"
+          xcrun simctl install "$DEVICE_ID" DerivedData/CI/Build/Products/Release-iphonesimulator/QRScanner.app
+          maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/native-image-scan-acceptance.yaml
+          maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/native-ui-acceptance.yaml
+      - name: Upload UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          path: ios/Pods
-          key: ios-pods-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('package-lock.json', 'app.json', 'modules/**', 'plugins/**') }}
-          restore-keys: |
-            ios-pods-v1-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Install CocoaPods
-        working-directory: ios
-        run: pod install
-
-      - name: Cache test build
-        id: test-build-cache
-        uses: actions/cache@v4
-        with:
-          path: DerivedData/CI
-          key: ios-ci-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('package-lock.json', 'app.json', 'package.json', 'src/**', 'modules/**', 'plugins/**', 'locales/**', 'assets/**') }}
-          restore-keys: |
-            ios-ci-v3-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-
-
-      - name: Build app on cold cache
-        if: steps.test-build-cache.outputs.cache-hit != 'true'
-        env:
-          FORCE_BUNDLING: "1"
-          RCT_NO_LAUNCH_PACKAGER: "1"
-        run: |
-          set -euo pipefail
-          xcodebuild build \
-            -workspace ios/QRScanner.xcworkspace \
-            -scheme QRScanner \
-            -configuration Release \
-            -destination "platform=iOS Simulator,id=${{ steps.simulator.outputs.id }}" \
-            -derivedDataPath DerivedData/CI \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO
-
-      - name: Verify bundled app without rebuilding
-        run: |
-          set -euo pipefail
-          xcrun simctl bootstatus "${{ steps.simulator.outputs.id }}" -b
-          APP="$(find DerivedData/CI/Build/Products -path '*iphonesimulator/QRScanner.app' -type d | head -1)"
-          test -n "$APP"
-          BUNDLE="$(find "$APP" \( -name '*.jsbundle' -o -name '*.hbc' \) | head -1)"
-          test -n "$BUNDLE"
-          python3 scripts/test-built-app.py "$APP"
-
-      - name: Verify universal iOS device family
-        run: |
-          set -euo pipefail
-          FAMILY="$(xcodebuild -workspace ios/QRScanner.xcworkspace -scheme QRScanner -showBuildSettings | awk -F ' = ' '/TARGETED_DEVICE_FAMILY/{print $2; exit}')"
-          test "$FAMILY" = "1,2"
+          name: native-ui-evidence
+          path: artifacts/native-ui
+          if-no-files-found: ignore
