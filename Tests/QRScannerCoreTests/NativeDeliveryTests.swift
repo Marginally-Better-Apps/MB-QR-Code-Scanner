@@ -27,3 +27,11 @@ import Testing
   #expect(Detection.inPreview(payload: "code", displayedBounds: bounds, previewSize: .zero) == nil)
   #expect(Detection.inPreview(payload: "code", displayedBounds: bounds, previewSize: CGSize(width: 100, height: 100)) != nil)
 }
+
+@Test func nativeDeliveryPreservesVisiblePreviewFiltering() {
+  let preview = CGSize(width: 100, height: 200)
+  for bounds in [CGRect(x: 150, y: 20, width: 20, height: 20), CGRect(x: 10, y: -50, width: 20, height: 20), .zero] {
+    #expect(Detection.inPreview(payload: "offscreen", displayedBounds: bounds, previewSize: preview) == nil)
+  }
+  #expect(Detection.inPreview(payload: "partly visible", displayedBounds: CGRect(x: -10, y: 20, width: 20, height: 20), previewSize: preview) != nil)
+}

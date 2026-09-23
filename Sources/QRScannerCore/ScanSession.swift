@@ -12,7 +12,9 @@ struct Detection: Identifiable, Equatable {
   }
 
   static func inPreview(payload: String?, displayedBounds: CGRect, previewSize: CGSize) -> Detection? {
-    guard let payload, !payload.isEmpty, previewSize.width > 0, previewSize.height > 0 else { return nil }
+    guard let payload, !payload.isEmpty, previewSize.width > 0, previewSize.height > 0,
+      displayedBounds.width > 0, displayedBounds.height > 0,
+      displayedBounds.intersects(CGRect(origin: .zero, size: previewSize)) else { return nil }
     return Detection(payload, bounds: CGRect(
       x: displayedBounds.minX / previewSize.width,
       y: displayedBounds.minY / previewSize.height,
