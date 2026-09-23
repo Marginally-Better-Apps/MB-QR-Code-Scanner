@@ -2,8 +2,8 @@ import AVFoundation
 import UIKit
 
 final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate {
-  var onObservations: ([String: Any]) -> Void = { _ in }
-  var onPreviewReady: ([String: Any]) -> Void = { _ in }
+  var onObservations: ([Detection]) -> Void = { _ in }
+  var onPreviewReady: (Bool) -> Void = { _ in }
 
   var engineName = "avfoundation" {
     didSet { rebuildIfNeeded() }
@@ -40,7 +40,7 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
   private var lastPreviewReady: Bool?
   private var fixtureDetectionGeneration = 0
   private var fixtureDetectionInFlight = false
-  private var fixtureObservations: [QRVisionObservation]?
+  private var fixtureFrame: QRScanFrame?
   /// QLT-04: bounds the hop from the recognition queue to the main queue.
   /// While a delivery is pending, newer frames are coalesced (dropped) so
   /// metadata callbacks cannot build an unbounded main-queue backlog.
@@ -126,7 +126,7 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
       return
     }
     lastPreviewReady = ready
-    onPreviewReady(["ready": ready])
+    onPreviewReady(ready)
   }
 
   private func startAVFoundation() {
@@ -164,8 +164,8 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
       return
     }
     notifyPreviewReady(true)
-    if let fixtureObservations {
-      emitFixtureObservations(fixtureObservations, image: fixtureImage)
+    if let fixtureFrame {
+      onObservations(fixtureFrame.detections(previewSize: hostView.bounds.size))
       return
     }
     guard !fixtureDetectionInFlight else {
@@ -174,20 +174,7 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
     fixtureDetectionInFlight = true
     let generation = fixtureDetectionGeneration
     recognitionQueue.async { [weak self] in
-      var observations = (try? QRVisionDetector.detect(in: fixtureImage)) ?? []
-#if targetEnvironment(simulator)
-      // Simulator system barcode frameworks do not return static-image results.
-      // Pixel decoding is covered by test-native-qr-decoder.sh on macOS; this
-      // fallback lets the Release app exercise cold start and the native bridge.
-      if observations.isEmpty {
-        observations = [
-          QRVisionObservation(
-            payload: "https://example.com/native-image-fixture",
-            normalizedBounds: CGRect(x: 0.34, y: 0.37, width: 0.32, height: 0.24)
-          ),
-        ]
-      }
-#endif
+      let frame = try? QRScanFrame.detect(in: fixtureImage)
       DispatchQueue.main.async {
         guard
           let self,
@@ -198,10 +185,9 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
           return
         }
         self.fixtureDetectionInFlight = false
-        self.fixtureObservations = observations
-        self.emitFixtureObservations(observations, image: fixtureImage)
-        // Native props and listeners can settle in different orders on first mount.
-        // Re-publish explicit test-image observations after the bridge is ready.
+        self.fixtureFrame = frame
+        self.onObservations(frame?.detections(previewSize: self.hostView.bounds.size) ?? [])
+        // Repeat the image frame to exercise acceptance and History, like live capture.
         for delay in [0.25, 1.0] {
           DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
             guard
@@ -211,35 +197,11 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
             else {
               return
             }
-            self.emitFixtureObservations(observations, image: fixtureImage)
+            self.onObservations(frame?.detections(previewSize: self.hostView.bounds.size) ?? [])
           }
         }
       }
     }
-  }
-
-  private func emitFixtureObservations(
-    _ observations: [QRVisionObservation],
-    image: CGImage
-  ) {
-    guard let imageView = fixtureImageView else {
-      return
-    }
-    let imageRect = AVMakeRect(
-      aspectRatio: CGSize(width: image.width, height: image.height),
-      insideRect: imageView.bounds
-    )
-    let items = observations.compactMap { observation in
-      let normalized = observation.normalizedBounds
-      let displayedBounds = CGRect(
-        x: imageRect.minX + normalized.minX * imageRect.width,
-        y: imageRect.minY + normalized.minY * imageRect.height,
-        width: normalized.width * imageRect.width,
-        height: normalized.height * imageRect.height
-      )
-      return observationPayload(payload: observation.payload, bounds: displayedBounds)
-    }
-    onObservations(["items": items])
   }
 
   private func stop() {
@@ -266,7 +228,7 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
     fixtureImageView = nil
     fixtureImage = nil
     fixtureDetectionInFlight = false
-    fixtureObservations = nil
+    fixtureFrame = nil
     lastPreviewReady = nil
     if let pinchRecognizer {
       removeGestureRecognizer(pinchRecognizer)
@@ -346,7 +308,8 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
     }
     let imageView = UIImageView(image: image)
     imageView.backgroundColor = .black
-    imageView.contentMode = .scaleAspectFit
+    imageView.contentMode = .scaleAspectFill
+    imageView.clipsToBounds = true
     imageView.frame = hostView.bounds
     imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     hostView.insertSubview(imageView, at: 0)
@@ -408,29 +371,14 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
       return
     }
     mainDeliveryInFlight = true
-    let observations = (try? QRVisionDetector.detect(in: pixelBuffer)) ?? []
-    let pixelBufferSize = CGSize(
-      width: CVPixelBufferGetWidth(pixelBuffer),
-      height: CVPixelBufferGetHeight(pixelBuffer)
-    )
+    let frame = try? QRScanFrame.detect(in: pixelBuffer)
     DispatchQueue.main.async { [weak self] in
       guard let self, self.running, self.previewLayer != nil else {
         self?.mainDeliveryInFlight = false
         return
       }
       defer { self.mainDeliveryInFlight = false }
-      let items = observations.compactMap { observation in
-        let displayedBounds = QRPreviewGeometry.aspectFillBounds(
-          normalizedImageBounds: observation.normalizedBounds,
-          pixelBufferSize: pixelBufferSize,
-          previewSize: self.hostView.bounds.size
-        )
-        return self.observationPayload(
-          payload: observation.payload,
-          bounds: displayedBounds
-        )
-      }
-      self.onObservations(["items": items])
+      self.onObservations(frame?.detections(previewSize: self.hostView.bounds.size) ?? [])
     }
   }
 
@@ -452,22 +400,6 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
     lowPowerFrameSkipCounter += 1
     // ~1 in 4 frames at 30fps input ≈ 7.5fps detection rate.
     return lowPowerFrameSkipCounter % 4 != 1
-  }
-
-  private func observationPayload(payload: String?, bounds: CGRect) -> [String: Any]? {
-    let viewSize = hostView.bounds.size
-    guard viewSize.width > 0, viewSize.height > 0 else {
-      return nil
-    }
-    return [
-      "payload": payload as Any,
-      "displayBounds": [
-        "x": bounds.origin.x / viewSize.width,
-        "y": bounds.origin.y / viewSize.height,
-        "width": bounds.size.width / viewSize.width,
-        "height": bounds.size.height / viewSize.height,
-      ],
-    ]
   }
 
   private func updateVideoOrientation() {

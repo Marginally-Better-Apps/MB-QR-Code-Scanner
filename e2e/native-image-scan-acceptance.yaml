@@ -4,11 +4,32 @@ appId: com.marginallybetter.qrscanner
     clearState: true
     arguments:
       cameraFixture: "authorized"
-      nativeImageFixture: "damaged-distant-qr"
+      nativeImageFixture: "normal-qr"
 - assertVisible: ".*example.com/native-image-fixture.*"
+- assertVisible:
+    id: "scan-results-panel"
 - startRecording: native-image-scan-acceptance
+- takeScreenshot: native-image-decoded
 - tapOn: ".*example.com/native-image-fixture.*"
 - assertVisible: "Copy"
 - tapOn: "Copy"
-- assertNotVisible: "Ready to Scan"
+- assertNotVisible: "Copy"
+- tapOn:
+    id: "open-history"
+- assertVisible:
+    id: "history-row"
+    text: ".*example.com/native-image-fixture.*"
+- takeScreenshot: native-image-history
+- tapOn: "Back"
+- assertVisible: ".*example.com/native-image-fixture.*"
+- launchApp:
+    arguments:
+      nativeImageFixture: "damaged-distant-qr"
+- assertVisible: ".*example.com/native-image-fixture.*"
+- takeScreenshot: native-damaged-image-decoded
+- tapOn:
+    id: "open-history"
+- assertVisible:
+    id: "history-row"
+    text: ".*example.com/native-image-fixture.*"
 - stopRecording

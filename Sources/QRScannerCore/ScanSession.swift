@@ -10,6 +10,16 @@ struct Detection: Identifiable, Equatable {
     self.payload = payload
     self.bounds = bounds
   }
+
+  static func inPreview(payload: String?, displayedBounds: CGRect, previewSize: CGSize) -> Detection? {
+    guard let payload, !payload.isEmpty, previewSize.width > 0, previewSize.height > 0 else { return nil }
+    return Detection(payload, bounds: CGRect(
+      x: displayedBounds.minX / previewSize.width,
+      y: displayedBounds.minY / previewSize.height,
+      width: displayedBounds.width / previewSize.width,
+      height: displayedBounds.height / previewSize.height
+    ))
+  }
 }
 
 struct ScanSession {

@@ -26,9 +26,12 @@ Install the built app in a simulator, then run the native UI acceptance flow wit
 
 ```sh
 maestro test e2e/native-ui-acceptance.yaml
+maestro test e2e/native-image-scan-acceptance.yaml
 ```
 
-The flow checks simultaneous results, the native action menu, and repeated swipe/delete/undo. Fixture launch arguments are enabled only in Debug builds and the simulator. Device Release builds always use the camera.
+The UI flows check simultaneous results, native menus, repeated swipe/delete/undo, and actual QR image decoding through the native preview into results and History. The image flow has no synthetic success fallback. The native decoder script also renders QR images into BGRA camera buffers and checks decoding, preview projection, acceptance, and persisted History. It covers normal/damaged images in four orientations, 11 payload formats, multiple codes, and blank frames.
+
+Fixture launch arguments are enabled only in Debug builds and the simulator. Device Release builds always use the camera. Simulator and image tests do not verify physical camera focus or hardware capture.
 
 ## Data and privacy
 

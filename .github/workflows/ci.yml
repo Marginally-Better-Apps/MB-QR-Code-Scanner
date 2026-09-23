@@ -61,6 +61,7 @@ jobs:
           xcrun simctl boot "$DEVICE_ID" || true
           xcrun simctl bootstatus "$DEVICE_ID" -b
           xcrun simctl install "$DEVICE_ID" DerivedData/CI/Build/Products/Release-iphonesimulator/QRScanner.app
+          maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/native-image-scan-acceptance.yaml
           maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/native-ui-acceptance.yaml
       - name: Upload UI evidence
         if: always()

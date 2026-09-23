@@ -96,12 +96,7 @@ struct CameraPreview: UIViewRepresentable {
   let model: ScannerModel
   func makeUIView(context: Context) -> ScannerPreviewView {
     let view = ScannerPreviewView(frame: .zero)
-    view.onObservations = { [weak model] event in
-      let items = event["items"] as? [[String: Any]] ?? []
-      let observations = items.compactMap { item -> Detection? in
-        guard let payload = item["payload"] as? String, let bounds = item["displayBounds"] as? [String: Double] else { return nil }
-        return Detection(payload, bounds: CGRect(x: bounds["x"] ?? 0, y: bounds["y"] ?? 0, width: bounds["width"] ?? 0, height: bounds["height"] ?? 0))
-      }
+    view.onObservations = { [weak model] observations in
       model?.receive(observations)
     }
     return view
