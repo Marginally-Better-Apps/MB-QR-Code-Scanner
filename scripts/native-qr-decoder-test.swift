@@ -1,7 +1,7 @@
-import AppKit
 import CoreImage
 import CoreVideo
 import Foundation
+import ImageIO
 
 @main
 enum NativeQRDecoderTest {
@@ -14,8 +14,8 @@ enum NativeQRDecoderTest {
 
     for path in paths {
       guard
-        let image = NSImage(contentsOfFile: path),
-        let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+        let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil)
       else {
         throw NSError(domain: "NativeQRDecoderTest", code: 2)
       }

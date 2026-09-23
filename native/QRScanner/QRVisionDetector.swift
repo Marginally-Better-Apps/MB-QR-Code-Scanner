@@ -16,15 +16,12 @@ enum QRVisionDetector {
     orientation: CGImagePropertyOrientation = .up
   ) throws -> [QRVisionObservation] {
     let request = makeRequest()
-    try VNImageRequestHandler(
+    let handler = VNImageRequestHandler(
       cgImage: image,
       orientation: orientation,
       options: [:]
-    ).perform([request])
-    let observations = observations(from: request)
-    return observations.isEmpty
-      ? coreImageObservations(in: CIImage(cgImage: image))
-      : observations
+    )
+    return try perform(request, handler: handler, fallbackImage: CIImage(cgImage: image).oriented(orientation))
   }
 
   static func detect(
@@ -32,20 +29,43 @@ enum QRVisionDetector {
     orientation: CGImagePropertyOrientation = .up
   ) throws -> [QRVisionObservation] {
     let request = makeRequest()
-    try VNImageRequestHandler(
+    let handler = VNImageRequestHandler(
       cvPixelBuffer: pixelBuffer,
       orientation: orientation,
       options: [:]
-    ).perform([request])
+    )
+    return try perform(request, handler: handler, fallbackImage: CIImage(cvPixelBuffer: pixelBuffer).oriented(orientation))
+  }
+
+  private static func perform(_ request: VNDetectBarcodesRequest, handler: VNImageRequestHandler, fallbackImage: CIImage) throws -> [QRVisionObservation] {
+    do {
+      try handler.perform([request])
+    } catch {
+      // Vision can fail to create an inference context, including in Simulator.
+      // Still attempt actual pixel decoding with Core Image; never invent a result.
+      let fallback = coreImageObservations(in: fallbackImage)
+      if !fallback.isEmpty { return fallback }
+      throw error
+    }
     let observations = observations(from: request)
     return observations.isEmpty
-      ? coreImageObservations(in: CIImage(cvPixelBuffer: pixelBuffer))
+      ? coreImageObservations(in: fallbackImage)
       : observations
   }
 
   private static func makeRequest() -> VNDetectBarcodesRequest {
     let request = VNDetectBarcodesRequest()
     request.symbologies = [.qr]
+    #if targetEnvironment(simulator)
+    // Simulator has no device Neural Engine. Use supported CPU stages for real decoding.
+    if let stages = try? request.supportedComputeStageDevices {
+      for (stage, devices) in stages {
+        if let cpu = devices.first(where: { if case .cpu = $0 { return true }; return false }) {
+          request.setComputeDevice(cpu, for: stage)
+        }
+      }
+    }
+    #endif
     return request
   }
 

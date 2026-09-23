@@ -31,6 +31,7 @@ class WorkflowTests(unittest.TestCase):
         self.assertIn('id: "history-row"', image_flow)
         self.assertNotIn("scannerFixture:", image_flow)
         self.assertNotIn("optional: true", image_flow)
+        self.assertIn('test-native-qr-decoder.sh "$DEVICE_ID"', text)
 
     def test_app_has_no_javascript_runtime_or_package_dependency(self):
         self.assertFalse((ROOT / "package.json").exists())

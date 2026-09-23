@@ -31,6 +31,8 @@ maestro test e2e/native-image-scan-acceptance.yaml
 
 The UI flows check simultaneous results, native menus, repeated swipe/delete/undo, and actual QR image decoding through the native preview into results and History. The image flow has no synthetic success fallback. The native decoder script also renders QR images into BGRA camera buffers and checks decoding, preview projection, acceptance, and persisted History. It covers normal/damaged images in four orientations, 11 payload formats, multiple codes, and blank frames.
 
+Pass a booted simulator UDID to `./scripts/test-native-qr-decoder.sh <UDID>` to run the pixel-to-History checks against the iOS SDK too. Simulator Vision requests use supported CPU compute stages for actual decoding; device builds keep system-selected hardware acceleration.
+
 Fixture launch arguments are enabled only in Debug builds and the simulator. Device Release builds always use the camera. Simulator and image tests do not verify physical camera focus or hardware capture.
 
 ## Data and privacy
