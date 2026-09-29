@@ -56,6 +56,8 @@ jobs:
           curl -Ls https://get.maestro.mobile.dev | bash
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
       - name: Verify native multi-code panel and repeat swipe-delete
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
         run: |
           DEVICE_ID="$(./scripts/select-simulator.py iPhone)"
           xcrun simctl boot "$DEVICE_ID" || true
