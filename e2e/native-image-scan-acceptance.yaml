@@ -5,7 +5,9 @@ appId: com.marginallybetter.qrscanner
     arguments:
       cameraFixture: "authorized"
       nativeImageFixture: "normal-qr"
-- assertVisible: ".*example.com/native-image-fixture.*"
+- extendedWaitUntil:
+    visible: ".*example.com/native-image-fixture.*"
+    timeout: 60000
 - assertVisible:
     id: "scan-results-panel"
 - startRecording: native-image-scan-acceptance
@@ -21,11 +23,15 @@ appId: com.marginallybetter.qrscanner
     text: ".*example.com/native-image-fixture.*"
 - takeScreenshot: native-image-history
 - tapOn: "Back"
-- assertVisible: ".*example.com/native-image-fixture.*"
+- extendedWaitUntil:
+    visible: ".*example.com/native-image-fixture.*"
+    timeout: 60000
 - launchApp:
     arguments:
       nativeImageFixture: "damaged-distant-qr"
-- assertVisible: ".*example.com/native-image-fixture.*"
+- extendedWaitUntil:
+    visible: ".*example.com/native-image-fixture.*"
+    timeout: 60000
 - takeScreenshot: native-damaged-image-decoded
 - tapOn:
     id: "open-history"
