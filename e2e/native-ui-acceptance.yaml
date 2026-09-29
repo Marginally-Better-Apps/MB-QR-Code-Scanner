@@ -1,0 +1,49 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "three-codes"
+      historyFixture: "grouped"
+- assertVisible:
+    id: "scan-results-panel"
+- assertVisible: ".*three-top.*"
+- assertVisible: "Hello middle code.*"
+- assertVisible: "myapp:.*"
+- assertNotVisible: ".*Choose.*"
+- startRecording: native-ui-acceptance
+- takeScreenshot: native-multiple-results
+- tapOn: ".*three-top.*"
+- assertVisible: "Copy"
+- tapOn: "Copy"
+- assertNotVisible: "Copy"
+- tapOn:
+    id: "open-history"
+- assertVisible: "Today"
+- swipe:
+    from:
+      text: "example.com/today.*"
+    direction: LEFT
+    duration: 600
+- assertVisible: "Delete"
+- takeScreenshot: native-history-swipe
+- tapOn: "Delete"
+- assertNotVisible: "example.com/today.*"
+- tapOn:
+    id: "history-undo"
+- assertVisible: "example.com/today.*"
+- swipe:
+    from:
+      text: "example.com/today.*"
+    direction: LEFT
+    duration: 600
+- assertVisible: "Delete"
+- assertVisible: "example.com/today.*"
+- tapOn: "Delete"
+- assertNotVisible: "example.com/today.*"
+- tapOn:
+    id: "history-undo"
+- assertVisible: "example.com/today.*"
+- takeScreenshot: native-history-restored
+- stopRecording

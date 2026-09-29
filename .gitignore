@@ -18,6 +18,7 @@ __pycache__/
 # Maestro
 .maestro/
 artifacts/
+.gala/
 
 # Node / Expo
 node_modules/

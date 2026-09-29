@@ -35,7 +35,7 @@ def main() -> int:
         info = plistlib.load(handle)
 
     expected = (
-        "QR Scanner recognizes QR codes on this device. "
+        "QR Scanner reads QR codes, barcodes, and other codes on this device. "
         "Camera frames are never uploaded or saved."
     )
     if info.get("NSCameraUsageDescription") != expected:
@@ -52,11 +52,20 @@ def main() -> int:
         print(f"error: missing {spanish}", file=sys.stderr)
         return 1
     text = strings_contents(spanish)
-    if "QR Scanner reconoce códigos QR en este dispositivo" not in text:
+    if "QR Scanner lee códigos QR, códigos de barras y otros códigos en este dispositivo" not in text:
         print("error: Spanish camera usage string missing", file=sys.stderr)
         return 1
 
-    print(f"ok {app}")
+    executable = app / info.get("CFBundleExecutable", "QRScanner")
+    if not executable.is_file():
+        print("error: native application executable is missing", file=sys.stderr)
+        return 1
+    forbidden = list(app.rglob("*.jsbundle")) + list(app.rglob("*.hbc"))
+    forbidden += [path for path in app.rglob("*") if "hermes" in path.name.lower() or path.name.startswith("React.")]
+    if forbidden:
+        print(f"error: JavaScript runtime or bundle in native app: {forbidden}", file=sys.stderr)
+        return 1
+    print(f"ok native app {app}")
     return 0
 
 

@@ -3,7 +3,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 
 let payload = "https://example.com/native-image-fixture"
-let outputDirectory = CommandLine.arguments.dropFirst().first ?? "modules/scanner-engine/ios/Fixtures"
+let outputDirectory = CommandLine.arguments.dropFirst().first ?? "native/QRScanner/Fixtures"
 
 func qrImage(correctionLevel: String) throws -> CGImage {
   let filter = CIFilter.qrCodeGenerator()
