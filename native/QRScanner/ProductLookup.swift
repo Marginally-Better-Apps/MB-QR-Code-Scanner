@@ -20,7 +20,7 @@ enum ProductLookup {
     guard let url = URL(string: "https://world.openfoodfacts.org/api/v3/product/\(code).json?product_type=all&fields=product_name,brands,quantity,product_type") else { return nil }
     var request = URLRequest(url: url)
     request.timeoutInterval = 12
-    request.setValue("QRScanner/1.0 (https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner)", forHTTPHeaderField: "User-Agent")
+    request.setValue("QRScanner/1.0 (help@marginally-better.app)", forHTTPHeaderField: "User-Agent")
     let (data, response) = try await URLSession.shared.data(for: request)
     guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
     if http.statusCode == 404 { return nil }
