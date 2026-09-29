@@ -23,26 +23,52 @@ struct ScannerScreen: View {
           permissionView
         }
       }
-      .overlay(alignment: .topTrailing) {
-        NavigationLink {
-          HistoryScreen(model: model)
-        } label: {
-          Image(systemName: "clock").font(.system(size: 21)).frame(width: 44, height: 44)
+      .overlay(alignment: .top) {
+        HStack {
+          if model.hasTorch && model.cameraState == .ready {
+            Button { model.torchOn.toggle() } label: {
+              Image(systemName: model.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                .font(.system(size: 20)).frame(width: 44, height: 44)
+                .contentTransition(.symbolEffect(.replace))
+            }
+            .modifier(NativeButton())
+            .buttonBorderShape(.circle)
+            .tint(model.torchOn ? .yellow : nil)
+            .sensoryFeedback(.selection, trigger: model.torchOn)
+            .accessibilityLabel("Flashlight")
+            .accessibilityValue(model.torchOn ? Text("On") : Text("Off"))
+            .accessibilityIdentifier("toggle-torch")
+          }
+          Spacer()
+          NavigationLink {
+            HistoryScreen(model: model)
+          } label: {
+            Image(systemName: "clock.arrow.circlepath").font(.system(size: 20)).frame(width: 44, height: 44)
+          }
+          .modifier(NativeButton())
+          .buttonBorderShape(.circle)
+          .accessibilityLabel("History")
+          .accessibilityIdentifier("open-history")
         }
-        .modifier(NativeButton())
-        .accessibilityLabel("History")
-        .accessibilityIdentifier("open-history")
-        .padding(.trailing, 16)
+        .padding(.horizontal, 16)
         .padding(.top, 8)
       }
       .safeAreaInset(edge: .bottom, spacing: 0) {
-        if !model.results.isEmpty && model.cameraState == .ready {
-          ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
-            onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
-            .frame(maxWidth: 540)
-            .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+        Group {
+          if model.cameraState == .ready {
+            if model.results.isEmpty {
+              ScanHint().transition(.opacity.combined(with: .scale(scale: 0.9)))
+            } else {
+              ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
+                onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
+                .frame(maxWidth: 540)
+                .padding(.horizontal, 16)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+          }
         }
+        .padding(.bottom, 8)
+        .animation(.snappy, value: model.results)
       }
     }
     .toolbar(.hidden, for: .navigationBar)
@@ -61,34 +87,66 @@ struct ScannerScreen: View {
   }
 
   @ViewBuilder private var permissionView: some View {
-    VStack(spacing: 16) {
+    Group {
       switch model.cameraState {
       case .requesting: ProgressView().tint(.white)
       case .denied:
-        Text("Camera Access Is Off").font(.title2.bold())
-        Button("Open Settings") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
-          .modifier(NativeButton()).accessibilityIdentifier("camera-primary-action")
-      case .restricted: Text("Camera Access Is Restricted").font(.title2.bold())
-      case .unavailable: Text("Camera Unavailable").font(.title2.bold())
+        ContentUnavailableView {
+          Label("Camera Access Is Off", systemImage: "camera")
+        } description: {
+          Text("Turn on camera access in Settings to scan codes. Camera frames never leave this device.")
+        } actions: {
+          Button("Open Settings") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
+            .controlSize(.large)
+            .modifier(ProminentButton()).accessibilityIdentifier("camera-primary-action")
+        }
+      case .restricted:
+        ContentUnavailableView("Camera Access Is Restricted", systemImage: "lock",
+          description: Text("Camera use is limited on this device, for example by Screen Time or device management."))
+      case .unavailable:
+        ContentUnavailableView("Camera Unavailable", systemImage: "video.slash",
+          description: Text("QR Scanner couldn’t find a camera to use. Your saved scans are still in History."))
       case .ready: EmptyView()
       }
-    }.foregroundStyle(.white).padding(24)
+    }
+    .environment(\.colorScheme, .dark)
+    .padding(24)
+  }
+}
+
+private struct ScanHint: View {
+  var body: some View {
+    Label("Point at a QR code or barcode", systemImage: "qrcode.viewfinder")
+      .font(.subheadline.weight(.medium))
+      .padding(.horizontal, 18)
+      .padding(.vertical, 12)
+      .modifier(NativeGlass(cornerRadius: 24))
+      .accessibilityIdentifier("scan-hint")
   }
 }
 
 private struct DetectionHighlights: View {
   let model: ScannerModel
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   var body: some View {
     GeometryReader { frame in
       ForEach(model.highlights) { detection in
-        RoundedRectangle(cornerRadius: 8)
-          .stroke(.yellow, lineWidth: 2)
-          .frame(width: detection.bounds.width * frame.size.width, height: detection.bounds.height * frame.size.height)
+        let width = detection.bounds.width * frame.size.width
+        let height = detection.bounds.height * frame.size.height
+        // A little breathing room keeps the outline off the code's own modules.
+        let inset = min(10, max(4, min(width, height) * 0.08))
+        RoundedRectangle(cornerRadius: min(14, max(6, min(width, height) * 0.14)), style: .continuous)
+          .fill(.yellow.opacity(0.14))
+          .stroke(.yellow, lineWidth: 3)
+          .shadow(color: .black.opacity(0.3), radius: 4)
+          .frame(width: width + inset * 2, height: height + inset * 2)
           .position(x: detection.bounds.midX * frame.size.width, y: detection.bounds.midY * frame.size.height)
+          .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 1.15)))
           .accessibilityHidden(true)
           .accessibilityIdentifier("scanner-observation-bounds")
       }
     }
+    .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: model.highlights)
   }
 }
 
@@ -104,6 +162,7 @@ struct CameraPreview: UIViewRepresentable {
   func updateUIView(_ view: ScannerPreviewView, context: Context) {
     if view.imageFixtureName != model.imageFixture { view.imageFixtureName = model.imageFixture }
     if view.running != model.isCapturing { view.running = model.isCapturing }
+    if view.torchEnabled != model.torchOn { view.torchEnabled = model.torchOn }
   }
   static func dismantleUIView(_ view: ScannerPreviewView, coordinator: ()) { view.running = false }
 }

@@ -2,7 +2,7 @@ import Foundation
 
 struct ScanPayload: Identifiable, Equatable {
   enum Kind: String, Codable {
-    case url, text, email, phone, sms, geo, contact, calendar, wifi, auth, authExport, customScheme
+    case url, text, email, phone, sms, geo, contact, calendar, wifi, auth, authExport, customScheme, product, boardingPass
   }
   struct Wifi: Equatable {
     let ssid: String
@@ -11,13 +11,15 @@ struct ScanPayload: Identifiable, Equatable {
     let hidden: Bool
   }
   let original: String
+  let format: CodeFormat
+  let productCode: String?
   let kind: Kind
   let title: String
   let details: String
   let openURL: URL?
   let wifi: Wifi?
   let isSensitive: Bool
-  var id: String { original }
+  var id: String { format.rawValue + ":" + original }
   var symbol: String {
     switch kind {
     case .url, .customScheme: "link"
@@ -30,24 +32,37 @@ struct ScanPayload: Identifiable, Equatable {
     case .wifi: "wifi"
     case .auth, .authExport: "lock.shield"
     case .text: "text.alignleft"
+    case .product: "barcode"
+    case .boardingPass: "airplane"
     }
   }
 
-  init(_ original: String) {
+  init(_ original: String, format: CodeFormat = .qr) {
     self.original = original
+    self.format = format
+    productCode = format.productCode(original)
     let raw = original.trimmingCharacters(in: .whitespacesAndNewlines).precomposedStringWithCanonicalMapping
     let lower = raw.lowercased()
     let components = URLComponents(string: raw)
     let scheme = components?.scheme?.lowercased() ?? ""
+    let boardingPass = Self.boardingPassSummary(raw, format: format)
     let sensitive = lower.hasPrefix("otpauth:") || lower.hasPrefix("otpauth-migration:") || lower.hasPrefix("fido:")
       || raw.range(of: #"(?i)\b(passkey|webauthn|fido2)\b|private\s*key|BEGIN\s+[A-Z0-9 ]*PRIVATE\s+KEY"#, options: .regularExpression) != nil
-    isSensitive = sensitive
+    isSensitive = sensitive || boardingPass != nil
     var detectedKind: Kind = .text
     var label = raw
     var detail = raw
     var destination: URL?
     var network: Wifi?
-    if sensitive {
+    if let boardingPass {
+      detectedKind = .boardingPass
+      label = "Boarding pass"
+      detail = boardingPass
+    } else if productCode != nil {
+      detectedKind = .product
+      label = "Product \(raw)"
+      detail = "\(format.name)\n\(raw)"
+    } else if sensitive {
       detectedKind = lower.hasPrefix("otpauth-migration:") ? .authExport : .auth
       label = detectedKind == .authExport ? "Authenticator export" : lower.hasPrefix("fido:") ? "Passkey sign-in" : "Authentication code"
       if scheme == "otpauth", let issuer = components?.queryItems?.first(where: { $0.name.lowercased() == "issuer" })?.value, !issuer.isEmpty {
@@ -171,6 +186,21 @@ struct ScanPayload: Identifiable, Equatable {
     raw.unicodeScalars.contains { CharacterSet.controlCharacters.contains($0) }
   }
 
+  private static func boardingPassSummary(_ raw: String, format: CodeFormat) -> String? {
+    guard ["QR", "Aztec", "DataMatrix", "PDF417"].contains(format.name) else { return nil }
+    let characters = Array(raw)
+    guard characters.count >= 53, characters[0] == "M", ("1"..."4").contains(String(characters[1])),
+      characters[2..<22].contains("/"),
+      characters[23..<29].allSatisfy({ $0 >= "A" && $0 <= "Z" }),
+      let day = Int(String(characters[37..<40])), (1...366).contains(day),
+      Int(String(characters[51..<53]), radix: 16) != nil else { return nil }
+    let origin = String(characters[23..<26]), destination = String(characters[26..<29])
+    let carrier = String(characters[29..<32]).trimmingCharacters(in: .whitespaces)
+    let flight = String(characters[32..<37]).trimmingCharacters(in: .whitespaces)
+    guard !carrier.isEmpty, !flight.isEmpty else { return nil }
+    return "\(origin) to \(destination)\n\(carrier) \(flight)\nDay \(day) of the year\nPassenger details and ticket data are hidden."
+  }
+
   private static func looksLikeHost(_ raw: String) -> Bool {
     !raw.contains(" ") && !raw.contains("@") && raw.range(of: #"^(?:[A-Za-z0-9\p{L}](?:[A-Za-z0-9\p{L}-]*[A-Za-z0-9\p{L}])?\.)+[A-Za-z\p{L}]{2,}(?::[0-9]+)?(?:[/?#].*)?$"#, options: .regularExpression) != nil
   }
@@ -206,8 +236,8 @@ struct ScanPayload: Identifiable, Equatable {
 
   func historyEvent(at date: Date) -> HistoryEvent {
     HistoryEvent(id: UUID().uuidString, acceptedAt: HistoryEvent.timestamp(date),
-      kind: isSensitive ? "redacted" : kind.rawValue,
-      summary: isSensitive ? nil : kind == .wifi ? "Wi-Fi network" : title,
-      original: isSensitive || kind == .wifi ? nil : original, parserVersion: 2)
+      kind: kind == .boardingPass ? "boardingPass" : isSensitive ? "redacted" : kind.rawValue,
+      summary: kind == .boardingPass ? "Boarding pass" : isSensitive ? nil : kind == .wifi ? "Wi-Fi network" : title,
+      original: isSensitive || kind == .wifi ? nil : original, parserVersion: 3, format: format)
   }
 }

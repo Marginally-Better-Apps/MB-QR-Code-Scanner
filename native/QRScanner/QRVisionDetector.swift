@@ -7,10 +7,13 @@ import Vision
 
 struct QRVisionObservation {
   let payload: String?
+  let format: CodeFormat
   let normalizedBounds: CGRect
 }
 
 enum QRVisionDetector {
+  private static let supportedFormats = (try? VNDetectBarcodesRequest().supportedSymbologies()) ?? [.qr]
+
   static func detect(
     in image: CGImage,
     orientation: CGImagePropertyOrientation = .up
@@ -48,14 +51,22 @@ enum QRVisionDetector {
       throw error
     }
     let observations = observations(from: request)
+    #if targetEnvironment(simulator)
+    // Simulator Vision can return no observations for a decodable static frame.
     return observations.isEmpty
       ? coreImageObservations(in: fallbackImage)
       : observations
+    #else
+    // An empty camera frame is normal. Avoid a second full-frame decoder pass.
+    return observations
+    #endif
   }
 
   private static func makeRequest() -> VNDetectBarcodesRequest {
     let request = VNDetectBarcodesRequest()
-    request.symbologies = [.qr]
+    // One Vision pass covers every code family supported by this OS revision.
+    // Query at runtime so newer iOS releases can add formats without a new app build.
+    request.symbologies = supportedFormats
     #if targetEnvironment(simulator)
     // Simulator has no device Neural Engine. Use supported CPU stages for real decoding.
     if let stages = try? request.supportedComputeStageDevices {
@@ -76,6 +87,7 @@ enum QRVisionDetector {
       let bounds = observation.boundingBox
       return QRVisionObservation(
         payload: observation.payloadStringValue,
+        format: CodeFormat(rawValue: observation.symbology.rawValue),
         normalizedBounds: CGRect(
           x: bounds.minX,
           y: 1 - bounds.maxY,
@@ -108,6 +120,7 @@ enum QRVisionDetector {
       let bounds = qr.bounds
       return QRVisionObservation(
         payload: qr.messageString,
+        format: .qr,
         normalizedBounds: CGRect(
           x: (bounds.minX - extent.minX) / extent.width,
           y: 1 - ((bounds.maxY - extent.minY) / extent.height),

@@ -7,6 +7,7 @@ struct HistoryEvent: Codable, Identifiable, Equatable {
   let summary: String?
   let original: String?
   let parserVersion: Int
+  var format: CodeFormat? = nil
   var date: Date {
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

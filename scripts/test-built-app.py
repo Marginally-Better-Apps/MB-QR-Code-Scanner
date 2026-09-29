@@ -35,7 +35,7 @@ def main() -> int:
         info = plistlib.load(handle)
 
     expected = (
-        "QR Scanner recognizes QR codes on this device. "
+        "QR Scanner reads QR codes, barcodes, and other codes on this device. "
         "Camera frames are never uploaded or saved."
     )
     if info.get("NSCameraUsageDescription") != expected:
@@ -52,7 +52,7 @@ def main() -> int:
         print(f"error: missing {spanish}", file=sys.stderr)
         return 1
     text = strings_contents(spanish)
-    if "QR Scanner reconoce códigos QR en este dispositivo" not in text:
+    if "QR Scanner lee códigos QR, códigos de barras y otros códigos en este dispositivo" not in text:
         print("error: Spanish camera usage string missing", file=sys.stderr)
         return 1
 

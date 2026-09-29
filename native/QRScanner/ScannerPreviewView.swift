@@ -17,6 +17,10 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
     didSet { updateRunning() }
   }
 
+  var torchEnabled = false {
+    didSet { applyTorch() }
+  }
+
   /// QLT-04 thermal mitigation: when true, detection processes a subset of
   /// frames (~1 in 4) so a 10-minute continuous scan avoids high-rate Vision
   /// work that can be disabled. Updated from the native app's thermal state.
@@ -48,6 +52,7 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
   private var lowPowerFrameSkipCounter = 0
   private var lastThermalCheck = Date.distantPast
   private var thermalThrottling = false
+  private weak var focusIndicator: UIView?
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -154,6 +159,7 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
           return
         }
         self.notifyPreviewReady(session.isRunning)
+        self.applyTorch()
       }
     }
   }
@@ -423,6 +429,52 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
     }
   }
 
+  private func applyTorch() {
+    guard imageFixtureName == nil, let captureDevice, captureDevice.hasTorch else {
+      return
+    }
+    let mode: AVCaptureDevice.TorchMode = torchEnabled && running ? .on : .off
+    sessionQueue.async {
+      guard captureDevice.torchMode != mode, mode == .off || captureDevice.isTorchAvailable else {
+        return
+      }
+      do {
+        try captureDevice.lockForConfiguration()
+        captureDevice.torchMode = mode
+        captureDevice.unlockForConfiguration()
+      } catch {
+        // The torch can be briefly unavailable, for example while the device is hot.
+      }
+    }
+  }
+
+  private func showFocusIndicator(at point: CGPoint) {
+    focusIndicator?.removeFromSuperview()
+    let indicator = UIView(frame: CGRect(x: 0, y: 0, width: 76, height: 76))
+    indicator.center = point
+    indicator.isUserInteractionEnabled = false
+    indicator.layer.borderColor = UIColor.systemYellow.cgColor
+    indicator.layer.borderWidth = 1.5
+    indicator.layer.cornerRadius = 10
+    indicator.layer.cornerCurve = .continuous
+    indicator.alpha = 0
+    if !UIAccessibility.isReduceMotionEnabled {
+      indicator.transform = CGAffineTransform(scaleX: 1.4, y: 1.4)
+    }
+    addSubview(indicator)
+    focusIndicator = indicator
+    UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
+      indicator.alpha = 1
+      indicator.transform = .identity
+    } completion: { _ in
+      UIView.animate(withDuration: 0.3, delay: 0.7, options: [.curveEaseIn]) {
+        indicator.alpha = 0
+      } completion: { _ in
+        indicator.removeFromSuperview()
+      }
+    }
+  }
+
   @objc private func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
     guard imageFixtureName == nil, let captureDevice else {
       return
@@ -454,6 +506,7 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
       return
     }
     let devicePoint = previewLayer.captureDevicePointConverted(fromLayerPoint: location)
+    showFocusIndicator(at: location)
     sessionQueue.async {
       guard captureDevice.isConnected else {
         return

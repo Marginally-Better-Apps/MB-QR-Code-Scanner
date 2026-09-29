@@ -3,19 +3,21 @@ import CoreGraphics
 
 struct Detection: Identifiable, Equatable {
   let payload: String
+  let format: CodeFormat
   var bounds: CGRect
-  var id: String { payload.precomposedStringWithCanonicalMapping.trimmingCharacters(in: .whitespacesAndNewlines) }
+  var id: String { format.rawValue + ":" + payload.precomposedStringWithCanonicalMapping.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-  init(_ payload: String, bounds: CGRect = .zero) {
+  init(_ payload: String, format: CodeFormat = .qr, bounds: CGRect = .zero) {
     self.payload = payload
+    self.format = format
     self.bounds = bounds
   }
 
-  static func inPreview(payload: String?, displayedBounds: CGRect, previewSize: CGSize) -> Detection? {
+  static func inPreview(payload: String?, format: CodeFormat = .qr, displayedBounds: CGRect, previewSize: CGSize) -> Detection? {
     guard let payload, !payload.isEmpty, previewSize.width > 0, previewSize.height > 0,
       displayedBounds.width > 0, displayedBounds.height > 0,
       displayedBounds.intersects(CGRect(origin: .zero, size: previewSize)) else { return nil }
-    return Detection(payload, bounds: CGRect(
+    return Detection(payload, format: format, bounds: CGRect(
       x: displayedBounds.minX / previewSize.width,
       y: displayedBounds.minY / previewSize.height,
       width: displayedBounds.width / previewSize.width,
@@ -44,8 +46,8 @@ struct ScanSession {
   private(set) var results: [Detection] = []
 
   /// Acceptance uses only real frames. The UI hold never manufactures a scan.
-  mutating func receive(_ frame: [Detection], at now: Date) -> [String] {
-    var accepted: [String] = []
+  mutating func receive(_ frame: [Detection], at now: Date) -> [Detection] {
+    var accepted: [Detection] = []
     var seen: Set<String> = []
     for detection in frame where !detection.id.isEmpty {
       let id = detection.id
@@ -54,7 +56,7 @@ struct ScanSession {
       sightings[id] = Sighting(detection: detection, lastSeen: now)
       if var track = tracks[id], now.timeIntervalSince(track.lastSeen) < 2 {
         if !track.accepted && (previous.contains(id) || now.timeIntervalSince(track.firstSeen) >= 0.25) {
-          accepted.append(detection.payload)
+          accepted.append(detection)
           track.accepted = true
         }
         track.lastSeen = now
@@ -80,8 +82,8 @@ struct ScanSession {
     }
   }
 
-  mutating func dismiss(_ payload: String) {
-    let id = Detection(payload).id
+  mutating func dismiss(_ payload: String, format: CodeFormat = .qr) {
+    let id = Detection(payload, format: format).id
     dismissed.insert(id)
     results.removeAll { $0.id == id }
   }
@@ -93,6 +95,6 @@ struct ScanSession {
     previous.removeAll()
     dismissed.removeAll()
     highlights.removeAll()
-    results.removeAll { ScanPayload($0.payload).isSensitive }
+    results.removeAll { ScanPayload($0.payload, format: $0.format).isSensitive }
   }
 }

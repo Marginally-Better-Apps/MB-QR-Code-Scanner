@@ -17,7 +17,7 @@ import Testing
   let now = Date()
   #expect(session.receive([detection], at: now).isEmpty)
   #expect(session.results == [detection])
-  #expect(session.receive([detection], at: now.addingTimeInterval(0.1)) == [payload])
+  #expect(session.receive([detection], at: now.addingTimeInterval(0.1)) == [detection])
   #expect(ScanPayload(payload).historyEvent(at: now).original == payload)
 }
 

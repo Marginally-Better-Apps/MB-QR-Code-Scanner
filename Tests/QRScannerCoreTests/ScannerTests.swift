@@ -31,11 +31,11 @@ import Testing
   var scanner = ScanSession()
   let start = Date(timeIntervalSince1970: 1000)
   #expect(scanner.receive([Detection("a")], at: start).isEmpty)
-  #expect(scanner.receive([Detection("a")], at: start.addingTimeInterval(0.1)) == ["a"])
+  #expect(scanner.receive([Detection("a")], at: start.addingTimeInterval(0.1)) == [Detection("a")])
   #expect(scanner.receive([], at: start.addingTimeInterval(0.2)).isEmpty)
   #expect(scanner.receive([Detection("a")], at: start.addingTimeInterval(0.3)).isEmpty)
   #expect(scanner.receive([Detection("a")], at: start.addingTimeInterval(3)).isEmpty)
-  #expect(scanner.receive([Detection("a")], at: start.addingTimeInterval(3.1)) == ["a"])
+  #expect(scanner.receive([Detection("a")], at: start.addingTimeInterval(3.1)) == [Detection("a")])
 }
 
 @Test func dismissAndSecretLifecycle() {
@@ -62,6 +62,41 @@ import Testing
   #expect(ScanPayload("tel:+14155552671").kind == .phone)
   #expect(ScanPayload("mailto:a@example.com").kind == .email)
   #expect(ScanPayload("geo:37.7,-122.4?q=Ferry").openURL?.host == "maps.apple.com")
+}
+
+@Test func codeFormatsKeepDistinctResultsAndValidateRetailIdentifiers() throws {
+  let ean = CodeFormat(rawValue: "VNBarcodeSymbologyEAN13")
+  let aztec = CodeFormat(rawValue: "VNBarcodeSymbologyAztec")
+  #expect(ScanPayload("3017624010701", format: ean).kind == .product)
+  #expect(ScanPayload("3017624010701", format: ean).productCode == "3017624010701")
+  #expect(ScanPayload("3017624010702", format: ean).productCode == nil)
+  #expect(ScanPayload("3017624010701", format: aztec).productCode == nil)
+  #expect(CodeFormat(rawValue: "VNBarcodeSymbologyUPCE").productCode("04210007") == "042000001007")
+  var session = ScanSession()
+  let now = Date()
+  let first = Detection("same", format: ean), second = Detection("same", format: aztec)
+  _ = session.receive([first, second], at: now)
+  #expect(session.results.count == 2)
+  #expect(session.receive([first, second], at: now.addingTimeInterval(0.1)).count == 2)
+  let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+  defer { try? FileManager.default.removeItem(at: directory) }
+  let store = try HistoryStore(directory: directory)
+  try store.record(ScanPayload("3017624010701", format: ean), at: now)
+  let saved = try #require(HistoryStore(directory: directory).events.first)
+  #expect(saved.format == ean)
+  #expect(saved.original == "3017624010701")
+}
+
+@Test func boardingPassesShowTravelSummaryWithoutSavingTicketData() {
+  let name = "DOE/JOHN".padding(toLength: 20, withPad: " ", startingAt: 0)
+  let raw = "M1" + name + "E" + "ORD" + "LAX" + "AA " + "00123" + "273" + "Y" + "012A" + "00042" + "1" + "00"
+  let pass = ScanPayload(raw, format: CodeFormat(rawValue: "VNBarcodeSymbologyAztec"))
+  #expect(pass.kind == .boardingPass)
+  #expect(pass.isSensitive)
+  #expect(pass.details.contains("ORD to LAX"))
+  #expect(!pass.details.contains("DOE"))
+  #expect(pass.historyEvent(at: Date()).original == nil)
+  #expect(ScanPayload("M1too short").kind == .text)
 }
 
 @Test func secretsAndWifiNeverPersistRawPayloads() {

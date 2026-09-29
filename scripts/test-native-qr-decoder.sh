@@ -10,6 +10,7 @@ DECODER_SOURCES=(
   "$ROOT_DIR/native/QRScanner/QRScanFrame.swift"
   "$ROOT_DIR/native/QRScanner/QRPreviewGeometry.swift"
   "$ROOT_DIR/Sources/QRScannerCore/ScanSession.swift"
+  "$ROOT_DIR/Sources/QRScannerCore/CodeFormat.swift"
   "$ROOT_DIR/Sources/QRScannerCore/ScanPayload.swift"
   "$ROOT_DIR/Sources/QRScannerCore/CalendarDate.swift"
   "$ROOT_DIR/Sources/QRScannerCore/HistoryStore.swift"

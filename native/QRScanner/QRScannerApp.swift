@@ -12,6 +12,7 @@ struct QRScannerApp: App {
       NavigationStack {
         ScannerScreen(model: model)
       }
+      .toastHost()
       .task { await model.activate() }
       .onChange(of: scenePhase) { _, phase in
         if phase == .active { Task { await model.activate() } }
@@ -29,6 +30,8 @@ final class ScannerModel {
   enum CameraState { case requesting, ready, denied, restricted, unavailable }
   var cameraState: CameraState = .requesting
   var isCapturing = false
+  var torchOn = false
+  private(set) var hasTorch = false
   @ObservationIgnored private var session = ScanSession()
   private(set) var results: [ScanPayload] = []
   private(set) var highlights: [Detection] = []
@@ -89,7 +92,9 @@ final class ScannerModel {
     }
     switch authorization {
     case .authorized:
-      cameraState = AVCaptureDevice.default(for: .video) == nil ? .unavailable : .ready
+      let camera = AVCaptureDevice.default(for: .video)
+      cameraState = camera == nil ? .unavailable : .ready
+      hasTorch = camera?.hasTorch ?? false
     case .denied: cameraState = .denied
     case .restricted: cameraState = .restricted
     default: cameraState = .requesting
@@ -117,6 +122,7 @@ final class ScannerModel {
 
   func pause() {
     isCapturing = false
+    torchOn = false
     timer?.cancel()
     timer = nil
     session.pause()
@@ -129,15 +135,15 @@ final class ScannerModel {
     let now = Date()
     let accepted = session.receive(observations, at: now)
     publishSession()
-    for payload in accepted {
-      let parsed = ScanPayload(payload)
+    for detection in accepted {
+      let parsed = ScanPayload(detection.payload, format: detection.format)
       do {
         try history?.record(parsed, at: now)
         events = history?.events ?? events
       } catch {
         self.error = NSLocalizedString("This scan could not be saved.", comment: "")
       }
-      if announced.insert(Detection(payload).id).inserted {
+      if announced.insert(detection.id).inserted {
         UIAccessibility.post(notification: .announcement, argument: parsed.title)
       }
     }
@@ -145,13 +151,13 @@ final class ScannerModel {
   }
 
   func dismiss(_ payload: ScanPayload) {
-    session.dismiss(payload.original)
+    session.dismiss(payload.original, format: payload.format)
     publishSession()
   }
 
   private func publishSession() {
     // Camera bookkeeping must not rebuild an open native menu every frame.
-    let nextResults = session.results.map { ScanPayload($0.payload) }
+    let nextResults = session.results.map { ScanPayload($0.payload, format: $0.format) }
     if results != nextResults { results = nextResults }
     if highlights != session.highlights { highlights = session.highlights }
   }

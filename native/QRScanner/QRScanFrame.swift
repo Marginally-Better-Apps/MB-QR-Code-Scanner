@@ -18,7 +18,7 @@ struct QRScanFrame {
 
   func detections(previewSize: CGSize) -> [Detection] {
     observations.compactMap { observation in
-      Detection.inPreview(payload: observation.payload, displayedBounds: QRPreviewGeometry.aspectFillBounds(
+      Detection.inPreview(payload: observation.payload, format: observation.format, displayedBounds: QRPreviewGeometry.aspectFillBounds(
         normalizedImageBounds: observation.normalizedBounds,
         pixelBufferSize: imageSize,
         previewSize: previewSize
