@@ -1,5 +1,7 @@
 # QR Scanner
 
+Support: [help@marginally-better.app](mailto:help@marginally-better.app). See the [privacy policy](docs/privacy-policy.md).
+
 An iPhone and iPad code scanner built with SwiftUI, AVFoundation, and on-device Vision. Live scanning works offline. Product lookup uses Open Food Facts only when you tap "Look up product."
 
 All detected codes appear together in one Liquid Glass panel on iOS 26. Earlier iOS versions use system material. Highlights survive brief detection gaps. History uses native swipe-to-delete, confirmation for clearing, and Undo.
