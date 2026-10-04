@@ -30,4 +30,4 @@ Scan printed QR and retail barcodes. Check the result menu, History, and optiona
 
 ## App Review notes
 
-No sign-in or demo account is needed. Grant camera access and point the device at a QR code or barcode. History fills after a successful scan. Product lookup appears for valid retail barcodes and sends the barcode number to Open Food Facts only after a tap. Contact and calendar actions use the iOS permission prompts when selected.
+No sign-in or demo account is needed. Grant camera access and point the device at a QR code or barcode. History fills after a successful scan. Product lookup appears for valid retail barcodes and sends the barcode number to Open Food Facts only after a tap. Add Contact and Add Event open the standard iOS contact and event editors. The app does not request Contacts or Calendars access, so no permission prompt appears; nothing is saved unless you confirm in the system editor. Data Not Collected: product lookup is a user-initiated request sent directly to Open Food Facts. We do not receive, store, or link it.
