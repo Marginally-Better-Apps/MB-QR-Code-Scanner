@@ -8,8 +8,7 @@
   <key>NSCameraUsageDescription</key><string>QR Scanner reads QR codes, barcodes, and other codes on this device. Camera frames are never uploaded or saved.</string>
   <key>NSContactsUsageDescription</key><string>Add a scanned contact with your permission.</string>
   <key>NSCalendarsWriteOnlyAccessUsageDescription</key><string>Add a scanned event with your permission.</string>
-  <key>LSApplicationQueriesSchemes</key><array><string>otpauth</string><string>FIDO</string></array>
-  <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLSchemes</key><array><string>qrscanner</string></array></dict></array>
+  <key>LSApplicationQueriesSchemes</key><array><string>otpauth</string><string>otpauth-migration</string><string>FIDO</string></array>
   <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
   <key>UISupportedInterfaceOrientations~ipad</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationPortraitUpsideDown</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
 </dict></plist>

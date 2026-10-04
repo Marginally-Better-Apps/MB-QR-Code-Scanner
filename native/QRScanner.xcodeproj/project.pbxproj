@@ -69,6 +69,7 @@
         CODE_SIGN_STYLE = Automatic;
         CODE_SIGN_ENTITLEMENTS = QRScanner.entitlements;
         SWIFT_EMIT_LOC_STRINGS = YES;
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = "Fixtures/*.png";
       };
       name = Debug;
     };
@@ -90,6 +91,7 @@
         CODE_SIGN_STYLE = Automatic;
         CODE_SIGN_ENTITLEMENTS = QRScanner.entitlements;
         SWIFT_EMIT_LOC_STRINGS = YES;
+        "EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = "Fixtures/*.png";
       };
       name = Release;
     };
