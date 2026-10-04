@@ -43,7 +43,7 @@ Pass a booted simulator UDID to `./scripts/test-native-qr-decoder.sh <UDID>` to 
 
 Fixture launch arguments are enabled only in Debug builds and the simulator. The fixture images in `native/QRScanner/Fixtures` are excluded from device builds. Device Release builds always use the camera. Simulator and image tests do not verify physical camera focus or hardware capture.
 
-Developer tools: `./scripts/record-demo.sh [flow] [output.mp4] [iPhone|iPad]` records a Maestro flow on a simulator, and `swift scripts/generate-qr-fixtures.swift` regenerates the fixture images. `ios-build.sh` and `ios-test.sh` are entry points for a local build runner, not CI.
+Developer tools: `./scripts/record-demo.sh [flow] [output.mp4] [iPhone|iPad]` records a Maestro flow on a simulator, and `swift scripts/generate-qr-fixtures.swift` regenerates the fixture images, and `swift scripts/make-test-sheet.swift` writes a printable sheet of labelled test codes for `docs/physical-checklist.md`. `ios-build.sh` and `ios-test.sh` are entry points for a local build runner, not CI.
 
 ## Data and privacy
 
