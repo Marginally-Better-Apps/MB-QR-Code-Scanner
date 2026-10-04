@@ -31,7 +31,9 @@ enum CalendarDate {
     formatter.calendar = Calendar(identifier: .gregorian)
     formatter.timeZone = zone ?? localZone
     formatter.dateFormat = isAllDay ? "yyyyMMdd" : isUTC ? "yyyyMMdd'T'HHmmss'Z'" : "yyyyMMdd'T'HHmmss"
-    guard let date = formatter.date(from: value) else { return nil }
+    formatter.isLenient = false
+    // A round trip rejects dates the formatter would roll over, such as February 30.
+    guard let date = formatter.date(from: value), formatter.string(from: date) == value else { return nil }
     return Value(date: date, isAllDay: isAllDay, timeZone: zone)
   }
 
