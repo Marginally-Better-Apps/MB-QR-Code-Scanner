@@ -129,3 +129,13 @@ private func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 0, _ minu
   let linked = CalendarEventDraft(icalendar: "BEGIN:VEVENT\nDTSTART:20260912T140000Z\nURL:https://example.com/e\nEND:VEVENT")
   #expect(linked?.url?.absoluteString == "https://example.com/e")
 }
+
+@Test func hugeDurationsAreIgnoredInsteadOfTrapping() throws {
+  for duration in ["P99999999999999999999D", "PT1e400S", "P999999W", "PT99999999999999999999999H"] {
+    let allDay = ScanPayload("BEGIN:VEVENT\nDTSTART;VALUE=DATE:20260912\nDURATION:\(duration)\nEND:VEVENT")
+    #expect(allDay.kind == .calendar)
+    let timed = try #require(CalendarEventDraft(icalendar: "BEGIN:VEVENT\nDTSTART:20260912T140000Z\nDURATION:\(duration)\nEND:VEVENT"))
+    #expect(timed.end.timeIntervalSince(timed.start) == CalendarEventDraft.defaultTimedDuration)
+  }
+  #expect(CalendarDate.duration("P3650D") != nil)
+}

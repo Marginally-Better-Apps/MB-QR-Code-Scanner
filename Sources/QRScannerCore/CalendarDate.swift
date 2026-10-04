@@ -72,7 +72,10 @@ enum CalendarDate {
       number = ""
       sawComponent = true
     }
-    guard number.isEmpty, sawComponent else { return nil }
+    guard number.isEmpty, sawComponent, total.isFinite, total <= maxDuration else { return nil }
     return sign * total
   }
+
+  /// Longer durations are treated as malformed. Converting unbounded values to whole days would trap.
+  static let maxDuration: TimeInterval = 10 * 366 * 86_400
 }
