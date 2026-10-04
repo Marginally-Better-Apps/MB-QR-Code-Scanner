@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # Covers .github/workflows and the local composite actions in .github/actions.
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/*
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ['*']

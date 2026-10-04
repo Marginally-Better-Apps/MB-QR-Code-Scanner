@@ -11,61 +11,38 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  ipa:
+  build:
     name: Build unsigned IPA
+    # Draft PRs skip the archive; marking the PR ready for review triggers it.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: macos-15
     timeout-minutes: 45
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
-      - name: Select iOS 26 SDK Xcode
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          candidates=(/Applications/Xcode_26*.app /Applications/Xcode_27*.app)
-          if [[ ${#candidates[@]} -eq 0 ]]; then
-            echo "error: no Xcode 26+ install found" >&2
-            ls -d /Applications/Xcode*.app >&2 || true
-            exit 1
-          fi
-          XCODE_APP="$(printf '%s\n' "${candidates[@]}" | sort -V | tail -1)"
-          sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
-          xcodebuild -version
-          xcrun --sdk iphoneos --show-sdk-version
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
 
-      - name: Fingerprint Xcode toolchain
+      - name: Select Xcode 26+
         id: xcode
-        run: |
-          set -euo pipefail
-          xcodebuild -version
-          echo "cache-key=$(xcodebuild -version | shasum -a 256 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+        uses: ./.github/actions/select-xcode
 
       - name: Cache DerivedData
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: DerivedData/Archive
-          key: ios-native-archive-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-${{ hashFiles('Sources/**', 'native/**', 'Package.swift') }}
+          key: ios-native-archive-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.fingerprint }}-${{ hashFiles('Sources/**', 'native/**', 'Package.swift') }}
           restore-keys: |
-            ios-native-archive-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.cache-key }}-
+            ios-native-archive-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.fingerprint }}-
 
       - name: Archive without signing
-        run: |
-          set -euo pipefail
-          xcodebuild archive \
-            -project native/QRScanner.xcodeproj \
-            -scheme QRScanner \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$PWD/build/QRScanner.xcarchive" \
-            -derivedDataPath "$PWD/DerivedData/Archive" \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}"
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: ./scripts/archive-unsigned.sh --build-number "$BUILD_NUMBER" build/QRScanner.xcarchive DerivedData/Archive
 
       - name: Package IPA
         run: |
@@ -74,16 +51,65 @@ jobs:
           ./scripts/assert-native-ipa.sh artifacts/QR-Scanner-unsigned.ipa
 
       - name: Upload unsigned IPA
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: QR-Scanner-PR-${{ github.event.pull_request.number || github.run_number }}-unsigned
           path: artifacts/QR-Scanner-unsigned.ipa
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish Autoloader preview
+      - name: Write Autoloader page
+        if: github.event_name == 'pull_request'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          IPA_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/download/pr-${PR_NUMBER}/QR-Scanner-unsigned.ipa"
+          python3 scripts/write-autoloader-page.py \
+            --ipa-url "${IPA_URL}" \
+            --output autoloader-page/index.html \
+            --title "QR Scanner"
+
+      - name: Upload Autoloader page
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: autoloader-page
+          path: autoloader-page
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    name: Publish Autoloader preview
+    needs: build
+    # Fork PRs cannot publish with GITHUB_TOKEN.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # The Pages deploy needs a git checkout; nothing from the PR is executed with this token.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Download unsigned IPA
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: QR-Scanner-PR-${{ github.event.pull_request.number }}-unsigned
+          path: artifacts
+
+      - name: Download Autoloader page
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: autoloader-page
+          path: autoloader-page
+
+      - name: Publish prerelease
         id: preview
-        if: github.event.pull_request && github.event.pull_request.head.repo.full_name == github.repository
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -96,6 +122,8 @@ jobs:
           OWNER_HOST="$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           REPO_NAME="${GITHUB_REPOSITORY#*/}"
           PAGES_URL="https://${OWNER_HOST}.github.io/${REPO_NAME}/pr/${PR_NUMBER}/"
+          test -s "artifacts/${IPA_NAME}"
+          grep -qF "releases/download/${TAG}/${IPA_NAME}" autoloader-page/index.html
 
           gh release delete "${TAG}" --yes --cleanup-tag || true
           gh release create "${TAG}" "artifacts/${IPA_NAME}" \
@@ -103,19 +131,13 @@ jobs:
             --latest=false \
             --target "${HEAD_SHA}" \
             --title "PR #${PR_NUMBER} unsigned IPA" \
-            --notes "Autoloader preview for https://github.com/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
-
-          python3 scripts/write-autoloader-page.py \
-            --ipa-url "${IPA_URL}" \
-            --output autoloader-page/index.html \
-            --title "QR Scanner"
+            --notes "Autoloader preview for ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
 
           echo "ipa-url=${IPA_URL}" >> "${GITHUB_OUTPUT}"
           echo "pages-url=${PAGES_URL}" >> "${GITHUB_OUTPUT}"
 
       - name: Publish GitHub Pages trampoline
-        if: steps.preview.outputs.pages-url
-        uses: JamesIves/github-pages-deploy-action@v4
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
         with:
           folder: autoloader-page
           target-folder: pr/${{ github.event.pull_request.number }}
@@ -124,7 +146,6 @@ jobs:
           commit-message: "preview: Autoloader trampoline for PR ${{ github.event.pull_request.number }}"
 
       - name: Enable GitHub Pages if needed
-        if: steps.preview.outputs.pages-url
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -135,8 +156,7 @@ jobs:
             gh api --method POST "repos/${GITHUB_REPOSITORY}/pages" --input - >/dev/null
 
       - name: Update PR preview comment
-        if: steps.preview.outputs.pages-url
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           PAGES_URL: ${{ steps.preview.outputs.pages-url }}
           IPA_URL: ${{ steps.preview.outputs.ipa-url }}

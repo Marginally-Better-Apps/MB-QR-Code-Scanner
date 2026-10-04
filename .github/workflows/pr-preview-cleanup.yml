@@ -19,7 +19,8 @@ jobs:
           TAG: pr-${{ github.event.pull_request.number }}
         run: gh release delete "${TAG}" --yes --cleanup-tag || true
 
-      - uses: actions/checkout@v4
+      # Credentials stay persisted: the next step pushes to gh-pages. No PR code is checked out.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: gh-pages
         continue-on-error: true
