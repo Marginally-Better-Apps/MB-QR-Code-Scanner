@@ -1,10 +1,10 @@
 import SwiftUI
 
 struct ScannerScreen: View {
-  @Bindable var model: ScannerModel
+  @Bindable var model: ScannerViewModel
   @State private var detail: ScanPayload?
   @State private var route: ActionRoute?
-  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.scenePhase) private var scenePhase
 
   var body: some View {
@@ -12,7 +12,7 @@ struct ScannerScreen: View {
       ZStack {
         Color.black.ignoresSafeArea()
         if model.cameraState == .ready {
-          if model.fixtureName == nil {
+          if !model.usesSimulatedScene {
             CameraPreview(model: model).ignoresSafeArea()
           } else {
             // Deterministic simulator scene for UI checks, never used by live capture.
@@ -40,9 +40,7 @@ struct ScannerScreen: View {
             .accessibilityIdentifier("toggle-torch")
           }
           Spacer()
-          NavigationLink {
-            HistoryScreen(model: model)
-          } label: {
+          Button { model.showingHistory = true } label: {
             Image(systemName: "clock.arrow.circlepath").font(.system(size: 20)).frame(width: 44, height: 44)
           }
           .modifier(NativeButton())
@@ -54,27 +52,36 @@ struct ScannerScreen: View {
         .padding(.top, 8)
       }
       .safeAreaInset(edge: .bottom, spacing: 0) {
-        Group {
+        ZStack(alignment: .bottom) {
           if model.cameraState == .ready {
-            if model.results.isEmpty {
-              ScanHint().transition(.opacity.combined(with: .scale(scale: 0.9)))
-            } else {
-              ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
-                onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
-                .frame(maxWidth: 540)
-                .padding(.horizontal, 16)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+            let empty = model.results.isEmpty
+            if empty {
+              ScanHint().transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
             }
+            // Stays mounted when empty so a sheet or dialog opened from a result survives the
+            // last result being dismissed or cleared.
+            ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
+              onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
+              .frame(maxWidth: 540)
+              .padding(.horizontal, 16)
+              .opacity(empty ? 0 : 1)
+              .offset(y: empty && !reduceMotion ? 40 : 0)
+              .allowsHitTesting(!empty)
+              .accessibilityHidden(empty)
           }
         }
         .padding(.bottom, 8)
-        .animation(.snappy, value: model.results)
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy, value: model.results)
       }
     }
+    #if DEBUG || targetEnvironment(simulator)
+    .overlay(alignment: .leading) {
+      if model.usesSimulatedScene { FixtureControls(model: model).padding(.leading, 8) }
+    }
+    #endif
     .toolbar(.hidden, for: .navigationBar)
-    .onAppear {
-      model.showingHistory = false
-      Task { await model.activate() }
+    .navigationDestination(isPresented: $model.showingHistory) {
+      HistoryScreen(model: model.history)
     }
     .sheet(item: $detail) { ResultDetail(payload: $0) }
     .sheet(item: $route) { route in NativeActionSheet(route: route) }
@@ -126,7 +133,7 @@ private struct ScanHint: View {
 }
 
 private struct DetectionHighlights: View {
-  let model: ScannerModel
+  let model: ScannerViewModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   var body: some View {
     GeometryReader { frame in
@@ -147,44 +154,5 @@ private struct DetectionHighlights: View {
       }
     }
     .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: model.highlights)
-  }
-}
-
-struct CameraPreview: UIViewRepresentable {
-  let model: ScannerModel
-  func makeUIView(context: Context) -> ScannerPreviewView {
-    let view = ScannerPreviewView(frame: .zero)
-    view.onObservations = { [weak model] observations in
-      model?.receive(observations)
-    }
-    return view
-  }
-  func updateUIView(_ view: ScannerPreviewView, context: Context) {
-    if view.imageFixtureName != model.imageFixture { view.imageFixtureName = model.imageFixture }
-    if view.running != model.isCapturing { view.running = model.isCapturing }
-    if view.torchEnabled != model.torchOn { view.torchEnabled = model.torchOn }
-  }
-  static func dismantleUIView(_ view: ScannerPreviewView, coordinator: ()) { view.running = false }
-}
-
-struct NativeButton: ViewModifier {
-  func body(content: Content) -> some View {
-    if #available(iOS 26.0, *) { content.buttonStyle(.glass) }
-    else { content.buttonStyle(.bordered) }
-  }
-}
-
-struct NativeGlass: ViewModifier {
-  var cornerRadius: CGFloat = 28
-  var interactive = false
-  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-  func body(content: Content) -> some View {
-    if reduceTransparency {
-      content.background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: cornerRadius))
-    } else if #available(iOS 26.0, *) {
-      content.glassEffect(.regular.interactive(interactive), in: .rect(cornerRadius: cornerRadius))
-    } else {
-      content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
-    }
   }
 }

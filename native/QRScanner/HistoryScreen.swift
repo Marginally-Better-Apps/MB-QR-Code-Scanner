@@ -1,26 +1,13 @@
 import SwiftUI
 
 struct HistoryScreen: View {
-  @Bindable var model: ScannerModel
+  @Bindable var model: HistoryViewModel
   @State private var selected: HistoryEvent?
   @State private var route: ActionRoute?
   @State private var confirmClear = false
-  @State private var query = ""
   @Environment(\.dismiss) private var dismiss
   @Environment(\.showToast) private var showToast
-
-  private var visibleEvents: [HistoryEvent] {
-    let trimmed = query.trimmingCharacters(in: .whitespaces)
-    guard !trimmed.isEmpty else { return model.events }
-    return model.events.filter { event in
-      title(event).localizedStandardContains(trimmed) || subtitle(event).localizedStandardContains(trimmed)
-        || (event.original?.localizedStandardContains(trimmed) ?? false)
-    }
-  }
-
-  private var days: [Date] {
-    Set(visibleEvents.map { Calendar.current.startOfDay(for: $0.date) }).sorted(by: >)
-  }
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   var body: some View {
     Group {
@@ -36,10 +23,11 @@ struct HistoryScreen: View {
         }
         .accessibilityIdentifier("history-empty")
       } else {
+        let sections = model.sections
         List {
-          ForEach(days, id: \.self) { day in
-            Section(dayLabel(day)) {
-              ForEach(visibleEvents.filter { Calendar.current.isDate($0.date, inSameDayAs: day) }) { event in
+          ForEach(sections) { section in
+            Section(dayTitle(section.label)) {
+              ForEach(section.events) { event in
                 row(event)
               }
             }
@@ -47,9 +35,9 @@ struct HistoryScreen: View {
         }
         .listStyle(.insetGrouped)
         .accessibilityIdentifier("history-list")
-        .searchable(text: $query, prompt: "Search History")
+        .searchable(text: $model.query, prompt: "Search History")
         .overlay {
-          if visibleEvents.isEmpty { ContentUnavailableView.search(text: query) }
+          if sections.isEmpty { ContentUnavailableView.search(text: model.query) }
         }
       }
     }
@@ -70,25 +58,27 @@ struct HistoryScreen: View {
           .controlSize(.large).modifier(NativeButton())
           .accessibilityIdentifier("history-undo")
           .padding(.bottom, 8)
-          .transition(.move(edge: .bottom).combined(with: .opacity))
+          .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
       }
     }
-    .animation(.snappy, value: model.pendingUndo)
-    .alert("Clear all scans?", isPresented: $confirmClear) {
+    .animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy, value: model.pendingUndo)
+    .alert(clearTitle(model.events.count), isPresented: $confirmClear) {
       Button("Cancel", role: .cancel) {}
       Button("Clear All", role: .destructive) { model.clear() }
+        .accessibilityIdentifier("history-clear-confirm")
     } message: {
       Text("This removes every saved scan from this device. It can’t be undone.")
     }
     .sheet(item: $selected) { event in
-      if let original = event.original {
-        ResultDetail(payload: ScanPayload(original, format: event.format ?? .qr), scannedAt: event.date)
+      if let payload = model.payload(for: event) {
+        ResultDetail(payload: payload, scannedAt: event.date)
       } else {
+        let presentation = HistoryRowPresentation(event)
         NavigationStack {
           ContentUnavailableView {
-            Label(title(event), systemImage: symbol(event))
+            Label(presentation.title, systemImage: presentation.symbol(payload: nil))
           } description: {
-            Text(event.kind == "wifi" ? "The Wi-Fi network was not saved." : event.kind == "boardingPass" ? "The boarding pass details were not saved." : "This sensitive code was not saved.")
+            Text(presentation.unsavedDetailMessage)
             Text(event.date.formatted(date: .abbreviated, time: .shortened))
           }
           .toolbar { Button("Done") { selected = nil } }
@@ -96,18 +86,19 @@ struct HistoryScreen: View {
       }
     }
     .sheet(item: $route) { NativeActionSheet(route: $0) }
-    .onAppear { model.showingHistory = true; model.pause() }
   }
 
   private func row(_ event: HistoryEvent) -> some View {
-    Button { selected = event } label: {
+    let presentation = HistoryRowPresentation(event)
+    let payload = model.payload(for: event)
+    return Button { selected = event } label: {
       HStack(spacing: 12) {
-        Image(systemName: symbol(event))
+        Image(systemName: presentation.symbol(payload: payload))
           .font(.body.weight(.medium))
           .frame(width: 28)
         VStack(alignment: .leading, spacing: 2) {
-          Text(title(event)).lineLimit(1)
-          Text(subtitle(event)).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+          Text(presentation.title).lineLimit(1)
+          Text(presentation.subtitle).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         Text(event.date, style: .time).font(.caption).foregroundStyle(.secondary)
@@ -116,20 +107,20 @@ struct HistoryScreen: View {
     }
     .tint(.primary)
     .accessibilityIdentifier("history-row")
-    .accessibilityLabel(title(event))
-    .accessibilityValue("\(subtitle(event)), \(event.date.formatted(date: .omitted, time: .shortened))")
-    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+    .accessibilityLabel(presentation.title)
+    .accessibilityValue("\(presentation.subtitle), \(event.date.formatted(date: .omitted, time: .shortened))")
+    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
       Button("Delete", systemImage: "trash", role: .destructive) { model.delete(event) }
         .accessibilityIdentifier("history-row-delete")
     }
     .contextMenu {
-      if let original = event.original {
+      if let payload {
         Button("Copy", systemImage: "doc.on.doc") {
-          ScanPayload.copy(original)
+          ScanPayload.copy(payload.original)
           showToast(String(localized: "Copied"))
         }
         Button("Share", systemImage: "square.and.arrow.up") {
-          route = ActionRoute(kind: .share, payload: ScanPayload(original, format: event.format ?? .qr))
+          route = ActionRoute(kind: .share, payload: payload)
         }
         Divider()
       }
@@ -137,26 +128,16 @@ struct HistoryScreen: View {
     }
   }
 
-  private func title(_ event: HistoryEvent) -> String {
-    if event.kind == "redacted" { return NSLocalizedString("Sensitive scan", comment: "") }
-    if event.kind == "wifi" { return NSLocalizedString("Wi-Fi network", comment: "") }
-    if event.kind == "boardingPass" { return NSLocalizedString("Boarding pass", comment: "") }
-    return ScanPayload.visible(event.summary ?? "", limit: 120)
+  private func dayTitle(_ label: HistoryDayLabel) -> String {
+    switch label {
+    case .today: String(localized: "Today")
+    case .yesterday: String(localized: "Yesterday")
+    case .weekday(let text), .date(let text): text
+    }
   }
-  private func subtitle(_ event: HistoryEvent) -> String {
-    guard event.original != nil else { return String(localized: "Details not saved") }
-    let kind = ScanPayload.Kind(rawValue: event.kind).map(ScanPayload.kindName) ?? String(localized: "Text")
-    return "\(kind) · \((event.format ?? .qr).name)"
-  }
-  private func symbol(_ event: HistoryEvent) -> String {
-    if event.kind == "redacted" { return "eye.slash" }
-    if event.kind == "wifi" { return "wifi" }
-    if event.kind == "boardingPass" { return "airplane" }
-    return event.original.map { ScanPayload($0, format: event.format ?? .qr).symbol } ?? "qrcode"
-  }
-  private func dayLabel(_ day: Date) -> String {
-    if Calendar.current.isDateInToday(day) { return NSLocalizedString("Today", comment: "") }
-    if Calendar.current.isDateInYesterday(day) { return NSLocalizedString("Yesterday", comment: "") }
-    return day.formatted(date: .abbreviated, time: .omitted)
+
+  /// "Clear 1 scan?" / "Clear 3 scans?" via automatic grammar agreement.
+  private func clearTitle(_ count: Int) -> String {
+    String(AttributedString(localized: "Clear ^[\(count) scan](inflect: true)?").characters)
   }
 }

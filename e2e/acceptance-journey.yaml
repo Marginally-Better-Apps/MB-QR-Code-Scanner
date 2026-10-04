@@ -1,0 +1,82 @@
+appId: com.marginallybetter.qrscanner
+---
+# Full journey with runtime fixture controls (Debug and Simulator builds only):
+# scan, sticky result, replacement by a second code, History replay, delete, and clear.
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "url"
+- extendedWaitUntil:
+    visible: ".*example.com/fixture.*"
+    timeout: 30000
+- assertVisible:
+    id: "scan-results-panel"
+- startRecording: acceptance-journey
+# The code leaves the frame: its highlight expires, the result stays actionable.
+- tapOn:
+    id: "fixture-clear"
+- extendedWaitUntil:
+    visible:
+      id: "fixture-highlight-count"
+      text: "0 highlighted"
+    timeout: 10000
+- assertVisible: ".*example.com/fixture.*"
+- takeScreenshot: journey-sticky-result
+# A different code replaces the previous result.
+- tapOn:
+    id: "fixture-inject-second"
+- extendedWaitUntil:
+    visible: ".*example.com/second.*"
+    timeout: 10000
+- assertNotVisible: ".*example.com/fixture.*"
+- takeScreenshot: journey-second-code
+# Both scans are in History, newest first.
+- tapOn:
+    id: "open-history"
+- assertVisible: "Today"
+- assertVisible:
+    id: "history-row"
+    text: ".*example.com/second.*"
+- assertVisible:
+    id: "history-row"
+    text: ".*example.com/fixture.*"
+# Replay the newest row.
+- tapOn:
+    id: "history-row"
+    text: ".*example.com/second.*"
+- assertVisible: "Scan Result"
+- assertVisible: ".*https://example.com/second.*"
+- tapOn: "Done"
+- assertNotVisible: "Scan Result"
+# Swipe to delete it.
+- swipe:
+    from:
+      id: "history-row"
+      text: ".*example.com/second.*"
+    direction: LEFT
+    duration: 600
+- tapOn: "Delete"
+- assertNotVisible:
+    id: "history-row"
+    text: ".*example.com/second.*"
+- assertVisible:
+    id: "history-undo"
+- takeScreenshot: journey-deleted
+# Clearing asks first; Cancel keeps rows.
+- tapOn:
+    id: "history-clear"
+- assertVisible: 'Clear 1 scan\?'
+- tapOn: "Cancel"
+- assertVisible:
+    id: "history-row"
+    text: ".*example.com/fixture.*"
+- tapOn:
+    id: "history-clear"
+- tapOn: "Clear All"
+- assertVisible:
+    id: "history-empty"
+- assertNotVisible:
+    id: "history-row"
+- takeScreenshot: journey-cleared
+- stopRecording

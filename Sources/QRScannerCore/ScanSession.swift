@@ -27,7 +27,17 @@ struct Detection: Identifiable, Equatable {
 }
 
 struct ScanSession {
-  static let holdDuration: TimeInterval = 1.5
+  struct Timing: Equatable {
+    /// How long a highlight survives detection gaps.
+    var holdDuration: TimeInterval = 1.5
+    /// A code must be absent this long before it can be recorded again.
+    var dedupeResetInterval: TimeInterval = 2
+    /// A code seen in only one frame is accepted once it has been tracked this long.
+    var acceptanceWindow: TimeInterval = 0.25
+    static let standard = Timing()
+  }
+  static var holdDuration: TimeInterval { Timing.standard.holdDuration }
+  let timing: Timing
   private struct Sighting {
     var detection: Detection
     var lastSeen: Date
@@ -44,9 +54,15 @@ struct ScanSession {
   private var dismissed: Set<String> = []
   private(set) var highlights: [Detection] = []
   private(set) var results: [Detection] = []
+  private var suspendedAt: Date?
+
+  init(timing: Timing = .standard) {
+    self.timing = timing
+  }
 
   /// Acceptance uses only real frames. The UI hold never manufactures a scan.
   mutating func receive(_ frame: [Detection], at now: Date) -> [Detection] {
+    if suspendedAt != nil { resume(at: now) }
     var accepted: [Detection] = []
     var seen: Set<String> = []
     for detection in frame where !detection.id.isEmpty {
@@ -54,8 +70,8 @@ struct ScanSession {
       guard seen.insert(id).inserted else { continue }
       if sightings[id] == nil { order.append(id) }
       sightings[id] = Sighting(detection: detection, lastSeen: now)
-      if var track = tracks[id], now.timeIntervalSince(track.lastSeen) < 2 {
-        if !track.accepted && (previous.contains(id) || now.timeIntervalSince(track.firstSeen) >= 0.25) {
+      if var track = tracks[id], now.timeIntervalSince(track.lastSeen) < timing.dedupeResetInterval {
+        if !track.accepted && (previous.contains(id) || now.timeIntervalSince(track.firstSeen) >= timing.acceptanceWindow) {
           accepted.append(detection)
           track.accepted = true
         }
@@ -71,10 +87,12 @@ struct ScanSession {
   }
 
   mutating func expire(at now: Date) {
-    sightings = sightings.filter { now.timeIntervalSince($0.value.lastSeen) < Self.holdDuration }
-    tracks = tracks.filter { now.timeIntervalSince($0.value.lastSeen) < 2 }
+    guard suspendedAt == nil else { return }
+    sightings = sightings.filter { now.timeIntervalSince($0.value.lastSeen) < timing.holdDuration }
+    tracks = tracks.filter { now.timeIntervalSince($0.value.lastSeen) < timing.dedupeResetInterval }
     order.removeAll { sightings[$0] == nil }
-    dismissed.formIntersection(Set(order))
+    // A dismissal lasts until the code has been away long enough to count as a new scan.
+    dismissed.formIntersection(Set(order).union(tracks.keys))
     highlights = order.compactMap { sightings[$0]?.detection }
     // Last results remain actionable when the camera moves away; only bounds expire.
     if !highlights.isEmpty {
@@ -88,7 +106,33 @@ struct ScanSession {
     results.removeAll { $0.id == id }
   }
 
+  /// Stops bookkeeping while capture is stopped in the foreground, such as while History is shown.
+  /// Results and dedupe state survive, so a code that is still in view is not recorded again.
+  mutating func suspend(at now: Date) {
+    guard suspendedAt == nil else { return }
+    expire(at: now)
+    suspendedAt = now
+    // Bounds from before the pause no longer match the preview.
+    sightings.removeAll()
+    order.removeAll()
+    previous.removeAll()
+    highlights.removeAll()
+  }
+
+  /// Time spent suspended does not count as absence.
+  mutating func resume(at now: Date) {
+    guard let suspendedAt else { return }
+    self.suspendedAt = nil
+    let pausedFor = max(0, now.timeIntervalSince(suspendedAt))
+    for id in tracks.keys {
+      tracks[id]?.firstSeen.addTimeInterval(pausedFor)
+      tracks[id]?.lastSeen.addTimeInterval(pausedFor)
+    }
+  }
+
+  /// Ends the session when the app leaves the foreground. Sensitive results are discarded.
   mutating func pause() {
+    suspendedAt = nil
     sightings.removeAll()
     tracks.removeAll()
     order.removeAll()
