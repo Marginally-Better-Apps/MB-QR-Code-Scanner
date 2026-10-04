@@ -86,7 +86,8 @@ enum HistoryTimestamp {
   private static let fractional = Date.ISO8601FormatStyle(includingFractionalSeconds: true)
   private static let whole = Date.ISO8601FormatStyle()
   // Writing keeps the formatter the app has always used, so new rows round identically.
-  private static let writer: ISO8601DateFormatter = {
+  // ISO8601DateFormatter is documented as thread-safe once configured.
+  nonisolated(unsafe) private static let writer: ISO8601DateFormatter = {
     let formatter = ISO8601DateFormatter()
     formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
     return formatter

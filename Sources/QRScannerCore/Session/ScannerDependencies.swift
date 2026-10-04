@@ -30,7 +30,7 @@ struct CameraCapabilities: Equatable {
 }
 
 /// Time source for scan bookkeeping and timeouts.
-protocol ScannerClock {
+protocol ScannerClock: Sendable {
   var now: Date { get }
   func sleep(for seconds: TimeInterval) async throws
 }
