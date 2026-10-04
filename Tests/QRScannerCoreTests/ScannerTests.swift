@@ -89,7 +89,7 @@ import Testing
 
 @Test func boardingPassesShowTravelSummaryWithoutSavingTicketData() {
   let name = "DOE/JOHN".padding(toLength: 20, withPad: " ", startingAt: 0)
-  let raw = "M1" + name + "E" + "ORD" + "LAX" + "AA " + "00123" + "273" + "Y" + "012A" + "00042" + "1" + "00"
+  let raw = "M1" + name + "E" + "ABC123 " + "ORD" + "LAX" + "AA " + "00123" + "273" + "Y" + "012A" + "00042" + "1" + "00"
   let pass = ScanPayload(raw, format: CodeFormat(rawValue: "VNBarcodeSymbologyAztec"))
   #expect(pass.kind == .boardingPass)
   #expect(pass.isSensitive)

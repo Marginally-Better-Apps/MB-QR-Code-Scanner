@@ -19,24 +19,12 @@ struct NativeActionSheet: UIViewControllerRepresentable {
     case .share:
       return UIActivityViewController(activityItems: [route.payload.original], applicationActivities: nil)
     case .contact:
-      let contact: CNContact?
-      if route.payload.original.lowercased().hasPrefix("mecard:") {
-        let fields = ScanPayload.wifiFields(String(route.payload.original.dropFirst(7)))
-        let newContact = CNMutableContact()
-        let name = (fields["N"] ?? "").components(separatedBy: ",")
-        newContact.familyName = name.first ?? ""
-        newContact.givenName = name.count > 1 ? name[1] : ""
-        if let phone = fields["TEL"] { newContact.phoneNumbers = [CNLabeledValue(label: CNLabelPhoneNumberMain, value: CNPhoneNumber(stringValue: phone))] }
-        if let email = fields["EMAIL"] { newContact.emailAddresses = [CNLabeledValue(label: CNLabelHome, value: email as NSString)] }
-        if let address = fields["ADR"] {
-          let postal = CNMutablePostalAddress()
-          postal.street = address
-          newContact.postalAddresses = [CNLabeledValue(label: CNLabelHome, value: postal)]
-        }
-        contact = newContact
-      } else {
+      let draft = route.payload.contactDraft
+      var contact: CNContact?
+      if draft?.source != .mecard {
         contact = (try? CNContactVCardSerialization.contacts(with: Data(route.payload.original.utf8)))?.first
       }
+      if contact == nil, let draft { contact = Self.contact(from: draft) }
       let controller = CNContactViewController(forNewContact: contact)
       controller.delegate = context.coordinator
       return UINavigationController(rootViewController: controller)
@@ -45,23 +33,52 @@ struct NativeActionSheet: UIViewControllerRepresentable {
       let store = EKEventStore()
       controller.eventStore = store
       let event = EKEvent(eventStore: store)
-      let fields = ScanPayload.lineFields(route.payload.original)
-      event.title = fields["SUMMARY"] ?? route.payload.title
-      event.location = fields["LOCATION"]
-      event.notes = fields["DESCRIPTION"]
-      event.url = fields["URL"].flatMap { ScanPayload($0).openURL }
-      let start = CalendarDate.parse(fields["DTSTART"], raw: route.payload.original, name: "DTSTART")
-      event.startDate = start?.date ?? Date()
-      event.isAllDay = start?.allDay ?? false
-      event.timeZone = start?.timeZone
-      event.endDate = CalendarDate.parse(fields["DTEND"], raw: route.payload.original, name: "DTEND")?.date
-        ?? event.startDate.addingTimeInterval(event.isAllDay ? 86400 : 3600)
+      if let draft = route.payload.calendarEventDraft {
+        event.title = draft.title
+        event.location = draft.location
+        event.notes = draft.notes
+        event.url = draft.url
+        event.isAllDay = draft.isAllDay
+        event.timeZone = draft.timeZone
+        event.startDate = draft.start
+        event.endDate = draft.end
+      } else {
+        event.title = route.payload.title
+        event.startDate = Date()
+        event.endDate = event.startDate.addingTimeInterval(CalendarEventDraft.defaultTimedDuration)
+      }
       controller.event = event
       controller.editViewDelegate = context.coordinator
       return controller
     }
   }
   func updateUIViewController(_ controller: UIViewController, context: Context) {}
+
+  /// Maps a MECARD to Contacts. Notes are omitted: writing them requires the Contacts notes entitlement.
+  private static func contact(from draft: ContactDraft) -> CNContact {
+    let contact = CNMutableContact()
+    contact.givenName = draft.givenName
+    contact.familyName = draft.familyName
+    contact.nickname = draft.nickname
+    if draft.givenName.isEmpty, draft.familyName.isEmpty { contact.givenName = draft.formattedName }
+    contact.organizationName = draft.organization
+    contact.phoneNumbers = draft.phones.enumerated().map { index, phone in
+      CNLabeledValue(label: index == 0 ? CNLabelPhoneNumberMain : CNLabelOther, value: CNPhoneNumber(stringValue: phone))
+    }
+    contact.emailAddresses = draft.emails.map { CNLabeledValue(label: CNLabelOther, value: $0 as NSString) }
+    contact.urlAddresses = draft.urls.map { CNLabeledValue(label: CNLabelURLAddressHomePage, value: $0 as NSString) }
+    if let address = draft.address, !address.isEmpty {
+      let postal = CNMutablePostalAddress()
+      postal.street = [address.poBox, address.extended, address.street].filter { !$0.isEmpty }.joined(separator: "\n")
+      postal.city = address.city
+      postal.state = address.region
+      postal.postalCode = address.postalCode
+      postal.country = address.country
+      contact.postalAddresses = [CNLabeledValue(label: CNLabelHome, value: postal)]
+    }
+    contact.birthday = draft.birthday
+    return contact
+  }
 
   final class Coordinator: NSObject, CNContactViewControllerDelegate, EKEventEditViewDelegate {
     let dismiss: () -> Void
