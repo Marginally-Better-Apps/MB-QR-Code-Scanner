@@ -45,6 +45,7 @@ final class HistoryViewModel {
   @ObservationIgnored private var sectionMemo: (key: SectionKey, sections: [HistorySection])?
   @ObservationIgnored private var undoTask: Task<Void, Never>?
   @ObservationIgnored private var reportedOpenFailure = false
+  @ObservationIgnored private var reportedDroppedScan = false
   @ObservationIgnored var calendar: Calendar
   @ObservationIgnored var locale: Locale
   /// Parsed payloads for rows, so symbols and details are not re-parsed on every render.
@@ -103,7 +104,11 @@ final class HistoryViewModel {
 
   func record(_ payload: ScanPayload, at date: Date) {
     guard openIfNeeded(), let repository else {
-      failure = .open
+      // The first scan that can't be saved is reported; later ones don't alert on every frame.
+      if !reportedDroppedScan {
+        reportedDroppedScan = true
+        failure = .open
+      }
       return
     }
     do {

@@ -80,11 +80,18 @@ enum PayloadActionRules {
     case .auth, .authExport:
       return scheme == "fido" ? .passkey : .authenticator
     case .customScheme:
-      let target = ScanPayload.visible(url.absoluteString, limit: confirmationTargetLimit)
+      let target = middleTruncated(ScanPayload.visible(url.absoluteString, limit: .max), limit: confirmationTargetLimit)
       return .appLink(scheme: ScanPayload.visible(scheme, limit: 40), target: target, isPayment: paymentSchemes.contains(scheme))
     default:
       return .direct
     }
+  }
+
+  /// Keeps both ends of a long target, so padding cannot push trailing parameters out of view.
+  static func middleTruncated(_ text: String, limit: Int) -> String {
+    guard text.count > limit else { return text }
+    let half = (limit - 1) / 2
+    return String(text.prefix(half)) + "…" + String(text.suffix(limit - 1 - half))
   }
 
   /// The scheme to pass to `canOpenURL` before offering Open, or nil when the check would be meaningless.

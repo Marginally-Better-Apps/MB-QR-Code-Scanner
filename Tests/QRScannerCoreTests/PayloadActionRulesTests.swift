@@ -36,13 +36,16 @@ private func actions(_ raw: String, format: CodeFormat = .qr, availability: Open
   #expect(PayloadActionRules.handoff(for: payload) == .appLink(scheme: "myapp", target: "myapp://pay?amount=10", isPayment: false))
   #expect(actions("myapp://pay?amount=10").primary == .open)
 
-  let long = "myapp://x?" + String(repeating: "a", count: 500)
+  let long = "myapp://x?pad=" + String(repeating: "a", count: 500) + "&input=danger"
   guard case .appLink(_, let target, _) = PayloadActionRules.handoff(for: ScanPayload(long)) else {
     Issue.record("expected app link")
     return
   }
   #expect(target.count <= PayloadActionRules.confirmationTargetLimit)
-  #expect(target.hasSuffix("…"))
+  #expect(target.hasPrefix("myapp://x?pad="))
+  #expect(target.contains("…"))
+  // Padding cannot hide trailing parameters.
+  #expect(target.hasSuffix("&input=danger"))
 }
 
 @Test func paymentSchemesGetPaymentWordingWithoutSubstringHeuristics() {

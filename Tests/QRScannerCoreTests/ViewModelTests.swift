@@ -316,13 +316,17 @@ private let secret = Detection("otpauth://totp/Test?secret=JBSWY3DPEHPK3PXP")
   // A scan while still unreadable is not silently dropped.
   history.record(ScanPayload("lost"), at: Date())
   #expect(history.failure == .open)
+  // Later frames don't raise the alert again.
+  history.failure = nil
+  history.record(ScanPayload("lost again"), at: Date())
+  #expect(history.failure == nil)
   // Protected data becomes available.
   locked = false
   #expect(history.openIfNeeded())
   #expect(history.failure == nil)
   history.record(ScanPayload("saved"), at: Date())
   #expect(repository.events.map(\.original) == ["saved"])
-  #expect(attempts == 5)
+  #expect(attempts == 6)
 }
 
 @MainActor @Test func corruptHistoryFileIsNeverOverwrittenByScans() throws {
