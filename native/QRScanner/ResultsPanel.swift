@@ -6,7 +6,7 @@ struct ResultsPanel: View {
   let onDetails: (ScanPayload) -> Void
   let onAction: (ActionRoute) -> Void
   let onDismiss: (ScanPayload) -> Void
-  @ScaledMetric(relativeTo: .body) private var rowHeight = 64.0
+  @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 64
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.colorSchemeContrast) private var contrast
   @Environment(\.dynamicTypeSize) private var typeSize
@@ -14,9 +14,9 @@ struct ResultsPanel: View {
 
   /// Rows are a fixed height at standard sizes. Accessibility sizes wrap titles, so the panel follows the measured content.
   private var height: CGFloat {
-    let estimate = CGFloat(results.count) * rowHeight + 12
-    let content = typeSize.isAccessibilitySize ? (measuredHeight ?? estimate) : estimate
-    return min(content, maxHeight)
+    let estimate: CGFloat = CGFloat(results.count) * rowHeight + 12
+    guard typeSize.isAccessibilitySize, let measuredHeight else { return Swift.min(estimate, maxHeight) }
+    return Swift.min(measuredHeight, maxHeight)
   }
 
   var body: some View {
