@@ -52,17 +52,22 @@ struct ScannerScreen: View {
         .padding(.top, 8)
       }
       .safeAreaInset(edge: .bottom, spacing: 0) {
-        Group {
+        ZStack(alignment: .bottom) {
           if model.cameraState == .ready {
-            if model.results.isEmpty {
+            let empty = model.results.isEmpty
+            if empty {
               ScanHint().transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
-            } else {
-              ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
-                onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
-                .frame(maxWidth: 540)
-                .padding(.horizontal, 16)
-                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
+            // Stays mounted when empty so a sheet or dialog opened from a result survives the
+            // last result being dismissed or cleared.
+            ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
+              onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
+              .frame(maxWidth: 540)
+              .padding(.horizontal, 16)
+              .opacity(empty ? 0 : 1)
+              .offset(y: empty && !reduceMotion ? 40 : 0)
+              .allowsHitTesting(!empty)
+              .accessibilityHidden(empty)
           }
         }
         .padding(.bottom, 8)

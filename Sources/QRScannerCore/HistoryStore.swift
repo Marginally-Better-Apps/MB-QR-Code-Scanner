@@ -174,7 +174,9 @@ final class HistoryStore: HistoryRepository {
 
   /// Stable: rows with identical timestamps keep their saved order.
   static func newestFirst(_ events: [HistoryEvent]) -> [HistoryEvent] {
-    events.enumerated().sorted { lhs, rhs in
+    // The store keeps rows ordered, so the common case is a single linear check.
+    if zip(events, events.dropFirst()).allSatisfy({ $0.date >= $1.date }) { return events }
+    return events.enumerated().sorted { lhs, rhs in
       lhs.element.date != rhs.element.date ? lhs.element.date > rhs.element.date : lhs.offset < rhs.offset
     }.map(\.element)
   }

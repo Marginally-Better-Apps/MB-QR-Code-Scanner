@@ -38,6 +38,7 @@ final class ScannerViewModel {
   var usesSimulatedScene: Bool { simulatedScene != nil }
 
   private var historyShown = false
+  @ObservationIgnored private var hasActivated = false
   @ObservationIgnored private var session: ScanSession
   @ObservationIgnored private let camera: CameraAuthorizing
   @ObservationIgnored private let feedback: ScanFeedback
@@ -64,7 +65,9 @@ final class ScannerViewModel {
     guard next != phase else { return }
     phase = next
     switch next {
-    case .active: history.activate()
+    case .active:
+      hasActivated = true
+      history.activate()
     case .background: endSession()
     case .inactive: break // Control Center, banners, and the permission prompt keep the session.
     }
@@ -109,7 +112,9 @@ final class ScannerViewModel {
 
   // MARK: - Capture lifecycle
 
-  private var wantsCapture: Bool { phase == .active && !historyShown }
+  /// Capture starts on the first activation and then stops only for the background or History.
+  /// Brief `.inactive` phases (Control Center, banners, the permission prompt) keep it running.
+  private var wantsCapture: Bool { hasActivated && phase != .background && !historyShown }
 
   private func updateCapture() {
     guard wantsCapture else { return stopCapture() }

@@ -86,6 +86,10 @@ private let secret = Detection("otpauth://totp/Test?secret=JBSWY3DPEHPK3PXP")
 
 @MainActor @Test func inactiveScenesKeepCaptureTorchAndDedupe() {
   let harness = Harness()
+  // A launch that is still inactive does not start the camera.
+  harness.scanner.setPhase(.background)
+  harness.scanner.setPhase(.inactive)
+  #expect(!harness.scanner.isCapturing)
   harness.scanner.setPhase(.active)
   harness.scanner.torchOn = true
   harness.show([url])
