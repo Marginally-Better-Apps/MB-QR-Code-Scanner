@@ -1,6 +1,8 @@
 # Scanner performance checks
 
-The Swift camera implementation keeps recognition off the main thread, allows at most one pending delivery, and skips frames under thermal or low-power pressure. It never saves camera frames. The multicode detector makes one Vision request with all formats supported by the current OS. Product lookup runs only after a tap, outside the frame path.
+Recognition runs on its own queue, never on the main thread. At most one detection result waits for the main queue; newer frames are dropped until it is delivered. Late camera frames are discarded by AVFoundation. Under serious or critical thermal state, or in Low Power Mode, only 1 in 4 frames runs detection (about 7.5 fps from a 30 fps camera). The rate updates from `ProcessInfo` notifications, not polling. These rules are in `FrameThrottle` and covered by `swift test`.
+
+Camera frames are never saved. The multicode detector makes one Vision request with all formats supported by the current OS. Product lookup runs only after a tap, outside the frame path. Session start, stop, zoom, focus, and torch changes run on a capture queue, not the main thread.
 
 The UI expiration timer runs only while scanning. A camera frame refreshes matching result bounds without changing result order. History acceptance and haptics use actual sightings, never the UI hold timer.
 

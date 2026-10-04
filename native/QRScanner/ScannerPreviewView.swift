@@ -1,66 +1,59 @@
 import AVFoundation
 import UIKit
 
-final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDelegate {
+/// Hosts the camera preview, or a Debug image fixture, plus pinch-to-zoom and tap-to-focus.
+/// Capture runs in `CaptureController`; this view only forwards state changes to it.
+final class ScannerPreviewView: UIView {
   var onObservations: ([Detection]) -> Void = { _ in }
-  var onPreviewReady: (Bool) -> Void = { _ in }
-
-  var engineName = "avfoundation" {
-    didSet { rebuildIfNeeded() }
-  }
 
   var imageFixtureName: String? {
-    didSet { rebuildIfNeeded() }
+    didSet {
+      if imageFixtureName != oldValue { replaceSource() }
+    }
   }
 
   var running = false {
-    didSet { updateRunning() }
+    didSet {
+      if running != oldValue { updateActivity() }
+    }
   }
 
   var torchEnabled = false {
-    didSet { applyTorch() }
+    didSet {
+      if torchEnabled != oldValue { camera?.setTorch(torchEnabled) }
+    }
   }
 
-  /// QLT-04 thermal mitigation: when true, detection processes a subset of
-  /// frames (~1 in 4) so a 10-minute continuous scan avoids high-rate Vision
-  /// work that can be disabled. Updated from the native app's thermal state.
-  var lowPowerMode = false {
-    didSet { lowPowerFrameSkipCounter = 0 }
-  }
+  override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
 
-  private let hostView = UIView()
-  private var captureSession: AVCaptureSession?
-  private var previewLayer: AVCaptureVideoPreviewLayer?
-  private var videoOutput: AVCaptureVideoDataOutput?
-  private var captureDevice: AVCaptureDevice?
-  private var fixtureImageView: UIImageView?
-  private var fixtureImage: CGImage?
-  private let sessionQueue = DispatchQueue(label: "com.marginallybetter.qrscanner.session")
-  private let recognitionQueue = DispatchQueue(label: "com.marginallybetter.qrscanner.vision")
-  private var pinchBaseZoomFactor: CGFloat = 1
-  private var attachedConfiguration: String?
-  private var pinchRecognizer: UIPinchGestureRecognizer?
-  private var tapRecognizer: UITapGestureRecognizer?
-  private var lastPreviewReady: Bool?
-  private var fixtureDetectionGeneration = 0
-  private var fixtureDetectionInFlight = false
-  private var fixtureFrame: QRScanFrame?
-  /// QLT-04: bounds the hop from the recognition queue to the main queue.
-  /// While a delivery is pending, newer frames are coalesced (dropped) so
-  /// metadata callbacks cannot build an unbounded main-queue backlog.
-  private var mainDeliveryInFlight = false
-  private var lowPowerFrameSkipCounter = 0
-  private var lastThermalCheck = Date.distantPast
-  private var thermalThrottling = false
-  private weak var focusIndicator: UIView?
+  // `layerClass` guarantees this cast.
+  private var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+
+  private var camera: CaptureController?
+  #if DEBUG || targetEnvironment(simulator)
+  private var fixture: DebugImageFixtureSource?
+  #endif
+  private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
+  private var rotationObservation: NSKeyValueObservation?
+  private let focusIndicator = FocusIndicatorView()
+  private lazy var pinchRecognizer = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
+  private lazy var tapRecognizer = UITapGestureRecognizer(target: self, action: #selector(handleTap))
+  /// Whether the current source was started. Changes only on real state transitions.
+  private var isSourceActive = false
+  /// Drops frames from a source that has since been replaced.
+  private var sourceGeneration = 0
+  private var lastLayoutSize = CGSize.zero
 
   override init(frame: CGRect) {
     super.init(frame: frame)
     backgroundColor = .black
     clipsToBounds = true
-    hostView.backgroundColor = .black
-    hostView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    addSubview(hostView)
+    previewLayer.videoGravity = .resizeAspectFill
+    addSubview(focusIndicator)
+    for recognizer in [pinchRecognizer, tapRecognizer] as [UIGestureRecognizer] {
+      recognizer.isEnabled = false
+      addGestureRecognizer(recognizer)
+    }
 
     // SwiftUI owns the scan-area accessibility label.
     isAccessibilityElement = false
@@ -70,461 +63,160 @@ final class ScannerPreviewView: UIView, AVCaptureVideoDataOutputSampleBufferDele
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    if window != nil {
-      rebuildIfNeeded()
-      updateRunning()
-    } else {
-      stop()
-    }
+    updateActivity()
   }
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    hostView.frame = bounds
-    previewLayer?.frame = hostView.bounds
-    fixtureImageView?.frame = hostView.bounds
-    updateVideoOrientation()
-    if running {
-      start()
-    }
-  }
-
-  private var configurationKey: String {
-    "\(engineName):\(imageFixtureName ?? "camera")"
-  }
-
-  private func rebuildIfNeeded() {
-    guard attachedConfiguration != configurationKey else {
+    guard bounds.size != lastLayoutSize else {
       return
     }
-    tearDown()
-    attachedConfiguration = configurationKey
+    lastLayoutSize = bounds.size
+    #if DEBUG || targetEnvironment(simulator)
+    // A still image produces no new frames, so project it again for the new size.
+    fixture?.redeliver()
+    #endif
+  }
+
+  // MARK: Source lifecycle
+
+  private var hasSource: Bool {
+    #if DEBUG || targetEnvironment(simulator)
+    if fixture != nil { return true }
+    #endif
+    return camera != nil
+  }
+
+  private func updateActivity() {
+    let shouldRun = running && window != nil
+    if shouldRun {
+      attachSourceIfNeeded()
+    }
+    let active = shouldRun && hasSource
+    guard active != isSourceActive else {
+      return
+    }
+    isSourceActive = active
+    #if DEBUG || targetEnvironment(simulator)
+    if active { fixture?.start() } else { fixture?.stop() }
+    #endif
+    if active {
+      camera?.start { [weak self] in self?.applyRotation() }
+    } else {
+      camera?.stop()
+    }
+  }
+
+  private func replaceSource() {
+    if isSourceActive {
+      camera?.stop()
+      #if DEBUG || targetEnvironment(simulator)
+      fixture?.stop()
+      #endif
+      isSourceActive = false
+    }
+    sourceGeneration += 1
+    camera = nil
+    previewLayer.session = nil
+    rotationObservation = nil
+    rotationCoordinator = nil
+    pinchRecognizer.isEnabled = false
+    tapRecognizer.isEnabled = false
+    focusIndicator.hide()
+    #if DEBUG || targetEnvironment(simulator)
+    fixture?.imageView.removeFromSuperview()
+    fixture = nil
+    #endif
+    updateActivity()
+  }
+
+  private func attachSourceIfNeeded() {
+    guard !hasSource else {
+      return
+    }
+    let generation = sourceGeneration
+    let deliver: @MainActor @Sendable (QRScanFrame?) -> Void = { [weak self] frame in
+      self?.deliver(frame, generation: generation)
+    }
+    #if DEBUG || targetEnvironment(simulator)
     if let imageFixtureName {
-      attachImageFixture(named: imageFixtureName)
-    } else {
-      attachAVFoundation()
-    }
-    updateRunning()
-  }
-
-  private func updateRunning() {
-    if running {
-      start()
-    } else {
-      stop()
-    }
-  }
-
-  private func start() {
-    if attachedConfiguration == nil {
-      rebuildIfNeeded()
-    }
-    if imageFixtureName != nil {
-      startImageFixture()
-    } else {
-      startAVFoundation()
-    }
-  }
-
-  private func notifyPreviewReady(_ ready: Bool) {
-    if lastPreviewReady == ready {
-      return
-    }
-    lastPreviewReady = ready
-    onPreviewReady(ready)
-  }
-
-  private func startAVFoundation() {
-    guard AVCaptureDevice.authorizationStatus(for: .video) == .authorized else {
-      notifyPreviewReady(false)
-      return
-    }
-
-    // The native view can mount before the asynchronous permission request finishes.
-    // Build the session again here so cold launch does not require a navigation cycle.
-    if captureSession == nil || previewLayer == nil {
-      attachAVFoundation()
-    }
-    guard let session = captureSession, previewLayer != nil else {
-      notifyPreviewReady(false)
-      return
-    }
-
-    sessionQueue.async { [weak self] in
-      if !session.isRunning {
-        session.startRunning()
+      guard let fixture = DebugImageFixtureSource(named: imageFixtureName, deliver: deliver) else {
+        return
       }
-      DispatchQueue.main.async {
-        guard let self, self.captureSession === session else {
-          return
-        }
-        self.notifyPreviewReady(session.isRunning)
-        self.applyTorch()
-      }
-    }
-  }
-
-  private func startImageFixture() {
-    guard let fixtureImage else {
-      notifyPreviewReady(false)
+      fixture.imageView.frame = bounds
+      insertSubview(fixture.imageView, at: 0)
+      self.fixture = fixture
       return
     }
-    notifyPreviewReady(true)
-    if let fixtureFrame {
-      onObservations(fixtureFrame.detections(previewSize: hostView.bounds.size))
-      return
-    }
-    guard !fixtureDetectionInFlight else {
-      return
-    }
-    fixtureDetectionInFlight = true
-    let generation = fixtureDetectionGeneration
-    recognitionQueue.async { [weak self] in
-      let frame = try? QRScanFrame.detect(in: fixtureImage)
-      DispatchQueue.main.async {
-        guard
-          let self,
-          self.running,
-          self.fixtureDetectionGeneration == generation,
-          self.fixtureImageView != nil
-        else {
-          return
-        }
-        self.fixtureDetectionInFlight = false
-        self.fixtureFrame = frame
-        self.onObservations(frame?.detections(previewSize: self.hostView.bounds.size) ?? [])
-        // Repeat the image frame to exercise acceptance and History, like live capture.
-        for delay in [0.25, 1.0] {
-          DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-            guard
-              let self,
-              self.running,
-              self.fixtureDetectionGeneration == generation
-            else {
-              return
-            }
-            self.onObservations(frame?.detections(previewSize: self.hostView.bounds.size) ?? [])
-          }
-        }
-      }
-    }
-  }
-
-  private func stop() {
-    fixtureDetectionGeneration += 1
-    fixtureDetectionInFlight = false
-    sessionQueue.async { [captureSession] in
-      if captureSession?.isRunning == true {
-        captureSession?.stopRunning()
-      }
-    }
-  }
-
-  private func tearDown() {
-    stop()
-    mainDeliveryInFlight = false
-    lowPowerFrameSkipCounter = 0
-    previewLayer?.removeFromSuperlayer()
-    previewLayer = nil
-    videoOutput?.setSampleBufferDelegate(nil, queue: nil)
-    videoOutput = nil
-    captureSession = nil
-    captureDevice = nil
-    fixtureImageView?.removeFromSuperview()
-    fixtureImageView = nil
-    fixtureImage = nil
-    fixtureDetectionInFlight = false
-    fixtureFrame = nil
-    lastPreviewReady = nil
-    if let pinchRecognizer {
-      removeGestureRecognizer(pinchRecognizer)
-    }
-    if let tapRecognizer {
-      removeGestureRecognizer(tapRecognizer)
-    }
-    pinchRecognizer = nil
-    tapRecognizer = nil
-  }
-
-  private func attachAVFoundation() {
+    #endif
+    // The view can mount before the permission request finishes; the camera attaches on
+    // the next start after authorization, so cold launch needs no navigation cycle.
     guard
-      captureSession == nil,
       AVCaptureDevice.authorizationStatus(for: .video) == .authorized,
-      let camera = AVCaptureDevice.default(for: .video),
-      let input = try? AVCaptureDeviceInput(device: camera)
+      let camera = CaptureController(onFrame: deliver, onFocusReset: { [weak self] in self?.focusIndicator.hide() })
     else {
-      notifyPreviewReady(false)
       return
     }
+    self.camera = camera
+    previewLayer.session = camera.session
+    camera.setTorch(torchEnabled)
+    observeRotation(of: camera.device)
+    pinchRecognizer.isEnabled = true
+    tapRecognizer.isEnabled = true
+  }
 
-    let session = AVCaptureSession()
-    session.beginConfiguration()
-    session.sessionPreset = .high
-    guard session.canAddInput(input) else {
-      session.commitConfiguration()
-      notifyPreviewReady(false)
+  private func deliver(_ frame: QRScanFrame?, generation: Int) {
+    guard isSourceActive, generation == sourceGeneration else {
       return
     }
-    session.addInput(input)
+    onObservations(frame?.detections(previewSize: bounds.size) ?? [])
+  }
 
-    let output = AVCaptureVideoDataOutput()
-    output.alwaysDiscardsLateVideoFrames = true
-    output.videoSettings = [
-      kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-    ]
-    guard session.canAddOutput(output) else {
-      session.commitConfiguration()
-      notifyPreviewReady(false)
+  // MARK: Rotation
+
+  /// Follows the interface orientation, including 180° flips that cause no layout pass.
+  private func observeRotation(of device: AVCaptureDevice) {
+    let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+    rotationObservation = coordinator.observe(\.videoRotationAngleForHorizonLevelPreview) { [weak self] _, _ in
+      guard let self else { return }
+      DispatchQueue.main.async { self.applyRotation() }
+    }
+    rotationCoordinator = coordinator
+    applyRotation()
+  }
+
+  private func applyRotation() {
+    guard let rotationCoordinator, let camera else {
       return
     }
-    session.addOutput(output)
-    output.setSampleBufferDelegate(self, queue: recognitionQueue)
-    session.commitConfiguration()
-
-    do {
-      try camera.lockForConfiguration()
-      defer { camera.unlockForConfiguration() }
-      if camera.isFocusModeSupported(.continuousAutoFocus) {
-        camera.focusMode = .continuousAutoFocus
-      }
-      if camera.isExposureModeSupported(.continuousAutoExposure) {
-        camera.exposureMode = .continuousAutoExposure
-      }
-      camera.isSubjectAreaChangeMonitoringEnabled = true
-    } catch {
-      // The capture session can still scan with the camera's current settings.
+    // Buffers use the preview angle, not the horizon-level capture angle, so Vision
+    // bounds map straight onto what the preview shows even when the UI does not rotate.
+    let angle = rotationCoordinator.videoRotationAngleForHorizonLevelPreview
+    if let connection = previewLayer.connection, connection.isVideoRotationAngleSupported(angle) {
+      connection.videoRotationAngle = angle
     }
-
-    let layer = AVCaptureVideoPreviewLayer(session: session)
-    layer.videoGravity = .resizeAspectFill
-    layer.frame = hostView.bounds
-    hostView.layer.insertSublayer(layer, at: 0)
-    captureSession = session
-    previewLayer = layer
-    videoOutput = output
-    captureDevice = camera
-    installAVFoundationGestures()
-    updateVideoOrientation()
+    camera.setVideoRotationAngle(angle)
   }
 
-  private func attachImageFixture(named name: String) {
-    guard let image = loadFixtureImage(named: name), let cgImage = image.cgImage else {
-      notifyPreviewReady(false)
-      return
-    }
-    let imageView = UIImageView(image: image)
-    imageView.backgroundColor = .black
-    imageView.contentMode = .scaleAspectFill
-    imageView.clipsToBounds = true
-    imageView.frame = hostView.bounds
-    imageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    hostView.insertSubview(imageView, at: 0)
-    fixtureImageView = imageView
-    fixtureImage = cgImage
-  }
-
-  private func loadFixtureImage(named name: String) -> UIImage? {
-    guard ["normal-qr", "damaged-distant-qr"].contains(name) else {
-      return nil
-    }
-    let containingBundle = Bundle(for: ScannerPreviewView.self)
-    for bundle in [containingBundle, Bundle.main] {
-      if let resourceURL = bundle.url(
-        forResource: "ScannerEngineResources",
-        withExtension: "bundle"
-      ), let resourceBundle = Bundle(url: resourceURL),
-        let imageURL = resourceBundle.url(forResource: name, withExtension: "png"),
-        let image = UIImage(contentsOfFile: imageURL.path)
-      {
-        return image
-      }
-      if let imageURL = bundle.url(forResource: name, withExtension: "png"),
-        let image = UIImage(contentsOfFile: imageURL.path)
-      {
-        return image
-      }
-    }
-    return nil
-  }
-
-  private func installAVFoundationGestures() {
-    guard pinchRecognizer == nil else {
-      return
-    }
-    let pinch = UIPinchGestureRecognizer(target: self, action: #selector(handlePinch))
-    let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
-    addGestureRecognizer(pinch)
-    addGestureRecognizer(tap)
-    pinchRecognizer = pinch
-    tapRecognizer = tap
-  }
-
-  func captureOutput(
-    _ output: AVCaptureOutput,
-    didOutput sampleBuffer: CMSampleBuffer,
-    from connection: AVCaptureConnection
-  ) {
-    guard running, let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-      return
-    }
-    // QLT-04: coalesce while the previous frame's delivery is still pending.
-    // Detection already runs off the main thread on `recognitionQueue`; this
-    // guard additionally bounds the main-queue backlog to one delivery.
-    guard !mainDeliveryInFlight else {
-      return
-    }
-    if shouldSkipFrameForThermalOrLowPower() {
-      return
-    }
-    mainDeliveryInFlight = true
-    let frame = try? QRScanFrame.detect(in: pixelBuffer)
-    DispatchQueue.main.async { [weak self] in
-      guard let self, self.running, self.previewLayer != nil else {
-        self?.mainDeliveryInFlight = false
-        return
-      }
-      defer { self.mainDeliveryInFlight = false }
-      self.onObservations(frame?.detections(previewSize: self.hostView.bounds.size) ?? [])
-    }
-  }
-
-  /// QLT-04: decides whether the current frame can skip detection. Skips when
-  /// explicit low-power mode is on or when the OS reports serious/critical
-  /// thermal pressure (checked at most every 5s to avoid syscall churn).
-  /// Detection itself always runs on `recognitionQueue`, never on the
-  /// render path; this only lowers its rate.
-  private func shouldSkipFrameForThermalOrLowPower() -> Bool {
-    let now = Date()
-    if now.timeIntervalSince(lastThermalCheck) > 5 {
-      lastThermalCheck = now
-      let state = ProcessInfo.processInfo.thermalState
-      thermalThrottling = (state == .serious || state == .critical)
-    }
-    guard lowPowerMode || thermalThrottling else {
-      return false
-    }
-    lowPowerFrameSkipCounter += 1
-    // ~1 in 4 frames at 30fps input ≈ 7.5fps detection rate.
-    return lowPowerFrameSkipCounter % 4 != 1
-  }
-
-  private func updateVideoOrientation() {
-    let angle: CGFloat
-    switch window?.windowScene?.interfaceOrientation ?? .portrait {
-    case .portrait:
-      angle = 90
-    case .portraitUpsideDown:
-      angle = 270
-    case .landscapeLeft:
-      angle = 180
-    case .landscapeRight:
-      angle = 0
-    default:
-      angle = 90
-    }
-    for connection in [previewLayer?.connection, videoOutput?.connection(with: .video)] {
-      if connection?.isVideoRotationAngleSupported(angle) == true {
-        connection?.videoRotationAngle = angle
-      }
-    }
-  }
-
-  private func applyTorch() {
-    guard imageFixtureName == nil, let captureDevice, captureDevice.hasTorch else {
-      return
-    }
-    let mode: AVCaptureDevice.TorchMode = torchEnabled && running ? .on : .off
-    sessionQueue.async {
-      guard captureDevice.torchMode != mode, mode == .off || captureDevice.isTorchAvailable else {
-        return
-      }
-      do {
-        try captureDevice.lockForConfiguration()
-        captureDevice.torchMode = mode
-        captureDevice.unlockForConfiguration()
-      } catch {
-        // The torch can be briefly unavailable, for example while the device is hot.
-      }
-    }
-  }
-
-  private func showFocusIndicator(at point: CGPoint) {
-    focusIndicator?.removeFromSuperview()
-    let indicator = UIView(frame: CGRect(x: 0, y: 0, width: 76, height: 76))
-    indicator.center = point
-    indicator.isUserInteractionEnabled = false
-    indicator.layer.borderColor = UIColor.systemYellow.cgColor
-    indicator.layer.borderWidth = 1.5
-    indicator.layer.cornerRadius = 10
-    indicator.layer.cornerCurve = .continuous
-    indicator.alpha = 0
-    if !UIAccessibility.isReduceMotionEnabled {
-      indicator.transform = CGAffineTransform(scaleX: 1.4, y: 1.4)
-    }
-    addSubview(indicator)
-    focusIndicator = indicator
-    UIView.animate(withDuration: 0.25, delay: 0, options: [.curveEaseOut]) {
-      indicator.alpha = 1
-      indicator.transform = .identity
-    } completion: { _ in
-      UIView.animate(withDuration: 0.3, delay: 0.7, options: [.curveEaseIn]) {
-        indicator.alpha = 0
-      } completion: { _ in
-        indicator.removeFromSuperview()
-      }
-    }
-  }
+  // MARK: Gestures
 
   @objc private func handlePinch(_ recognizer: UIPinchGestureRecognizer) {
-    guard imageFixtureName == nil, let captureDevice else {
-      return
-    }
     switch recognizer.state {
     case .began:
-      pinchBaseZoomFactor = captureDevice.videoZoomFactor
+      camera?.beginZoom()
     case .changed:
-      let factor = min(
-        captureDevice.maxAvailableVideoZoomFactor,
-        max(captureDevice.minAvailableVideoZoomFactor, pinchBaseZoomFactor * recognizer.scale)
-      )
-      sessionQueue.async {
-        try? captureDevice.lockForConfiguration()
-        captureDevice.videoZoomFactor = factor
-        captureDevice.unlockForConfiguration()
-      }
+      camera?.zoom(by: recognizer.scale)
     default:
       break
     }
   }
 
   @objc private func handleTap(_ recognizer: UITapGestureRecognizer) {
-    guard imageFixtureName == nil, let previewLayer, let captureDevice else {
+    guard let camera, bounds.width > 0, bounds.height > 0 else {
       return
     }
     let location = recognizer.location(in: self)
-    guard bounds.width > 0, bounds.height > 0 else {
-      return
-    }
-    let devicePoint = previewLayer.captureDevicePointConverted(fromLayerPoint: location)
-    showFocusIndicator(at: location)
-    sessionQueue.async {
-      guard captureDevice.isConnected else {
-        return
-      }
-      try? captureDevice.lockForConfiguration()
-      if captureDevice.isFocusPointOfInterestSupported {
-        captureDevice.focusPointOfInterest = devicePoint
-        if captureDevice.isFocusModeSupported(.autoFocus) {
-          captureDevice.focusMode = .autoFocus
-        }
-      }
-      if captureDevice.isExposurePointOfInterestSupported {
-        captureDevice.exposurePointOfInterest = devicePoint
-        if captureDevice.isExposureModeSupported(.autoExpose) {
-          captureDevice.exposureMode = .autoExpose
-        }
-      }
-      captureDevice.unlockForConfiguration()
-    }
+    focusIndicator.show(at: location)
+    camera.focus(at: previewLayer.captureDevicePointConverted(fromLayerPoint: location))
   }
 }
