@@ -106,8 +106,12 @@ extension HistoryEvent {
   func applyingCurrentRedaction() -> HistoryEvent {
     guard parserVersion < ScanPayload.historyParserVersion, let original else { return self }
     let current = ScanPayload(original, format: format ?? .qr).historyEvent(at: date)
-    // Rows the current rules would store unchanged keep their saved kind and summary.
-    guard current.original != original else { return self }
+    // Rows the current rules would store unchanged keep their saved kind and summary. Either way the
+    // row is marked current, so after the next save it is never parsed on load again.
+    guard current.original != original else {
+      return HistoryEvent(id: id, acceptedAt: acceptedAt, kind: kind, summary: summary, original: original,
+        parserVersion: current.parserVersion, format: format)
+    }
     return HistoryEvent(id: id, acceptedAt: acceptedAt, kind: current.kind, summary: current.summary,
       original: current.original, parserVersion: current.parserVersion, format: format)
   }

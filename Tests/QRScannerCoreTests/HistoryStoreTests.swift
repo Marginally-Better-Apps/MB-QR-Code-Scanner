@@ -180,12 +180,22 @@ private struct ShippingEnvelope: Codable {
   defer { try? FileManager.default.removeItem(at: directory) }
   try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
   try envelope.write(to: directory.appendingPathComponent("history-v1.json"))
+  // The first open after an update re-checks older rows once; the next save marks them current.
   var store: HistoryStore?
+  let migrating = try clock.measure { store = try HistoryStore(directory: directory) }
+  #expect(store?.events.count == 5_000)
+  #expect(store?.events.allSatisfy { $0.parserVersion == ScanPayload.historyParserVersion } == true)
+  // Any save persists the current version; deleting and restoring a row is one.
+  let first = try #require(store?.events.first)
+  try store?.delete(id: first.id)
+  try store?.restore(first)
+
   let opening = try clock.measure { store = try HistoryStore(directory: directory) }
   #expect(store?.events.count == 5_000)
-  // Generous bound for unoptimized test builds; decoding is the cost, not date parsing.
+  // Generous bound for unoptimized test builds on shared runners; decoding is the cost, not date parsing.
   #expect(opening < .milliseconds(500), "Opening took \(opening)")
-  print("5,000 events: group+sort \(grouping), open \(opening)")
+  #expect(migrating < .seconds(5), "First open after an update took \(migrating)")
+  print("5,000 events: group+sort \(grouping), first open \(migrating), open \(opening)")
 }
 
 struct SeededGenerator: RandomNumberGenerator {
