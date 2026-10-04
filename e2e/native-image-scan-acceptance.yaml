@@ -12,7 +12,9 @@ appId: com.marginallybetter.qrscanner
     id: "scan-results-panel"
 - startRecording: native-image-scan-acceptance
 - takeScreenshot: native-image-decoded
-- tapOn: ".*example.com/native-image-fixture.*"
+- tapOn:
+    id: "scan-result-row"
+    text: ".*example.com/native-image-fixture.*"
 - assertVisible: "Copy"
 - tapOn: "Copy"
 - assertNotVisible: "Copy"
