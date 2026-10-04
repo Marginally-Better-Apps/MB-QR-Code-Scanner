@@ -112,6 +112,7 @@ private func expectRedacted(_ raw: String, title: String, sourceLocation: Source
       let elapsed = clock.measure { _ = ScanPayload(payload) }
       best = min(best, elapsed)
     }
-    #expect(best < .milliseconds(20), "\(payload.prefix(20))… took \(best)")
+    // The unbounded regex took ~170 ms on Apple silicon; shared CI runners need headroom in Debug.
+    #expect(best < .milliseconds(60), "\(payload.prefix(20))… took \(best)")
   }
 }

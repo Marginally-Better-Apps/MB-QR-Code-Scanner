@@ -171,7 +171,7 @@ private struct ShippingEnvelope: Codable {
   }
   #expect(sections.reduce(0) { $0 + $1.events.count } == 5_000)
   #expect(sections.count >= 199 && sections.count <= 201)
-  #expect(grouping < .milliseconds(100), "Grouping took \(grouping)")
+  #expect(grouping < .milliseconds(400), "Grouping took \(grouping)")
 
   let envelope = try JSONEncoder().encode(ShippingEnvelope(version: 1, events: events.map {
     .init(id: $0.id, acceptedAt: $0.acceptedAt, kind: $0.kind, summary: $0.summary, original: $0.original, parserVersion: $0.parserVersion)

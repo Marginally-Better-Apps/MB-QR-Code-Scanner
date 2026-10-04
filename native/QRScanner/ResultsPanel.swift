@@ -15,7 +15,7 @@ struct ResultsPanel: View {
   /// Rows are a fixed height at standard sizes. Accessibility sizes wrap titles, so the panel follows the measured content.
   private var height: CGFloat {
     let estimate = CGFloat(results.count) * rowHeight + 12
-    let content = typeSize.isAccessibilitySize ? measuredHeight ?? estimate : estimate
+    let content = typeSize.isAccessibilitySize ? (measuredHeight ?? estimate) : estimate
     return min(content, maxHeight)
   }
 
