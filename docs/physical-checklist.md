@@ -14,8 +14,8 @@ Install the native Release IPA through the PR's Autoloader link. Do not uninstal
 - Open a result's native menu, copy, share, and inspect full details. Use each row's quick action, and confirm Copy shows a brief confirmation and Wi-Fi offers Copy Password.
 - Turn the flashlight on in a dark room, then background the app. It should turn off and stay off on return. Tap to focus and confirm the focus square appears.
 - Swipe a History row, tap Delete, Undo, then repeat on that same row and a different row.
-- Check contacts, calendar, phone, messages, maps, and authentication handoffs. Never use real credentials for recordings.
+- Check contacts, calendar, phone, messages, maps, and authentication handoffs. Add Contact and Add Event should open the system editors without a Contacts or Calendars permission prompt. Never use real credentials for recordings.
 - Background and resume. Capture should stop while inactive; secret results must disappear.
 - Repeat on iPad and with VoiceOver and Reduce Transparency.
 
-Automated coverage is in `Tests/QRScannerCoreTests`, `scripts/test-native-qr-decoder.sh`, and `e2e/native-ui-acceptance.yaml`. These checks do not replace real-camera verification.
+Automated coverage is in `Tests/QRScannerCoreTests`, `scripts/test-native-qr-decoder.sh`, and the Maestro flows in `e2e/`. These checks do not replace real-camera verification.

@@ -13,18 +13,27 @@ permissions:
 
 jobs:
   conventional-title:
-    name: Validate release title
+    name: Validate conventional title
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - name: Validate title
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           set -euo pipefail
-          if [[ "$PR_TITLE" =~ ^fix(\([^\)]+\))?:[[:space:]].+ ]] || \
-             [[ "$PR_TITLE" =~ ^feat(\([^\)]+\))?(!)?:[[:space:]].+ ]]; then
-            exit 0
+          TYPES='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
+          if [[ ! "$PR_TITLE" =~ ^($TYPES)(\([^\)]+\))?(!)?:[[:space:]]+[^[:space:]] ]]; then
+            echo "::error title=Non-conventional PR title::Use '<type>[(scope)][!]: summary' where type is one of ${TYPES//|/, }. Got: $PR_TITLE"
+            exit 1
           fi
 
-          echo "This title will not create a release: $PR_TITLE"
-          echo "That is valid. Release titles are fix:, feat:, or feat!: (scopes are allowed)."
+          if [[ "$PR_TITLE" =~ ^fix(\([^\)]+\))?:[[:space:]] ]]; then
+            echo "Squash-merging this PR releases a patch version."
+          elif [[ "$PR_TITLE" =~ ^feat(\([^\)]+\))?!:[[:space:]] ]]; then
+            echo "Squash-merging this PR releases a major version."
+          elif [[ "$PR_TITLE" =~ ^feat(\([^\)]+\))?:[[:space:]] ]]; then
+            echo "Squash-merging this PR releases a minor version."
+          else
+            echo "Valid title. Only fix:, feat:, and feat!: titles create a release."
+          fi

@@ -15,26 +15,17 @@ xcuserdata/
 __pycache__/
 *.pyc
 
-# Maestro
+# Maestro and test evidence
 .maestro/
 artifacts/
+
+# Local tools
 .gala/
+.claude/worktrees/
 
-# Node / Expo
-node_modules/
-.expo/
-dist/
-web-build/
-expo-env.d.ts
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-*.tsbuildinfo
-.env*.local
-
-# generated native folders
-/android
-/ios
-
-# Metro
-.metro-health-check*
+# Signing material and secrets
+*.p12
+*.p8
+*.mobileprovision
+*.cer
+.env*

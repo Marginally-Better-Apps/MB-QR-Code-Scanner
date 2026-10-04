@@ -15,31 +15,42 @@ permissions:
   contents: read
 
 jobs:
-  native:
-    name: Native tests and iOS build
-    runs-on: macos-15
-    timeout-minutes: 25
+  tooling:
+    name: Release tooling tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - name: Select Xcode 26+
-        run: |
-          set -euo pipefail
-          shopt -s nullglob
-          candidates=(/Applications/Xcode_26*.app /Applications/Xcode_27*.app)
-          test ${#candidates[@]} -gt 0
-          XCODE_APP="$(printf '%s\n' "${candidates[@]}" | sort -V | tail -1)"
-          sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
-          xcodebuild -version
-      - name: Test Swift parser, History migration, and scan lifecycle
-        run: swift test
-      - name: Test native image decoding and preview geometry
-        run: ./scripts/test-native-qr-decoder.sh
-      - name: Test release tooling
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Test versioning, simulator selection, and Autoloader page
         run: |
           python3 scripts/test-semantic-version.py
           python3 scripts/test-select-simulator.py
           python3 scripts/test-write-autoloader-page.py
-          python3 scripts/test-ci-workflows.py
+
+  native:
+    name: Native tests and iOS build
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - name: Select Xcode 26+
+        id: xcode
+        uses: ./.github/actions/select-xcode
+      - name: Cache SwiftPM build
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .build
+          key: spm-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.fingerprint }}-${{ hashFiles('Package.swift', 'Sources/**', 'Tests/**') }}
+          restore-keys: |
+            spm-${{ runner.os }}-${{ runner.arch }}-${{ steps.xcode.outputs.fingerprint }}-
+      - name: Test Swift parser, History migration, and scan lifecycle
+        run: swift test
+      - name: Test native image decoding and preview geometry
+        run: ./scripts/test-native-qr-decoder.sh
       - name: Build standalone iOS app
         run: |
           xcodebuild build -project native/QRScanner.xcodeproj -scheme QRScanner \
@@ -47,15 +58,20 @@ jobs:
             -derivedDataPath DerivedData/CI CODE_SIGNING_ALLOWED=NO
           python3 scripts/test-built-app.py DerivedData/CI/Build/Products/Release-iphonesimulator/QRScanner.app
       - name: Set up Java for Maestro
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: temurin
           java-version: '17'
+      - name: Cache Maestro
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.maestro
+          key: maestro-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/install-maestro.sh') }}
       - name: Install Maestro
         run: |
-          curl -Ls https://get.maestro.mobile.dev | bash
+          ./scripts/install-maestro.sh
           echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
-      - name: Verify native multi-code panel and repeat swipe-delete
+      - name: Verify native multi-code panel, repeat swipe-delete, and acceptance journey
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: "300000"
         run: |
@@ -66,9 +82,10 @@ jobs:
           xcrun simctl install "$DEVICE_ID" DerivedData/CI/Build/Products/Release-iphonesimulator/QRScanner.app
           maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/native-image-scan-acceptance.yaml
           maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/native-ui-acceptance.yaml
+          maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/acceptance-journey.yaml
       - name: Upload UI evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: native-ui-evidence
           path: artifacts/native-ui
