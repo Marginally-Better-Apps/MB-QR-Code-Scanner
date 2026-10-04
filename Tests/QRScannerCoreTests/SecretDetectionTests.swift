@@ -116,3 +116,35 @@ private func expectRedacted(_ raw: String, title: String, sourceLocation: Source
     #expect(best < .milliseconds(60), "\(payload.prefix(20))… took \(best)")
   }
 }
+
+@Test func moreSecretFormatsAreRedacted() {
+  let secrets = [
+    "1. abandon 2. ability 3. able 4. about 5. above 6. absent 7. absorb 8. abstract 9. absurd 10. abuse 11. access 12. accident",
+    "abandon, ability, able, about, above, absent, absorb, abstract, absurd, abuse, access, accident",
+    String(repeating: "0000", count: 11) + "2047",
+    "nsec1" + String(repeating: "q", count: 58),
+    "0x" + String(repeating: "ab", count: 32),
+    "\u{FEFF}otpauth://totp/Example:a@example.com?secret=JBSWY3DPEHPK3PXP",
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.signature",
+  ]
+  for secret in secrets {
+    let payload = ScanPayload(secret)
+    #expect(payload.isSensitive, "\(secret.prefix(24))")
+    #expect(payload.historyEvent(at: Date()).original == nil, "\(secret.prefix(24))")
+  }
+  // A long number that is not 4-digit word indexes stays ordinary text.
+  #expect(!ScanPayload(String(repeating: "9999", count: 12)).isSensitive)
+}
+
+@Test func linksThatFallBackToTextAreStillSavedWithoutCredentials() {
+  let cases = [
+    ("https://user:pa55word@example.com/", "https://example.com/"),
+    ("ftp://user:pass@host/files", "ftp://host/files"),
+    ("https://example.com/reset?token=abc def", "https://example.com/reset"),
+  ]
+  for (link, saved) in cases {
+    let event = ScanPayload(link).historyEvent(at: Date())
+    #expect(event.original == saved)
+    #expect(event.summary == saved)
+  }
+}

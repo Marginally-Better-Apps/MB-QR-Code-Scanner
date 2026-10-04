@@ -100,6 +100,19 @@ enum HistoryTimestamp {
   static func string(from date: Date) -> String { writer.string(from: date) }
 }
 
+extension HistoryEvent {
+  /// Rows saved under older parser rules are re-checked on load, so secrets those versions kept (boarding passes,
+  /// recovery phrases, token links) are hidden now and dropped from the file at the next save. Loading never writes.
+  func applyingCurrentRedaction() -> HistoryEvent {
+    guard parserVersion < ScanPayload.historyParserVersion, let original else { return self }
+    let current = ScanPayload(original, format: format ?? .qr).historyEvent(at: date)
+    // Rows the current rules would store unchanged keep their saved kind and summary.
+    guard current.original != original else { return self }
+    return HistoryEvent(id: id, acceptedAt: acceptedAt, kind: current.kind, summary: current.summary,
+      original: current.original, parserVersion: current.parserVersion, format: format)
+  }
+}
+
 /// Persistent scan History. `HistoryStore` is the file-backed implementation.
 protocol HistoryRepository: AnyObject {
   /// Newest first.
@@ -129,7 +142,7 @@ final class HistoryStore: HistoryRepository {
       let data = try Data(contentsOf: fileURL)
       let envelope = try JSONDecoder().decode(Envelope.self, from: data)
       guard envelope.version == 1 else { throw StoreError.unsupportedFormat }
-      events = Self.newestFirst(envelope.events)
+      events = Self.newestFirst(envelope.events).map { $0.applyingCurrentRedaction() }
     } else {
       events = []
     }

@@ -196,3 +196,36 @@ struct SeededGenerator: RandomNumberGenerator {
     return state
   }
 }
+
+@Test func secretsSavedByOlderVersionsAreHiddenAndDroppedAtTheNextSave() throws {
+  let directory = temporaryDirectory()
+  let pass = "M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 326J001A0025 100"
+  let phrase = "abandon ability able about above absent absorb abstract absurd abuse access accident"
+  let json = """
+    {"version":1,"events":[
+    {"id":"pass","acceptedAt":"2026-09-22T12:00:03.000Z","kind":"text","summary":"\(pass)","original":"\(pass)","parserVersion":3},
+    {"id":"phrase","acceptedAt":"2026-09-22T12:00:02.000Z","kind":"text","summary":"\(phrase)","original":"\(phrase)","parserVersion":3},
+    {"id":"reset","acceptedAt":"2026-09-22T12:00:01.000Z","kind":"url","summary":"example.com/reset","original":"https://example.com/reset?token=abc","parserVersion":3},
+    {"id":"plain","acceptedAt":"2026-09-22T12:00:00.000Z","kind":"url","summary":"example.com/old","original":"https://example.com/old","parserVersion":1}
+    ]}
+    """
+  let file = try writeHistory(json, to: directory)
+  let store = try HistoryStore(directory: directory)
+  let byID = Dictionary(uniqueKeysWithValues: store.events.map { ($0.id, $0) })
+
+  #expect(byID["pass"]?.original == nil)
+  #expect(byID["pass"]?.category == .boardingPass)
+  #expect(byID["phrase"]?.original == nil)
+  #expect(byID["phrase"]?.summary == nil)
+  #expect(byID["reset"]?.original == "https://example.com/reset")
+  #expect(byID["plain"]?.original == "https://example.com/old")
+  #expect(store.events.map(\.id) == ["pass", "phrase", "reset", "plain"])
+  // Loading alone leaves the file untouched.
+  #expect(try String(contentsOf: file, encoding: .utf8) == json)
+
+  try store.delete(id: "plain")
+  let saved = try String(contentsOf: file, encoding: .utf8)
+  #expect(!saved.contains("DESMARAIS"))
+  #expect(!saved.contains("abandon"))
+  #expect(!saved.contains("token=abc"))
+}

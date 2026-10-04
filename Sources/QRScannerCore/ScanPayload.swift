@@ -13,9 +13,9 @@ struct ScanPayload: Identifiable, Equatable {
     let hidden: Bool
   }
 
-  /// Written to every History event. History never reads it back; it records which parser
-  /// produced the summary.
-  static let historyParserVersion = 3
+  /// Written to every History event. Rows from an older version are re-redacted on load
+  /// (`HistoryEvent.applyingCurrentRedaction`); bump it whenever History redaction rules change.
+  static let historyParserVersion = 4
 
   let original: String
   let format: CodeFormat

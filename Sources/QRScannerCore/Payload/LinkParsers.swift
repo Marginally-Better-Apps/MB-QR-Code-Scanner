@@ -31,7 +31,7 @@ enum WebURLParser: PayloadKindParser {
     guard let web = URLComponents(string: bare ? "https://\(raw)" : raw), let host = web.host, !host.isEmpty,
       web.user == nil, web.password == nil, !(web.encodedHost ?? "").contains("%"),
       !raw.contains("\\"), !raw.contains(" "), !TextSanitizer.containsControls(raw), let url = web.url else {
-      return .text(input)
+      return LinkRedaction.textFallback(input)
     }
     let insecure = web.scheme?.lowercased() == "http" ? "http://" : ""
     let displayHost = url.host ?? host
@@ -55,7 +55,7 @@ enum CustomSchemeParser: PayloadKindParser {
     // "Note: buy milk" parses as scheme "note"; a real link never contains whitespace.
     guard !blockedSchemes.contains(input.scheme), !input.raw.contains(where: \.isWhitespace),
       !TextSanitizer.containsControls(input.raw), input.components?.user == nil, input.components?.password == nil,
-      let url = input.components?.url else { return .text(input) }
+      let url = input.components?.url else { return LinkRedaction.textFallback(input) }
     let redaction = LinkRedaction.historyForm(input.original)
     return ParsedPayload(kind: .customScheme, title: input.raw, details: input.raw, openURL: url,
       summary: redaction.value, historyOriginal: redaction.value)
@@ -78,6 +78,20 @@ enum LinkRedaction {
   struct HistoryForm: Equatable {
     let value: String
     let keepsPath: Bool
+  }
+
+  /// A malformed link shown as plain text is still saved without its password or credential parameters.
+  static func textFallback(_ input: PayloadInput) -> ParsedPayload {
+    let saved = historyForm(withoutUserInfo(input.original)).value
+    return ParsedPayload(kind: .text, title: input.raw, details: input.raw, summary: saved, historyOriginal: saved)
+  }
+
+  /// Drops `user:password@` from a link's authority.
+  static func withoutUserInfo(_ link: String) -> String {
+    guard let schemeEnd = link.range(of: "://") else { return link }
+    let authorityEnd = link[schemeEnd.upperBound...].firstIndex { "/?#".contains($0) } ?? link.endIndex
+    guard let at = link[schemeEnd.upperBound..<authorityEnd].lastIndex(of: "@") else { return link }
+    return String(link[..<schemeEnd.upperBound]) + String(link[link.index(after: at)...])
   }
 
   static func historyForm(_ link: String) -> HistoryForm {

@@ -115,12 +115,18 @@ struct HistoryScreen: View {
     }
     .contextMenu {
       if let payload {
-        Button("Copy", systemImage: "doc.on.doc") {
-          ScanPayload.copy(payload.original)
-          showToast(String(localized: "Copied"))
+        // Same rules as scan results, so sensitive and Wi-Fi rows never export their raw code.
+        let actions = PayloadActionRules.actions(for: payload).actions
+        if let text = PayloadActionRules.clipboardText(for: .copy, payload: payload) {
+          Button("Copy", systemImage: "doc.on.doc") {
+            ScanPayload.copy(text)
+            showToast(String(localized: "Copied"))
+          }
         }
-        Button("Share", systemImage: "square.and.arrow.up") {
-          route = ActionRoute(kind: .share, payload: payload)
+        if actions.contains(.share) {
+          Button("Share", systemImage: "square.and.arrow.up") {
+            route = ActionRoute(kind: .share, payload: payload)
+          }
         }
         Divider()
       }

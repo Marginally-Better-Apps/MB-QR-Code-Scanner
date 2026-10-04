@@ -69,11 +69,33 @@ enum SecretParser: PayloadKindParser {
         return .privateKey
       }
     }
-    if isWalletImportFormat(input.raw) || (lower.contains("prv") && containsExtendedPrivateKey(scanned)) { return .privateKey }
-    if isRecoveryPhrase(input.raw) { return .recoveryPhrase }
-    // Tokens inside links are handled by History redaction so magic links still open.
-    if !isLinkCandidate(input), containsJWT(scanned) { return .accessToken }
+    if isWalletImportFormat(input.raw) || (lower.contains("prv") && containsExtendedPrivateKey(scanned))
+      || isRawPrivateKey(input.raw) { return .privateKey }
+    if isRecoveryPhrase(input.raw) || isSeedQR(input.raw) { return .recoveryPhrase }
+    // Tokens inside links are handled by History redaction so magic links still open. A bare token
+    // whose last segment happens to look like a domain is still a token.
+    if containsJWT(scanned), !isLinkCandidate(input) || !input.raw.contains(where: { $0 == "/" || $0 == ":" }) {
+      return .accessToken
+    }
     return nil
+  }
+
+  /// Nostr `nsec1…` keys, and 64 hex digits with or without `0x` (Ethereum and other raw private
+  /// keys). A transaction hash has the same shape; hiding one only costs a copy.
+  static func isRawPrivateKey(_ raw: String) -> Bool {
+    raw.range(of: #"^(?i:nsec1[02-9ac-hj-np-z]{58})$"#, options: .regularExpression) != nil
+      || raw.range(of: #"^(?:0[xX])?[0-9a-fA-F]{64}$"#, options: .regularExpression) != nil
+  }
+
+  /// SeedSigner Standard SeedQR: 12 or 24 four-digit BIP39 word indexes (each below 2048).
+  static func isSeedQR(_ raw: String) -> Bool {
+    guard raw.count == 48 || raw.count == 96, raw.allSatisfy({ $0.isASCII && $0.isNumber }) else { return false }
+    var digits = Substring(raw)
+    while !digits.isEmpty {
+      guard let index = Int(digits.prefix(4)), index < 2048 else { return false }
+      digits = digits.dropFirst(4)
+    }
+    return true
   }
 
   static func mentionsPasskey(_ input: PayloadInput) -> Bool {
@@ -99,8 +121,10 @@ enum SecretParser: PayloadKindParser {
   /// rare ordinary sentence of only list words is also hidden, which errs on the safe side.
   static func isRecoveryPhrase(_ raw: String) -> Bool {
     guard raw.count <= maxRecoveryPhraseLength else { return false }
-    let words = raw.split(whereSeparator: \.isWhitespace)
-    guard recoveryPhraseWordCounts.contains(words.count) else { return false }
+    // Commas, line breaks, and numbering ("1. abandon 2. ability …") are common in exported phrases.
+    let words = raw.split { !$0.isLetter }.filter { !$0.isEmpty }
+    guard recoveryPhraseWordCounts.contains(words.count),
+      raw.allSatisfy({ $0.isLetter || $0.isNumber || $0.isWhitespace || ".,;:)-".contains($0) }) else { return false }
     return words.allSatisfy { BIP39Words.english.contains($0.lowercased()) }
   }
 
