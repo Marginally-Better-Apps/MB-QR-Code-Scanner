@@ -1,9 +1,15 @@
 import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
 
 struct ScannerScreen: View {
   @Bindable var model: ScannerViewModel
   @State private var detail: ScanPayload?
   @State private var route: ActionRoute?
+  @State private var photoImport = PhotoImportController()
+  @State private var selectedPhoto: PhotosPickerItem?
+  @State private var showingPhotos = false
+  @State private var dropTargeted = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.scenePhase) private var scenePhase
 
@@ -11,7 +17,9 @@ struct ScannerScreen: View {
     GeometryReader { geometry in
       ZStack {
         Color.black.ignoresSafeArea()
-        if model.cameraState == .ready {
+        if model.showingPhotoResults {
+          Color.black.ignoresSafeArea()
+        } else if model.cameraState == .ready {
           if !model.usesSimulatedScene {
             CameraPreview(model: model).ignoresSafeArea()
           } else {
@@ -25,7 +33,7 @@ struct ScannerScreen: View {
       }
       .overlay(alignment: .top) {
         HStack {
-          if model.hasTorch && model.cameraState == .ready {
+          if model.hasTorch && model.cameraState == .ready && !model.showingPhotoResults {
             Button { model.torchOn.toggle() } label: {
               Image(systemName: model.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
                 .font(.system(size: 20)).frame(width: 44, height: 44)
@@ -40,22 +48,37 @@ struct ScannerScreen: View {
             .accessibilityIdentifier("toggle-torch")
           }
           Spacer()
-          Button { model.showingHistory = true } label: {
-            Image(systemName: "clock.arrow.circlepath").font(.system(size: 20)).frame(width: 44, height: 44)
+          HStack(spacing: 0) {
+            Button {
+              selectedPhoto = nil
+              model.beginPhotoImport()
+              showingPhotos = true
+            } label: {
+              Image(systemName: "photo").font(.system(size: 20)).frame(width: 48, height: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Scan a Photo")
+            .accessibilityIdentifier("open-photos")
+            .disabled(photoImport.isLoading)
+            Divider().frame(height: 20)
+            Button { model.showingHistory = true } label: {
+              Image(systemName: "clock.arrow.circlepath").font(.system(size: 20)).frame(width: 48, height: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("History")
+            .accessibilityIdentifier("open-history")
           }
-          .modifier(NativeButton())
-          .buttonBorderShape(.circle)
-          .accessibilityLabel("History")
-          .accessibilityIdentifier("open-history")
+          .buttonStyle(.plain)
+          .modifier(NativeGlass(cornerRadius: 24, interactive: true))
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
       }
       .safeAreaInset(edge: .bottom, spacing: 0) {
         ZStack(alignment: .bottom) {
-          if model.cameraState == .ready {
+          if model.cameraState == .ready || model.showingPhotoResults || !model.results.isEmpty {
             let empty = model.results.isEmpty
-            if empty {
+            if empty && !model.showingPhotoResults {
               ScanHint().transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
             }
             // Stays mounted when empty so a sheet or dialog opened from a result survives the
@@ -73,6 +96,27 @@ struct ScannerScreen: View {
         .padding(.bottom, 8)
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy, value: model.results)
       }
+      .overlay {
+        if photoImport.isLoading {
+          VStack(spacing: 12) {
+            ProgressView("Reading Photo")
+            Button("Cancel") { photoImport.cancel(model) }
+          }
+          .padding(24).modifier(NativeGlass())
+        } else if dropTargeted {
+          Label("Drop a photo to scan", systemImage: "photo")
+            .padding(24).modifier(NativeGlass())
+            .allowsHitTesting(false)
+        }
+      }
+      .overlay(alignment: .center) {
+        if model.showingPhotoResults && !photoImport.isLoading {
+          Button("Scan Another", systemImage: "camera.viewfinder") { model.resumeCamera() }
+            .controlSize(.large).modifier(NativeButton())
+            .accessibilityIdentifier("resume-camera")
+        }
+      }
+      .onDrop(of: [UTType.image], isTargeted: $dropTargeted) { photoImport.drop($0, into: model) }
     }
     #if DEBUG || targetEnvironment(simulator)
     .overlay(alignment: .leading) {
@@ -81,12 +125,29 @@ struct ScannerScreen: View {
     #endif
     .toolbar(.hidden, for: .navigationBar)
     .navigationDestination(isPresented: $model.showingHistory) {
-      HistoryScreen(model: model.history)
+      HistoryScreen(model: model.history, scanner: model)
+    }
+    .photosPicker(isPresented: $showingPhotos, selection: $selectedPhoto, matching: .images, preferredItemEncoding: .current)
+    .onChange(of: selectedPhoto) { _, photo in
+      if let photo { photoImport.load(photo, into: model) }
+    }
+    .onChange(of: showingPhotos) { _, showing in
+      if !showing && selectedPhoto == nil && !photoImport.isLoading { model.cancelPhotoImport() }
+    }
+    .alert("Photo Scan", isPresented: Binding(get: { photoImport.failure != nil }, set: { if !$0 { photoImport.failure = nil } })) {
+      Button("OK", role: .cancel) {}
+    } message: {
+      if photoImport.failure == .noCodes { Text("No QR codes or barcodes were found in this photo. Try a clearer image.") }
+      else { Text("This image couldn’t be read. Try another photo.") }
     }
     .sheet(item: $detail) { ResultDetail(payload: $0) }
     .sheet(item: $route) { route in NativeActionSheet(route: route) }
     .onChange(of: scenePhase) { _, phase in
       if phase == .background {
+        photoImport.cancel(model)
+        selectedPhoto = nil
+        showingPhotos = false
+        photoImport.failure = nil
         detail = nil
         route = nil
       }

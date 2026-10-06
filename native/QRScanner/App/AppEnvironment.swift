@@ -9,9 +9,10 @@ enum AppEnvironment {
     let history = HistoryViewModel(searchText: { HistoryRowPresentation($0).searchText }, open: openHistory)
     #if DEBUG || targetEnvironment(simulator)
     return ScannerViewModel(camera: LaunchFixtures.camera ?? SystemCameraAuthorizer(), history: history,
-      feedback: SystemScanFeedback(), simulatedScene: LaunchFixtures.simulatedScene, imageFixture: LaunchFixtures.imageFixture)
+      feedback: SystemScanFeedback(), simulatedScene: LaunchFixtures.simulatedScene, imageFixture: LaunchFixtures.imageFixture,
+      location: LaunchFixtures.location ?? SystemScanLocation())
     #else
-    return ScannerViewModel(camera: SystemCameraAuthorizer(), history: history, feedback: SystemScanFeedback())
+    return ScannerViewModel(camera: SystemCameraAuthorizer(), history: history, feedback: SystemScanFeedback(), location: SystemScanLocation())
     #endif
   }
 

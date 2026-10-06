@@ -106,6 +106,14 @@ struct ScanSession {
     results.removeAll { $0.id == id }
   }
 
+  /// A deliberate photo import accepts every unique code immediately, without frame timing.
+  mutating func acceptPhoto(_ detections: [Detection]) -> [Detection] {
+    self = ScanSession(timing: timing)
+    var seen: Set<String> = []
+    results = detections.filter { !$0.payload.isEmpty && seen.insert($0.id).inserted }
+    return results
+  }
+
   /// Stops bookkeeping while capture is stopped in the foreground, such as while History is shown.
   /// Results and dedupe state survive, so a code that is still in view is not recorded again.
   mutating func suspend(at now: Date) {

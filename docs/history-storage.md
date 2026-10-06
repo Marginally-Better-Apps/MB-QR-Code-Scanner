@@ -15,3 +15,7 @@ Deletion is committed before a row disappears. Undo restores the exact event and
 History is grouped by calendar day in the current time zone. Headers read Today, Yesterday, the weekday for two to six days ago, then the full date, all localized.
 
 Migration, corruption handling, persistence, ordering, the size cap, day grouping, and repeated delete/undo are covered by `swift test`.
+
+## Optional scan location
+
+The version-1 envelope and file path are unchanged. Events may add an optional `location` object with `latitude`, `longitude`, `placeName`, and ISO 8601 `capturedAt`. Legacy events omit it, and legacy decoders ignore the new key. Redaction, delete, Undo, and reload preserve metadata. Location enrichment updates only an event that still exists, so a delayed fix cannot restore a deleted scan. Place text and coordinate fallbacks are searchable. Live scans use only a fix within 60 seconds of acceptance; photo imports omit location.

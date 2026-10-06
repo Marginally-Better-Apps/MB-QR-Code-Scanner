@@ -1,3 +1,4 @@
 "NSCameraUsageDescription" = "QR Scanner lee códigos QR, códigos de barras y otros códigos en este dispositivo. Los fotogramas de la cámara nunca se suben ni se guardan.";
 "NSContactsUsageDescription" = "Añade un contacto escaneado con tu permiso.";
 "NSCalendarsWriteOnlyAccessUsageDescription" = "Añade un evento escaneado con tu permiso.";
+"NSLocationWhenInUseUsageDescription" = "Guarda opcionalmente dónde escaneas para encontrar escaneos por lugar en el historial. Nunca se sigue tu ubicación en segundo plano.";

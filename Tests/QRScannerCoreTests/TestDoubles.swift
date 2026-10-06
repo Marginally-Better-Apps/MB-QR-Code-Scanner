@@ -104,6 +104,13 @@ final class InMemoryHistory: HistoryRepository {
     if failWrites { throw Failure() }
     events = []
   }
+
+  func attachLocation(_ location: ScanLocation, to ids: [String]) throws {
+    if failWrites { throw Failure() }
+    for index in events.indices where ids.contains(events[index].id) && location.isUsable(at: events[index].date) {
+      events[index].location = location
+    }
+  }
 }
 
 func historyEvent(_ id: String, _ acceptedAt: String, kind: String = "url", original: String? = nil) -> HistoryEvent {

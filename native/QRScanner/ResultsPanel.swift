@@ -127,10 +127,11 @@ struct ResultMenu<Label: View>: View {
 struct ResultDetail: View {
   let payload: ScanPayload
   var scannedAt: Date? = nil
+  var scanLocation: ScanLocation? = nil
   @State private var route: ActionRoute?
 
   var body: some View {
-    ResultDetailContent(payload: payload, scannedAt: scannedAt)
+    ResultDetailContent(payload: payload, scannedAt: scannedAt, scanLocation: scanLocation)
       .payloadActionHost(onAction: { route = $0 })
       .toastHost()
       .presentationDetents([.medium, .large])
@@ -141,6 +142,7 @@ struct ResultDetail: View {
 private struct ResultDetailContent: View {
   let payload: ScanPayload
   let scannedAt: Date?
+  let scanLocation: ScanLocation?
   @Environment(\.dismiss) private var dismiss
   @Environment(\.payloadActions) private var context
   @Environment(\.colorSchemeContrast) private var contrast
@@ -180,6 +182,15 @@ private struct ResultDetailContent: View {
                 Text(scannedAt.formatted(date: .abbreviated, time: .shortened))
                 Text(scannedAt.formatted(.relative(presentation: .named))).font(.footnote)
               }
+            }
+          }
+        }
+        if let scanLocation {
+          Section("Scan Location") {
+            Label(scanLocation.displayName, systemImage: "mappin.and.ellipse")
+            if scanLocation.placeName != nil {
+              Text(String(format: "%.4f, %.4f", scanLocation.latitude, scanLocation.longitude))
+                .font(.footnote).foregroundStyle(.secondary)
             }
           }
         }

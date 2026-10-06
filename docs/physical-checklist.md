@@ -59,3 +59,10 @@ Simulator tests, `swift test`, and the Maestro flows cannot check the real camer
 ## Performance
 
 Follow `docs/performance-budgets.md`: ten minutes of continuous capture on the older and current iPhone, recording median and worst-case time to a result, memory, thermal state, and behaviour in Low Power Mode. The slow-regex stress card on the test sheet must appear instantly without stutter.
+
+## Photo import and scan location
+
+- Select a QR photo from the shared Photos/History pill with camera access allowed and denied. Test a screenshot, HEIC camera photo, rotated photo, multiple codes, blank image, iCloud download, and cancel. Verify results and safe History persistence.
+- Drag an image from Photos and Files onto Scanner on iPhone and iPad, including Split View. Verify import feedback and no camera bounds on photo results.
+- Enable Save scan location in History settings. Allow approximate location, scan a code, and search its place name in History. Test denied permission, Location Services off, airplane mode, Settings recovery, and turning the setting off. Imported photos must never use the current location.
+- Delete or clear a scan while its location resolves. It must stay deleted. Undo must restore the exact saved event.

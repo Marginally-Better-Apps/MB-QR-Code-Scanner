@@ -1,6 +1,6 @@
 # Native privacy review
 
-The app contains no analytics, third-party runtime, or JavaScript bundle. AVFoundation frames are processed on-device by Vision/Core Image and are not written to disk. Product lookup is the only network feature. It sends the validated retail number to the Open Food Facts API after the user taps "Look Up Product". It does not upload camera images or make requests while scanning.
+The app contains no analytics, third-party runtime, or JavaScript bundle. AVFoundation frames are processed on-device by Vision/Core Image and are not written to disk. Product lookup and opt-in Apple reverse geocoding are the network features. Selected and dropped images are decoded on device and never persisted. Scan location is off by default and uses one foreground fix, with no continuous or background tracking. Reverse geocoding sends coordinates to Apple to find place names; lookup failure still permits local coordinates in History. Photo imports are never given the phone’s current location. It sends the validated retail number to the Open Food Facts API after the user taps "Look Up Product". It does not upload camera images or make requests while scanning.
 
 Only explicit user actions open destinations or invoke the native share, contact, or calendar interfaces. Add Contact and Add Event present the system editors (`CNContactViewController(forNewContact:)` and the out-of-process `EKEventEditViewController` on iOS 17+), so the app never reads Contacts or Calendars and iOS does not ask for those permissions. The usage strings stay in `Info.plist` as a safeguard. Dangerous schemes and malformed web destinations have no open action. Display strings neutralize controls and bidirectional formatting characters; copying a standard result preserves its original payload.
 
@@ -21,7 +21,7 @@ This matches opening a link the user chose. The privacy policy names Open Food F
 
 ## Required-reason APIs
 
-The manifest declares `NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1` (data accessible only to the app). `UserDefaults` reads Maestro fixture launch arguments and is compiled only into Debug or simulator builds. The declaration is harmless for device Release builds.
+The manifest declares `NSPrivacyAccessedAPICategoryUserDefaults` with reason `CA92.1` (data accessible only to the app). `UserDefaults` stores the local Save scan location preference. It also reads Maestro fixture launch arguments in Debug or simulator builds. The declaration is harmless for device Release builds.
 
 As of this review there are no file timestamp, system boot time, disk space, or active keyboard API calls in `native/QRScanner` or `Sources/QRScannerCore`. Re-check before release if code adds `attributesOfItem`, resource-value date keys, `systemUptime`, `mach_absolute_time`, or volume capacity keys.
 

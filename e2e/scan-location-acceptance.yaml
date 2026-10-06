@@ -1,0 +1,34 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      scannerFixture: "url"
+      locationFixture: "chicago"
+- extendedWaitUntil:
+    visible: ".*example.com/fixture.*"
+    timeout: 20000
+- startRecording: scan-location-acceptance
+- tapOn:
+    id: "open-history"
+- assertVisible: ".*Millennium Park, Chicago.*"
+- tapOn:
+    id: "history-row"
+- swipe:
+    from:
+      text: "Sheet Grabber"
+    direction: UP
+- assertVisible: "Scan Location"
+- assertVisible: ".*Millennium Park, Chicago.*"
+- tapOn: "Done"
+- swipe:
+    direction: DOWN
+- tapOn: "Search History"
+- inputText: "chicago"
+- assertVisible:
+    id: "history-row"
+    text: ".*example.com/fixture.*"
+- eraseText
+- inputText: "missing place"
+- assertVisible: ".*No Results.*"
+- stopRecording

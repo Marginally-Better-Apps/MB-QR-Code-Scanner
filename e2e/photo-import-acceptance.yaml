@@ -1,0 +1,36 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "denied"
+- assertVisible:
+    id: "open-photos"
+- startRecording: photo-import-acceptance
+- tapOn:
+    id: "open-photos"
+- extendedWaitUntil:
+    visible: "Photos"
+    timeout: 20000
+- tapOn:
+    text: "Photo,.*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*example.com/native-image-fixture.*"
+    timeout: 60000
+- assertVisible:
+    id: "resume-camera"
+- tapOn:
+    id: "open-history"
+- assertVisible:
+    id: "history-row"
+    text: ".*example.com/native-image-fixture.*"
+- tapOn:
+    id: "history-settings"
+- assertVisible: "Save scan location"
+- tapOn: "Done"
+- tapOn: "Back"
+- tapOn:
+    id: "resume-camera"
+- assertVisible: "Camera Access Is Off"
+- stopRecording

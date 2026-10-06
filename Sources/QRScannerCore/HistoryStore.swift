@@ -8,10 +8,11 @@ struct HistoryEvent: Codable, Identifiable, Equatable {
   let original: String?
   let parserVersion: Int
   var format: CodeFormat? = nil
+  var location: ScanLocation? = nil
   /// Parsed once from `acceptedAt`; sorting and grouping never touch a formatter.
   let date: Date
 
-  init(id: String, acceptedAt: String, kind: String, summary: String?, original: String?, parserVersion: Int, format: CodeFormat? = nil) {
+  init(id: String, acceptedAt: String, kind: String, summary: String?, original: String?, parserVersion: Int, format: CodeFormat? = nil, location: ScanLocation? = nil) {
     self.id = id
     self.acceptedAt = acceptedAt
     self.kind = kind
@@ -19,12 +20,13 @@ struct HistoryEvent: Codable, Identifiable, Equatable {
     self.original = original
     self.parserVersion = parserVersion
     self.format = format
+    self.location = location
     date = HistoryTimestamp.date(from: acceptedAt)
   }
 
-  // `date` is derived, so the persisted keys stay exactly those of the v1 envelope.
+  // `date` is derived. Optional metadata remains inside the existing v1 event shape.
   private enum CodingKeys: String, CodingKey {
-    case id, acceptedAt, kind, summary, original, parserVersion, format
+    case id, acceptedAt, kind, summary, original, parserVersion, format, location
   }
 
   init(from decoder: Decoder) throws {
@@ -36,7 +38,8 @@ struct HistoryEvent: Codable, Identifiable, Equatable {
       summary: try container.decodeIfPresent(String.self, forKey: .summary),
       original: try container.decodeIfPresent(String.self, forKey: .original),
       parserVersion: try container.decode(Int.self, forKey: .parserVersion),
-      format: try container.decodeIfPresent(CodeFormat.self, forKey: .format))
+      format: try container.decodeIfPresent(CodeFormat.self, forKey: .format),
+      location: try? container.decode(ScanLocation.self, forKey: .location))
   }
 
   static func timestamp(_ date: Date) -> String { HistoryTimestamp.string(from: date) }
@@ -110,10 +113,10 @@ extension HistoryEvent {
     // row is marked current, so after the next save it is never parsed on load again.
     guard current.original != original else {
       return HistoryEvent(id: id, acceptedAt: acceptedAt, kind: kind, summary: summary, original: original,
-        parserVersion: current.parserVersion, format: format)
+        parserVersion: current.parserVersion, format: format, location: location)
     }
     return HistoryEvent(id: id, acceptedAt: acceptedAt, kind: current.kind, summary: current.summary,
-      original: current.original, parserVersion: current.parserVersion, format: format)
+      original: current.original, parserVersion: current.parserVersion, format: format, location: location)
   }
 }
 
@@ -125,6 +128,7 @@ protocol HistoryRepository: AnyObject {
   func delete(id: String) throws
   func restore(_ event: HistoryEvent) throws
   func clear() throws
+  func attachLocation(_ location: ScanLocation, to ids: [String]) throws
 }
 
 final class HistoryStore: HistoryRepository {
@@ -179,6 +183,17 @@ final class HistoryStore: HistoryRepository {
   }
 
   func clear() throws { try commit([]) }
+
+  func attachLocation(_ location: ScanLocation, to ids: [String]) throws {
+    let ids = Set(ids)
+    var next = events
+    var changed = false
+    for index in next.indices where ids.contains(next[index].id) && location.isUsable(at: next[index].date) {
+      next[index].location = location
+      changed = true
+    }
+    if changed { try commit(next) }
+  }
 
   private func commit(_ next: [HistoryEvent]) throws {
     let data = try JSONEncoder().encode(Envelope(version: 1, events: next))

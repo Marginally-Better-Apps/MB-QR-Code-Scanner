@@ -24,6 +24,13 @@ final class ScannerViewModel {
   /// A bundled image decoded through the real preview pipeline, for UI tests.
   let imageFixture: String?
   let history: HistoryViewModel
+  private(set) var importingPhoto = false
+  private(set) var showingPhotoResults = false
+  var savesScanLocation: Bool {
+    get { location?.enabled ?? false }
+    set { location?.enabled = newValue }
+  }
+  var locationAccessDenied: Bool { location?.accessDenied ?? false }
 
   /// Navigation state. Showing History stops capture but keeps results and dedupe state.
   var showingHistory: Bool {
@@ -43,6 +50,7 @@ final class ScannerViewModel {
   @ObservationIgnored private let camera: CameraAuthorizing
   @ObservationIgnored private let feedback: ScanFeedback
   @ObservationIgnored private let clock: ScannerClock
+  @ObservationIgnored private let location: ScanLocating?
   @ObservationIgnored private let payloads = ScanPayloadCache(capacity: 64)
   @ObservationIgnored private var publishedKeys: [String] = []
   @ObservationIgnored private var announced: Set<String> = []
@@ -50,11 +58,12 @@ final class ScannerViewModel {
   @ObservationIgnored private(set) var accessRequest: Task<Void, Never>?
 
   init(camera: CameraAuthorizing, history: HistoryViewModel, feedback: ScanFeedback, clock: ScannerClock = SystemClock(),
-       timing: ScanSession.Timing = .standard, simulatedScene: [Detection]? = nil, imageFixture: String? = nil) {
+       timing: ScanSession.Timing = .standard, simulatedScene: [Detection]? = nil, imageFixture: String? = nil, location: ScanLocating? = nil) {
     self.camera = camera
     self.history = history
     self.feedback = feedback
     self.clock = clock
+    self.location = location
     self.simulatedScene = simulatedScene
     self.imageFixture = imageFixture
     session = ScanSession(timing: timing)
@@ -80,17 +89,58 @@ final class ScannerViewModel {
     let accepted = session.receive(observations, at: now)
     publishSession()
     guard !accepted.isEmpty else { return }
+    var eventIDs: [String] = []
     for detection in accepted {
       let parsed = payloads.payload(for: detection)
-      history.record(parsed, at: now)
+      if let event = history.record(parsed, at: now) { eventIDs.append(event.id) }
       if announced.insert(detection.id).inserted { feedback.announce(parsed.title) }
     }
     feedback.scanAccepted()
+    if let location, location.enabled, !eventIDs.isEmpty {
+      Task { [weak self] in
+        guard let fix = await location.location(at: now), fix.isUsable(at: now),
+          let self, location.enabled, self.phase != .background else { return }
+        self.history.attachLocation(fix, to: eventIDs)
+      }
+    }
   }
 
   func dismiss(_ payload: ScanPayload) {
     session.dismiss(payload.original, format: payload.format)
     publishSession()
+  }
+
+  func beginPhotoImport() {
+    importingPhoto = true
+    updateCapture()
+  }
+
+  func cancelPhotoImport() {
+    importingPhoto = false
+    updateCapture()
+  }
+
+  func acceptPhoto(_ detections: [Detection]) {
+    guard phase != .background, !detections.isEmpty else { return cancelPhotoImport() }
+    showingPhotoResults = true
+    importingPhoto = false
+    let accepted = session.acceptPhoto(detections)
+    publishSession()
+    for detection in accepted {
+      let parsed = payloads.payload(for: detection)
+      history.record(parsed, at: clock.now)
+      feedback.announce(parsed.title)
+    }
+    if !accepted.isEmpty { feedback.scanAccepted() }
+    updateCapture()
+  }
+
+  func resumeCamera() {
+    importingPhoto = false
+    showingPhotoResults = false
+    session = ScanSession(timing: session.timing)
+    publishSession()
+    updateCapture()
   }
 
   /// Replaces the simulated scene. Ignored for live capture.
@@ -114,7 +164,7 @@ final class ScannerViewModel {
 
   /// Capture starts on the first activation and then stops only for the background or History.
   /// Brief `.inactive` phases (Control Center, banners, the permission prompt) keep it running.
-  private var wantsCapture: Bool { hasActivated && phase != .background && !historyShown }
+  private var wantsCapture: Bool { hasActivated && phase != .background && !historyShown && !importingPhoto && !showingPhotoResults }
 
   private func updateCapture() {
     guard wantsCapture else { return stopCapture() }

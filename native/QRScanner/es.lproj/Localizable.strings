@@ -122,3 +122,17 @@
 "The setup code will be sent to the app that handles authenticator links." = "El código de configuración se enviará a la app que gestiona los enlaces de autenticador.";
 "The system will ask to connect to the nearby device. Bluetooth must be on." = "El sistema pedirá conectarse al dispositivo cercano. El Bluetooth debe estar activado.";
 "WPA Enterprise" = "WPA Empresa";
+
+/* Photo import and optional scan location */
+"Scan a Photo" = "Escanear una foto";
+"Scan Another" = "Escanear otro código";
+"Reading Photo" = "Leyendo la foto";
+"Drop a photo to scan" = "Suelta una foto para escanear";
+"Photo Scan" = "Escaneo de foto";
+"No QR codes or barcodes were found in this photo. Try a clearer image." = "No se encontraron códigos QR ni códigos de barras en esta foto. Prueba una imagen más clara.";
+"This image couldn’t be read. Try another photo." = "No se pudo leer esta imagen. Prueba otra foto.";
+"History Settings" = "Ajustes del historial";
+"Save scan location" = "Guardar la ubicación del escaneo";
+"Remember where you scan so you can search for places in History. Location is used only for live scans, never for imported photos." = "Recuerda dónde escaneas para buscar lugares en el historial. La ubicación solo se usa para escaneos en directo, nunca para fotos importadas.";
+"Location access is off. Scanning still works without it." = "El acceso a la ubicación está desactivado. Puedes seguir escaneando sin él.";
+"Scan Location" = "Ubicación del escaneo";

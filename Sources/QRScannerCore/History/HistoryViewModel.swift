@@ -102,21 +102,32 @@ final class HistoryViewModel {
     dayRevision &+= 1
   }
 
-  func record(_ payload: ScanPayload, at date: Date) {
+  @discardableResult
+  func record(_ payload: ScanPayload, at date: Date) -> HistoryEvent? {
     guard openIfNeeded(), let repository else {
       // The first scan that can't be saved is reported; later ones don't alert on every frame.
       if !reportedDroppedScan {
         reportedDroppedScan = true
         failure = .open
       }
-      return
+      return nil
     }
     do {
-      try repository.record(payload, at: date)
+      let event = try repository.record(payload, at: date)
       update(repository.events)
+      return event
     } catch {
       failure = .save
+      return nil
     }
+  }
+
+  func attachLocation(_ location: ScanLocation, to ids: [String]) {
+    guard let repository else { return }
+    do {
+      try repository.attachLocation(location, to: ids)
+      update(repository.events)
+    } catch { failure = .save }
   }
 
   func delete(_ event: HistoryEvent) {
@@ -171,12 +182,12 @@ final class HistoryViewModel {
   private func update(_ next: [HistoryEvent]) {
     events = next
     eventsRevision &+= 1
-    if searchIndex.count > next.count + 256 { searchIndex.removeAll() }
+    searchIndex.removeAll()
   }
 
   private func searchableText(for event: HistoryEvent) -> String {
     if let cached = searchIndex[event.id] { return cached }
-    let text = searchText(event)
+    let text = [searchText(event), event.location?.displayName].compactMap { $0 }.joined(separator: "\n")
     searchIndex[event.id] = text
     return text
   }

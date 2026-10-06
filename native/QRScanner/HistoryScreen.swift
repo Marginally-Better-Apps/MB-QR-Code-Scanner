@@ -2,9 +2,11 @@ import SwiftUI
 
 struct HistoryScreen: View {
   @Bindable var model: HistoryViewModel
+  @Bindable var scanner: ScannerViewModel
   @State private var selected: HistoryEvent?
   @State private var route: ActionRoute?
   @State private var confirmClear = false
+  @State private var showingSettings = false
   @Environment(\.dismiss) private var dismiss
   @Environment(\.showToast) private var showToast
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -45,6 +47,10 @@ struct HistoryScreen: View {
     .navigationBarTitleDisplayMode(.large)
     .toolbar(.visible, for: .navigationBar)
     .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        Button("History Settings", systemImage: "ellipsis") { showingSettings = true }
+          .accessibilityIdentifier("history-settings")
+      }
       if !model.events.isEmpty {
         ToolbarItem(placement: .topBarTrailing) {
           Button("Clear History", systemImage: "trash") { confirmClear = true }
@@ -71,7 +77,7 @@ struct HistoryScreen: View {
     }
     .sheet(item: $selected) { event in
       if let payload = model.payload(for: event) {
-        ResultDetail(payload: payload, scannedAt: event.date)
+        ResultDetail(payload: payload, scannedAt: event.date, scanLocation: event.location)
       } else {
         let presentation = HistoryRowPresentation(event)
         NavigationStack {
@@ -86,6 +92,28 @@ struct HistoryScreen: View {
       }
     }
     .sheet(item: $route) { NativeActionSheet(route: $0) }
+    .sheet(isPresented: $showingSettings) {
+      NavigationStack {
+        Form {
+          Section {
+            Toggle("Save scan location", isOn: $scanner.savesScanLocation)
+              .accessibilityIdentifier("save-scan-location")
+          } footer: {
+            Text("Remember where you scan so you can search for places in History. Location is used only for live scans, never for imported photos.")
+          }
+          if scanner.savesScanLocation && scanner.locationAccessDenied {
+            Section {
+              Text("Location access is off. Scanning still works without it.")
+              Button("Open Settings") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
+            }
+          }
+        }
+        .navigationTitle("History Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showingSettings = false } } }
+      }
+      .presentationDetents([.medium, .large])
+    }
   }
 
   private func row(_ event: HistoryEvent) -> some View {
@@ -99,6 +127,10 @@ struct HistoryScreen: View {
         VStack(alignment: .leading, spacing: 2) {
           Text(presentation.title).lineLimit(1)
           Text(presentation.subtitle).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+          if let location = event.location {
+            Label(location.displayName, systemImage: "mappin.and.ellipse")
+              .font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+          }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         Text(event.date, style: .time).font(.caption).foregroundStyle(.secondary)
@@ -108,7 +140,7 @@ struct HistoryScreen: View {
     .tint(.primary)
     .accessibilityIdentifier("history-row")
     .accessibilityLabel(presentation.title)
-    .accessibilityValue("\(presentation.subtitle), \(event.date.formatted(date: .omitted, time: .shortened))")
+    .accessibilityValue([presentation.subtitle, event.location?.displayName, event.date.formatted(date: .omitted, time: .shortened)].compactMap { $0 }.joined(separator: ", "))
     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
       Button("Delete", systemImage: "trash", role: .destructive) { model.delete(event) }
         .accessibilityIdentifier("history-row-delete")

@@ -2,7 +2,7 @@
 
 Support: [help@marginally-better.app](mailto:help@marginally-better.app). See the [privacy policy](docs/privacy-policy.md).
 
-An iPhone and iPad code scanner built with SwiftUI, AVFoundation, and on-device Vision. Live scanning works offline. Product lookup uses Open Food Facts only when you tap Look Up Product.
+An iPhone and iPad code scanner built with SwiftUI, AVFoundation, and on-device Vision. Live scanning and photo decoding work offline. Select an image with Photos or drop an image onto Scanner to read every code in it. Photos and History share a compact glass pill; Scan Another returns to the camera. Product lookup uses Open Food Facts only when you tap Look Up Product.
 
 All detected codes appear together in one Liquid Glass panel on iOS 26. Earlier iOS versions use system material. Highlights survive brief detection gaps. History uses native swipe-to-delete, confirmation for clearing, and Undo.
 
@@ -35,6 +35,8 @@ Install the built app in a simulator, then run the Maestro flows. `./scripts/ins
 maestro test e2e/native-image-scan-acceptance.yaml
 maestro test e2e/native-ui-acceptance.yaml
 maestro test e2e/acceptance-journey.yaml
+xcrun simctl addmedia booted native/QRScanner/Fixtures/normal-qr.png
+maestro test e2e/photo-import-acceptance.yaml
 ```
 
 The UI flows check simultaneous results, native menus, repeated swipe/delete/undo, and actual QR image decoding through the native preview into results and History. The image flow has no synthetic success fallback. The native decoder script renders QR, Aztec, PDF417, Code 128, and EAN-13 images into BGRA camera buffers and checks decoding, preview projection, acceptance, and persisted History. It also covers normal/damaged QR images in four orientations, multiple codes, and blank frames.
@@ -47,7 +49,7 @@ Developer tools: `./scripts/record-demo.sh [flow] [output.mp4] [iPhone|iPad]` re
 
 ## Data and privacy
 
-Camera frames stay on the device. Nothing opens, copies, shares, or looks up a product without a tap. Authentication secrets and raw boarding passes are never copied, shared, or stored. Wi-Fi passwords are excluded from History and displayed details. A product lookup sends only the validated barcode number to Open Food Facts. Product records are community supplied and may be missing or wrong.
+Camera frames and imported images stay on the device. Imported images are decoded without being saved by the app. In History settings, Save scan location optionally adds a foreground location fix and searchable place name to live scans. Photo imports are never tagged with the current device location. Location is off by default and unavailable fixes do not delay results. Apple’s geocoding service may receive coordinates to resolve a place name. Nothing opens, copies, shares, or looks up a product without a tap. Authentication secrets and raw boarding passes are never copied, shared, or stored. Wi-Fi passwords are excluded from History and displayed details. A product lookup sends only the validated barcode number to Open Food Facts. Product records are community supplied and may be missing or wrong.
 
 The app retains the existing bundle identifier and `Documents/history/history-v1.json` schema. Upgrading from the React Native version keeps saved scans. History writes are atomic and protected by iOS file protection. An unreadable file is left unchanged.
 

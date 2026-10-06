@@ -6,6 +6,7 @@
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
   <key>NSCameraUsageDescription</key><string>QR Scanner reads QR codes, barcodes, and other codes on this device. Camera frames are never uploaded or saved.</string>
+  <key>NSLocationWhenInUseUsageDescription</key><string>Optionally save where you scan so you can find scans by place in History. Location is never tracked in the background.</string>
   <key>NSContactsUsageDescription</key><string>Add a scanned contact with your permission.</string>
   <key>NSCalendarsWriteOnlyAccessUsageDescription</key><string>Add a scanned event with your permission.</string>
   <key>LSApplicationQueriesSchemes</key><array><string>otpauth</string><string>otpauth-migration</string><string>FIDO</string><string>fido</string></array>

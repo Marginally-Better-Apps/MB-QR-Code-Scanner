@@ -16,6 +16,8 @@ enum LaunchFixtures {
     case historyFixture
     /// Simulates camera permission: `authorized`, `denied`, `restricted`, `hardware-unavailable`.
     case cameraFixture
+    /// Deterministic location boundary; History still persists and searches the real metadata.
+    case locationFixture
   }
 
   static func value(_ key: Key, in defaults: UserDefaults = .standard) -> String? {
@@ -24,6 +26,7 @@ enum LaunchFixtures {
 
   static var scannerFixture: String? { value(.scannerFixture) }
   static var imageFixture: String? { value(.nativeImageFixture) }
+  static var location: ScanLocating? { value(.locationFixture) == "chicago" ? FixtureLocation() : nil }
 
   /// The simulated scene for `scannerFixture`, or `nil` for the camera.
   static var simulatedScene: [Detection]? { scannerFixture.map(detections(named:)) }
@@ -69,5 +72,14 @@ private struct FixtureCamera: CameraAuthorizing {
   let hasCamera: Bool
   func requestAccess() async -> CameraAuthorization { authorization }
   func capabilities() -> CameraCapabilities? { hasCamera ? CameraCapabilities(hasTorch: false) : nil }
+}
+
+@MainActor private final class FixtureLocation: ScanLocating {
+  var enabled = true
+  func location(at date: Date) async -> ScanLocation? {
+    guard enabled else { return nil }
+    return ScanLocation(latitude: 41.8827, longitude: -87.6233,
+      placeName: "Millennium Park, Chicago", capturedAt: date)
+  }
 }
 #endif
