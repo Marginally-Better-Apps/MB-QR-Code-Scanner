@@ -4,7 +4,7 @@ Support: [help@marginally-better.app](mailto:help@marginally-better.app). See th
 
 An iPhone and iPad code scanner built with SwiftUI, AVFoundation, and on-device Vision. Live scanning and photo decoding work offline. Select an image with Photos or drop an image onto Scanner to read every code in it. Photos and History share a compact glass pill; Scan Another returns to the camera. Product lookup uses Open Food Facts only when you tap Look Up Product.
 
-All detected codes appear together in one Liquid Glass panel on iOS 26. Earlier iOS versions use system material. Highlights survive brief detection gaps. History uses native swipe-to-delete, confirmation for clearing, and Undo.
+All detected codes appear together in one Liquid Glass panel on iOS 26. Earlier iOS versions use system material. Highlights survive brief detection gaps. History uses native swipe-to-delete, confirmation for clearing, and Undo. Wi-Fi scans explain manual joining through Settings and offer safe copy actions.
 
 The scanner requests every barcode format supported by the current iOS Vision revision, including QR, Aztec, Data Matrix, PDF417, EAN/UPC, Code 128, and GS1 DataBar. Results show the detected format. Valid retail identifiers can be looked up across the Open Food Facts product databases. IATA-style boarding pass data is summarized without saving the raw ticket.
 

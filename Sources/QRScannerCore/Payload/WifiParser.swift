@@ -48,6 +48,7 @@ enum WifiParser: PayloadKindParser {
     let network = ScanPayload.Wifi(ssid: ssid, password: password, security: security, hidden: hidden)
     var details = [String(localized: "Security: \(network.securityType.name)")]
     if hidden { details.append(String(localized: "Hidden network")) }
+    details.append(String(localized: "Join this network in Wi-Fi Settings. QR Scanner does not join networks automatically."))
     return ParsedPayload(kind: .wifi, title: ssid.isEmpty ? String(localized: "Wi-Fi network") : ssid,
       details: details.joined(separator: "\n"), wifi: network, summary: "Wi-Fi network")
   }

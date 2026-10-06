@@ -136,3 +136,4 @@
 "Remember where you scan so you can search for places in History. Location is used only for live scans, never for imported photos." = "Recuerda dónde escaneas para buscar lugares en el historial. La ubicación solo se usa para escaneos en directo, nunca para fotos importadas.";
 "Location access is off. Scanning still works without it." = "El acceso a la ubicación está desactivado. Puedes seguir escaneando sin él.";
 "Scan Location" = "Ubicación del escaneo";
+"Join this network in Wi-Fi Settings. QR Scanner does not join networks automatically." = "Conéctate a esta red en los ajustes de Wi-Fi. QR Scanner no se conecta a redes automáticamente.";

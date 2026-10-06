@@ -64,3 +64,11 @@ private func expectPrivate(_ parsed: ScanPayload, sourceLocation: SourceLocation
   }
   #expect(ScanPayload("WIFI:P:hunter2;;").title == "Wi-Fi network")
 }
+
+@Test func wifiExplainsManualJoiningWithoutExposingThePassword() {
+  let payload = ScanPayload("WIFI:T:WPA;S:Cafe;P:private-password;;")
+  #expect(payload.details.contains("Join this network in Wi-Fi Settings."))
+  #expect(payload.details.contains("QR Scanner does not join networks automatically."))
+  #expect(!payload.details.contains("private-password"))
+  #expect(PayloadActionRules.actions(for: payload).actions == [.copyPassword, .copy])
+}
