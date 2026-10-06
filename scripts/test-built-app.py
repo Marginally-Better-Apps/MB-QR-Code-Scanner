@@ -34,6 +34,13 @@ def main() -> int:
     with info_path.open("rb") as handle:
         info = plistlib.load(handle)
 
+    if info.get("CFBundleDisplayName") != "MB QR Scanner":
+        print("error: the installed app must be named MB QR Scanner", file=sys.stderr)
+        return 1
+    if info.get("CFBundleIdentifier") != "com.marginallybetter.qrscanner":
+        print("error: existing app identity changed", file=sys.stderr)
+        return 1
+
     expected = (
         "QR Scanner reads QR codes, barcodes, and other codes on this device. "
         "Camera frames are never uploaded or saved."
