@@ -6,27 +6,47 @@ struct ResultsPanel: View {
   let onDetails: (ScanPayload) -> Void
   let onAction: (ActionRoute) -> Void
   let onDismiss: (ScanPayload) -> Void
-  @ScaledMetric(relativeTo: .body) private var rowHeight = 64.0
+  @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 64
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @Environment(\.colorSchemeContrast) private var contrast
+  @Environment(\.dynamicTypeSize) private var typeSize
+  @State private var measuredHeight: CGFloat?
+
+  /// Rows are a fixed height at standard sizes. Accessibility sizes wrap titles, so the panel follows the measured content.
+  private var height: CGFloat {
+    let estimate: CGFloat = CGFloat(results.count) * rowHeight + 12
+    guard typeSize.isAccessibilitySize, let measuredHeight else { return Swift.min(estimate, maxHeight) }
+    return Swift.min(measuredHeight, maxHeight)
+  }
 
   var body: some View {
     ScrollView {
       VStack(spacing: 0) {
         ForEach(Array(results.enumerated()), id: \.element.id) { index, payload in
           if index > 0 { Divider().padding(.leading, 40) }
-          ResultMenu(payload: payload, showsQuickAction: true, onDetails: { onDetails(payload) }, onAction: onAction, onDismiss: { onDismiss(payload) }) {
+          ResultMenu(payload: payload, showsQuickAction: true, onDetails: { onDetails(payload) }, onDismiss: { onDismiss(payload) }) {
             ResultLabel(payload: payload)
               .frame(minHeight: rowHeight)
               .contentShape(Rectangle())
               .accessibilityIdentifier("scan-result-row")
           }
-          .transition(.opacity.combined(with: .move(edge: .bottom)))
+          .transition(reduceMotion ? .opacity : .opacity.combined(with: .move(edge: .bottom)))
         }
-      }.padding(.leading, 18).padding(.trailing, 10).padding(.vertical, 6)
+      }
+      .padding(.leading, 18).padding(.trailing, 10).padding(.vertical, 6)
+      .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measuredHeight = $0 }
     }
     .scrollBounceBehavior(.basedOnSize)
-    .frame(height: min(CGFloat(results.count) * rowHeight + 12, maxHeight))
+    .frame(height: height)
     .clipShape(.rect(cornerRadius: 28))
     .modifier(NativeGlass())
+    .overlay {
+      if contrast == .increased {
+        RoundedRectangle(cornerRadius: 28).strokeBorder(Color.primary.opacity(0.5), lineWidth: 1).allowsHitTesting(false)
+      }
+    }
+    // Presentations live here, not in each row, so they survive a row leaving when the camera sees new codes.
+    .payloadActionHost(onAction: onAction)
     .accessibilityIdentifier("scan-results-panel")
   }
 }
@@ -39,40 +59,30 @@ struct ResultLabel: View {
       Image(systemName: payload.symbol)
         .font(.body.weight(.medium))
         .frame(width: 24)
-      VStack(alignment: .leading, spacing: 2) {
-        Text(payload.title).font(.body).lineLimit(1)
-        Text(payload.subtitle).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
-      }
-      .frame(maxWidth: .infinity, alignment: .leading)
+      ResultTitle(payload: payload)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     .accessibilityElement(children: .combine)
   }
 }
 
+/// Menu items for a result's actions. The rules come from `PayloadActionRules`; this only renders them.
 struct ResultActions: View {
   let payload: ScanPayload
+  let actions: PayloadActionSet
   var onDetails: (() -> Void)?
-  let perform: (PayloadAction) -> Void
+  let perform: (PayloadAction, ScanPayload) -> Void
 
   var body: some View {
     Group {
-      if payload.openURL != nil { button(.open) }
-      if payload.productCode != nil { button(.lookup) }
-      if payload.kind == .contact { button(.addContact) }
-      if payload.kind == .calendar { button(.addEvent) }
-      if let wifi = payload.wifi, !wifi.password.isEmpty { button(.copyPassword) }
-      if !payload.isSensitive {
-        button(.copy)
-        button(.share)
+      if let reason = actions.openUnavailableReason { Text(reason.explanation) }
+      ForEach(actions.actions, id: \.self) { action in
+        Button(payload.title(for: action), systemImage: payload.symbol(for: action)) { perform(action, payload) }
       }
       if let onDetails {
         Button("Show Details", systemImage: "info.circle", action: onDetails)
       }
     }
-  }
-
-  private func button(_ action: PayloadAction) -> some View {
-    Button(payload.title(for: action), systemImage: payload.symbol(for: action)) { perform(action) }
   }
 }
 
@@ -80,33 +90,35 @@ struct ResultMenu<Label: View>: View {
   let payload: ScanPayload
   var showsQuickAction = false
   var onDetails: (() -> Void)? = nil
-  let onAction: (ActionRoute) -> Void
   var onDismiss: (() -> Void)? = nil
   @ViewBuilder let label: () -> Label
+  @Environment(\.payloadActions) private var context
+  @ScaledMetric(relativeTo: .body) private var quickActionSide = 30.0
 
   var body: some View {
-    PayloadActionHost(payload: payload, onAction: onAction) { perform in
-      HStack(spacing: 8) {
-        Menu {
-          ResultActions(payload: payload, onDetails: onDetails, perform: perform)
-          if let onDismiss {
-            Divider()
-            Button("Dismiss", systemImage: "xmark", action: onDismiss)
-          }
-        } label: { label() }
-        .menuActionDismissBehavior(.enabled)
-        .tint(.primary)
-        if showsQuickAction, let action = payload.primaryAction {
-          Button { perform(action) } label: {
-            Image(systemName: payload.symbol(for: action))
-              .font(.body.weight(.semibold))
-              .frame(width: 22, height: 22)
-          }
-          .buttonStyle(.bordered)
-          .buttonBorderShape(.circle)
-          .accessibilityLabel(Text(payload.title(for: action)) + Text(verbatim: ", \(payload.title)"))
-          .accessibilityIdentifier("scan-result-quick-action")
+    let actions = context.actions(for: payload)
+    HStack(spacing: 8) {
+      Menu {
+        ResultActions(payload: payload, actions: actions, onDetails: onDetails, perform: context.perform)
+        if let onDismiss {
+          Divider()
+          Button("Dismiss", systemImage: "xmark", action: onDismiss)
         }
+      } label: { label() }
+      .menuActionDismissBehavior(.enabled)
+      .tint(.primary)
+      if showsQuickAction, let action = actions.primary {
+        Button { context.perform(action, payload) } label: {
+          Image(systemName: payload.symbol(for: action))
+            .font(.body.weight(.semibold))
+            .frame(width: quickActionSide, height: quickActionSide)
+            // Image-only labels hit-test only their own bounds, so extend the tappable circle to at least 44 points.
+            .contentShape(Circle().inset(by: -max(0, (44 - quickActionSide) / 2)))
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .accessibilityLabel(Text(payload.title(for: action)) + Text(verbatim: ", \(payload.title)"))
+        .accessibilityIdentifier("scan-result-quick-action")
       }
     }
   }
@@ -115,70 +127,99 @@ struct ResultMenu<Label: View>: View {
 struct ResultDetail: View {
   let payload: ScanPayload
   var scannedAt: Date? = nil
-  @Environment(\.dismiss) private var dismiss
+  var scanLocation: ScanLocation? = nil
   @State private var route: ActionRoute?
 
   var body: some View {
-    PayloadActionHost(payload: payload, onAction: { route = $0 }) { perform in
-      NavigationStack {
-        List {
+    ResultDetailContent(payload: payload, scannedAt: scannedAt, scanLocation: scanLocation)
+      .payloadActionHost(onAction: { route = $0 })
+      .toastHost()
+      .presentationDetents([.medium, .large])
+      .sheet(item: $route) { NativeActionSheet(route: $0) }
+  }
+}
+
+private struct ResultDetailContent: View {
+  let payload: ScanPayload
+  let scannedAt: Date?
+  let scanLocation: ScanLocation?
+  @Environment(\.dismiss) private var dismiss
+  @Environment(\.payloadActions) private var context
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  var body: some View {
+    let actions = context.actions(for: payload)
+    NavigationStack {
+      List {
+        Section {
+          HStack(spacing: 14) {
+            Image(systemName: payload.symbol)
+              .font(.title2)
+              .foregroundStyle(.tint)
+              .frame(width: 48, height: 48)
+              .background(.tint.opacity(contrast == .increased ? 0.28 : 0.14), in: .rect(cornerRadius: 12))
+            ResultTitle(payload: payload, titleFont: .headline, subtitleFont: .subheadline, lineLimit: 3)
+          }
+          .padding(.vertical, 4)
+          .accessibilityElement(children: .combine)
+        }
+        if payload.details != payload.title {
+          Section("Contents") {
+            Text(payload.details)
+              .textSelection(.enabled)
+              .frame(maxWidth: .infinity, alignment: .leading)
+          }
+        }
+        if let reason = actions.openUnavailableReason {
           Section {
-            HStack(spacing: 14) {
-              Image(systemName: payload.symbol)
-                .font(.title2)
-                .foregroundStyle(.tint)
-                .frame(width: 48, height: 48)
-                .background(.tint.opacity(0.14), in: .rect(cornerRadius: 12))
-              VStack(alignment: .leading, spacing: 3) {
-                Text(payload.title).font(.headline).lineLimit(3)
-                Text(payload.subtitle).font(.subheadline).foregroundStyle(.secondary)
+            Label(reason.explanation, systemImage: "info.circle").foregroundStyle(.secondary)
+          }
+        }
+        if let scannedAt {
+          Section {
+            LabeledContent("Scanned") {
+              VStack(alignment: .trailing, spacing: 2) {
+                Text(scannedAt.formatted(date: .abbreviated, time: .shortened))
+                Text(scannedAt.formatted(.relative(presentation: .named))).font(.footnote)
               }
             }
-            .padding(.vertical, 4)
-            .accessibilityElement(children: .combine)
-          }
-          if payload.details != payload.title {
-            Section("Contents") {
-              Text(payload.details)
-                .textSelection(.enabled)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-          }
-          if let scannedAt {
-            Section {
-              LabeledContent("Scanned", value: scannedAt.formatted(date: .abbreviated, time: .shortened))
-            }
           }
         }
-        .listStyle(.insetGrouped)
-        .safeAreaInset(edge: .bottom) {
-          if let action = payload.primaryAction {
-            Button { perform(action) } label: {
-              Label(payload.title(for: action), systemImage: payload.symbol(for: action))
-                .font(.headline)
-                .frame(maxWidth: .infinity)
+        if let scanLocation {
+          Section("Scan Location") {
+            Label(scanLocation.displayName, systemImage: "mappin.and.ellipse")
+            if scanLocation.placeName != nil {
+              Text(String(format: "%.4f, %.4f", scanLocation.latitude, scanLocation.longitude))
+                .font(.footnote).foregroundStyle(.secondary)
             }
-            .controlSize(.large)
-            .modifier(ProminentButton())
-            .padding(.horizontal, 20)
-            .padding(.bottom, 8)
-          }
-        }
-        .navigationTitle("Scan Result")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-          ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-          ToolbarItem(placement: .topBarLeading) {
-            Menu {
-              ResultActions(payload: payload, perform: perform)
-            } label: { Image(systemName: "ellipsis") }
-            .accessibilityLabel("Actions")
           }
         }
       }
+      .listStyle(.insetGrouped)
+      .safeAreaInset(edge: .bottom) {
+        if let action = actions.primary {
+          Button { context.perform(action, payload) } label: {
+            Label(payload.title(for: action), systemImage: payload.symbol(for: action))
+              .font(.headline)
+              .frame(maxWidth: .infinity)
+          }
+          .controlSize(.large)
+          .modifier(ProminentButton())
+          .padding(.horizontal, 20)
+          .padding(.bottom, 8)
+        }
+      }
+      .navigationTitle("Scan Result")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+        ToolbarItem(placement: .topBarLeading) {
+          Menu {
+            ResultActions(payload: payload, actions: actions, perform: context.perform)
+          } label: { Image(systemName: "ellipsis") }
+          .accessibilityLabel("Actions")
+        }
+      }
     }
-    .toastHost()
-    .presentationDetents([.medium, .large])
-    .sheet(item: $route) { NativeActionSheet(route: $0) }
   }
 }

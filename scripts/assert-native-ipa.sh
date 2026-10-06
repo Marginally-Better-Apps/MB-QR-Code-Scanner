@@ -7,3 +7,8 @@ unzip -q "$IPA" -d "$SCAN_CHECK_DIR"
 APP="$(find "$SCAN_CHECK_DIR/Payload" -maxdepth 1 -type d -name '*.app' -print -quit)"
 test -n "$APP"
 python3 "$(dirname "$0")/test-built-app.py" "$APP"
+# Debug fixture images are excluded from device builds; only simulator builds carry them.
+if find "$APP" -name 'normal-qr.png' -o -name 'damaged-distant-qr.png' | grep -q .; then
+  echo "Device IPA contains debug fixture images" >&2
+  exit 1
+fi

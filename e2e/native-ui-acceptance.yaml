@@ -14,7 +14,9 @@ appId: com.marginallybetter.qrscanner
 - assertNotVisible: ".*Choose.*"
 - startRecording: native-ui-acceptance
 - takeScreenshot: native-multiple-results
-- tapOn: ".*three-top.*"
+- tapOn:
+    id: "scan-result-row"
+    text: ".*three-top.*"
 - assertVisible: "Copy"
 - tapOn: "Copy"
 - assertNotVisible: "Copy"

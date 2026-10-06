@@ -57,14 +57,14 @@ private struct Fixture: Decodable {
 }
 
 @Test func calendarDatesPreserveTimeZonesAndRejectInvalidDates() {
-  let utc = CalendarDate.parse("20260912T140000Z", raw: "DTSTART:20260912T140000Z", name: "DTSTART")
-  #expect(utc?.timeZone.secondsFromGMT() == 0)
-  #expect(utc?.allDay == false)
-  let allDay = CalendarDate.parse("20280229", raw: "DTSTART;VALUE=DATE:20280229", name: "DTSTART")
-  #expect(allDay?.allDay == true)
-  #expect(CalendarDate.parse("20260230", raw: "", name: "DTSTART") == nil)
-  let named = CalendarDate.parse("20260912T140000", raw: "DTSTART;TZID=America/Chicago:20260912T140000", name: "DTSTART")
-  #expect(named?.timeZone.identifier == "America/Chicago")
+  let utc = CalendarDate.parse(ICalFields.parse("DTSTART:20260912T140000Z"))
+  #expect(utc?.timeZone?.secondsFromGMT() == 0)
+  #expect(utc?.isAllDay == false)
+  let allDay = CalendarDate.parse(ICalFields.parse("DTSTART;VALUE=DATE:20280229"))
+  #expect(allDay?.isAllDay == true)
+  #expect(CalendarDate.parse("20260230") == nil)
+  let named = CalendarDate.parse(ICalFields.parse("DTSTART;TZID=America/Chicago:20260912T140000"))
+  #expect(named?.timeZone?.identifier == "America/Chicago")
   #expect(ScanPayload("BEGIN:VEVENT\nDTSTART:not-a-date\nEND:VEVENT").kind == .text)
 }
 

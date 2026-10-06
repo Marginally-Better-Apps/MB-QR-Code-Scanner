@@ -1,27 +1,9 @@
 import SwiftUI
 
-enum PayloadAction: Hashable {
-  case open, lookup, addContact, addEvent, copyPassword, copy, share
-}
-
 extension ScanPayload {
   var kindName: String { Self.kindName(kind) }
 
   var subtitle: String { "\(kindName) · \(format.name)" }
-
-  /// The one action a person most likely wants, offered next to each result.
-  var primaryAction: PayloadAction? {
-    if openURL != nil { return .open }
-    if productCode != nil { return .lookup }
-    if kind == .contact { return .addContact }
-    if kind == .calendar { return .addEvent }
-    if let wifi, !wifi.password.isEmpty { return .copyPassword }
-    return isSensitive ? nil : .copy
-  }
-
-  var needsPaymentConfirmation: Bool {
-    kind == .customScheme && original.localizedCaseInsensitiveContains("pay")
-  }
 
   static func kindName(_ kind: Kind) -> String {
     switch kind {
@@ -50,7 +32,7 @@ extension ScanPayload {
       case .phone: "Call"
       case .sms: "Message"
       case .geo: "Open Map"
-      case .auth: original.lowercased().hasPrefix("fido:") ? "Connect nearby device" : "Open Passwords"
+      case .auth: PayloadActionRules.handoff(for: self) == .passkey ? "Connect nearby device" : "Open Passwords"
       case .customScheme: "Open App Link"
       default: "Open Link"
       }
@@ -58,7 +40,7 @@ extension ScanPayload {
     case .addContact: "Add Contact"
     case .addEvent: "Add Event"
     case .copyPassword: "Copy Password"
-    case .copy: "Copy"
+    case .copy: kind == .wifi ? "Copy Network Name" : "Copy"
     case .share: "Share"
     }
   }
@@ -84,103 +66,139 @@ extension ScanPayload {
     }
   }
 
+  /// Copies stay on this device and expire, so a scanned code never syncs through Universal Clipboard.
   static func copy(_ text: String) {
     UIPasteboard.general.setItems([["public.utf8-plain-text": text]], options: [.localOnly: true, .expirationDate: Date().addingTimeInterval(120)])
   }
 }
 
-/// Owns the confirmation, failure, and product-lookup state behind every payload action.
-struct PayloadActionHost<Content: View>: View {
-  let payload: ScanPayload
-  let onAction: (ActionRoute) -> Void
-  @ViewBuilder let content: (_ perform: @escaping (PayloadAction) -> Void) -> Content
-  @Environment(\.showToast) private var showToast
-  @State private var openFailed = false
-  @State private var confirmPayment = false
-  @State private var showProduct = false
-
-  var body: some View {
-    content(perform)
-      .alert("This action is unavailable.", isPresented: $openFailed) { Button("OK", role: .cancel) {} }
-      .confirmationDialog("Verify this payment in the destination app before paying.", isPresented: $confirmPayment, titleVisibility: .visible) {
-        Button("Open App Link", action: open)
-        Button("Cancel", role: .cancel) {}
-      }
-      .sheet(isPresented: $showProduct) {
-        if let code = payload.productCode { ProductLookupScreen(code: code) }
-      }
-  }
-
-  private func perform(_ action: PayloadAction) {
-    switch action {
-    case .open: if payload.needsPaymentConfirmation { confirmPayment = true } else { open() }
-    case .lookup: showProduct = true
-    case .addContact: onAction(ActionRoute(kind: .contact, payload: payload))
-    case .addEvent: onAction(ActionRoute(kind: .calendar, payload: payload))
-    case .copyPassword:
-      ScanPayload.copy(payload.wifi?.password ?? "")
-      showToast(String(localized: "Password Copied"))
-    case .copy:
-      ScanPayload.copy(payload.original)
-      showToast(String(localized: "Copied"))
-    case .share: onAction(ActionRoute(kind: .share, payload: payload))
+extension OpenUnavailableReason {
+  var explanation: LocalizedStringKey {
+    switch self {
+    case .appNotInstalled: "App not installed. Copy or share the link instead."
+    case .passkey: "The Camera app can still handle passkey QR codes."
+    case .authenticator: "No app on this device handles authenticator links."
     }
   }
+}
 
-  private func open() {
-    guard let url = payload.openURL else { return }
-    UIApplication.shared.open(url, options: [:]) { succeeded in
-      if !succeeded { openFailed = true }
-    }
+/// What every result inside a `payloadActionHost` uses to list and run its actions.
+struct PayloadActionContext {
+  var perform: (PayloadAction, ScanPayload) -> Void = { _, _ in }
+  /// Payloads whose open already failed this session, so Open is replaced by an explanation.
+  var unopenable: Set<String> = []
+
+  @MainActor func actions(for payload: ScanPayload) -> PayloadActionSet {
+    let availability = unopenable.contains(payload.id) ? .unavailable : URLOpenAvailability.check(payload)
+    return PayloadActionRules.actions(for: payload, availability: availability)
   }
 }
 
 extension EnvironmentValues {
-  @Entry var showToast: (String) -> Void = { _ in }
+  @Entry var payloadActions = PayloadActionContext()
 }
 
 extension View {
-  /// Confirms quick actions such as Copy for sighted users; VoiceOver hears an announcement.
-  func toastHost() -> some View { modifier(ToastHost()) }
-}
-
-private struct ToastHost: ViewModifier {
-  @State private var message: String?
-  @State private var generation = 0
-
-  func body(content: Content) -> some View {
-    content
-      .environment(\.showToast) { text in
-        generation += 1
-        let current = generation
-        withAnimation(.snappy) { message = text }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        UIAccessibility.post(notification: .announcement, argument: text)
-        Task { @MainActor in
-          try? await Task.sleep(for: .seconds(2))
-          guard generation == current else { return }
-          withAnimation(.smooth) { message = nil }
-        }
-      }
-      .overlay(alignment: .top) {
-        if let message {
-          Label { Text(message) } icon: { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) }
-            .font(.subheadline.weight(.semibold))
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .modifier(NativeGlass(cornerRadius: 24))
-            .padding(.top, 8)
-            .transition(.move(edge: .top).combined(with: .opacity))
-            .allowsHitTesting(false)
-            .accessibilityIdentifier("toast")
-        }
-      }
+  /// Owns confirmation, failure, and product-lookup presentation for every result inside. Each presentation keeps
+  /// its own snapshot of the payload, so it survives the result row disappearing when the camera sees a new code.
+  func payloadActionHost(onAction: @escaping (ActionRoute) -> Void) -> some View {
+    modifier(PayloadActionHost(onAction: onAction))
   }
 }
 
-struct ProminentButton: ViewModifier {
+private struct PendingOpen {
+  let payload: ScanPayload
+  let handoff: OpenHandoff
+
+  var title: Text {
+    switch handoff {
+    case .appLink(_, _, true): Text("Open Payment Link?")
+    case .appLink: Text("Open in Another App?")
+    case .authenticator: Text("Send Setup Code to an Authenticator?")
+    case .passkey: Text("Connect a Nearby Device?")
+    case .direct: Text(payload.title(for: .open))
+    }
+  }
+
+  var message: Text {
+    switch handoff {
+    case .appLink(let scheme, let target, let isPayment):
+      (isPayment ? Text("Verify this payment in the destination app before paying.") : Text("The app that handles “\(scheme)” links will open:"))
+        + Text(verbatim: "\n\n" + target)
+    case .authenticator: Text("The setup code will be sent to the app that handles authenticator links.")
+    case .passkey: Text("The system will ask to connect to the nearby device. Bluetooth must be on.")
+    case .direct: Text(verbatim: "")
+    }
+  }
+}
+
+private struct OpenFailure {
+  let reason: OpenUnavailableReason?
+}
+
+private struct ProductRequest: Identifiable {
+  let code: String
+  var id: String { code }
+}
+
+private struct PayloadActionHost: ViewModifier {
+  let onAction: (ActionRoute) -> Void
+  @Environment(\.showToast) private var showToast
+  @State private var pendingOpen: PendingOpen?
+  @State private var confirmingOpen = false
+  @State private var failure: OpenFailure?
+  @State private var showingFailure = false
+  @State private var product: ProductRequest?
+  @State private var unopenable: Set<String> = []
+
   func body(content: Content) -> some View {
-    if #available(iOS 26.0, *) { content.buttonStyle(.glassProminent) }
-    else { content.buttonStyle(.borderedProminent) }
+    content
+      .environment(\.payloadActions, PayloadActionContext(perform: perform, unopenable: unopenable))
+      .confirmationDialog(pendingOpen?.title ?? Text(verbatim: ""), isPresented: $confirmingOpen, titleVisibility: .visible, presenting: pendingOpen) { pending in
+        Button(pending.payload.title(for: .open)) { open(pending.payload) }
+        Button("Cancel", role: .cancel) {}
+      } message: { pending in
+        pending.message
+      }
+      .alert("This action is unavailable.", isPresented: $showingFailure, presenting: failure) { _ in
+        Button("OK", role: .cancel) {}
+      } message: { failure in
+        if let reason = failure.reason { Text(reason.explanation) }
+      }
+      .sheet(item: $product) { ProductLookupScreen(code: $0.code) }
+  }
+
+  private func perform(_ action: PayloadAction, on payload: ScanPayload) {
+    switch action {
+    case .open:
+      guard let handoff = PayloadActionRules.handoff(for: payload) else { return }
+      if handoff.needsConfirmation {
+        pendingOpen = PendingOpen(payload: payload, handoff: handoff)
+        confirmingOpen = true
+      } else {
+        open(payload)
+      }
+    case .lookup:
+      if let code = payload.productCode { product = ProductRequest(code: code) }
+    case .addContact: onAction(ActionRoute(kind: .contact, payload: payload))
+    case .addEvent: onAction(ActionRoute(kind: .calendar, payload: payload))
+    case .copyPassword, .copy:
+      guard let text = PayloadActionRules.clipboardText(for: action, payload: payload) else { return }
+      ScanPayload.copy(text)
+      showToast(action == .copyPassword ? String(localized: "Password Copied")
+        : payload.kind == .wifi ? String(localized: "Network Name Copied") : String(localized: "Copied"))
+    case .share: onAction(ActionRoute(kind: .share, payload: payload))
+    }
+  }
+
+  private func open(_ payload: ScanPayload) {
+    guard let url = payload.openURL else { return }
+    UIApplication.shared.open(url, options: [:]) { succeeded in
+      guard !succeeded else { return }
+      let reason = PayloadActionRules.unavailableReason(for: payload)
+      if reason != nil { unopenable.insert(payload.id) }
+      failure = OpenFailure(reason: reason)
+      showingFailure = true
+    }
   }
 }

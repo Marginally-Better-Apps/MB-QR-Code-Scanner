@@ -1,18 +1,26 @@
 import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
 
 struct ScannerScreen: View {
-  @Bindable var model: ScannerModel
+  @Bindable var model: ScannerViewModel
   @State private var detail: ScanPayload?
   @State private var route: ActionRoute?
-  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  @State private var photoImport = PhotoImportController()
+  @State private var selectedPhoto: PhotosPickerItem?
+  @State private var showingPhotos = false
+  @State private var dropTargeted = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.scenePhase) private var scenePhase
 
   var body: some View {
     GeometryReader { geometry in
       ZStack {
         Color.black.ignoresSafeArea()
-        if model.cameraState == .ready {
-          if model.fixtureName == nil {
+        if model.showingPhotoResults {
+          Color.black.ignoresSafeArea()
+        } else if model.cameraState == .ready {
+          if !model.usesSimulatedScene {
             CameraPreview(model: model).ignoresSafeArea()
           } else {
             // Deterministic simulator scene for UI checks, never used by live capture.
@@ -25,7 +33,7 @@ struct ScannerScreen: View {
       }
       .overlay(alignment: .top) {
         HStack {
-          if model.hasTorch && model.cameraState == .ready {
+          if model.hasTorch && model.cameraState == .ready && !model.showingPhotoResults {
             Button { model.torchOn.toggle() } label: {
               Image(systemName: model.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
                 .font(.system(size: 20)).frame(width: 44, height: 44)
@@ -40,46 +48,106 @@ struct ScannerScreen: View {
             .accessibilityIdentifier("toggle-torch")
           }
           Spacer()
-          NavigationLink {
-            HistoryScreen(model: model)
-          } label: {
-            Image(systemName: "clock.arrow.circlepath").font(.system(size: 20)).frame(width: 44, height: 44)
+          HStack(spacing: 0) {
+            Button {
+              selectedPhoto = nil
+              model.beginPhotoImport()
+              showingPhotos = true
+            } label: {
+              Image(systemName: "photo").font(.system(size: 20)).frame(width: 48, height: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Scan a Photo")
+            .accessibilityIdentifier("open-photos")
+            .disabled(photoImport.isLoading)
+            Divider().frame(height: 20)
+            Button { model.showingHistory = true } label: {
+              Image(systemName: "clock.arrow.circlepath").font(.system(size: 20)).frame(width: 48, height: 44)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("History")
+            .accessibilityIdentifier("open-history")
           }
-          .modifier(NativeButton())
-          .buttonBorderShape(.circle)
-          .accessibilityLabel("History")
-          .accessibilityIdentifier("open-history")
+          .buttonStyle(.plain)
+          .modifier(NativeGlass(cornerRadius: 24, interactive: true))
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
       }
       .safeAreaInset(edge: .bottom, spacing: 0) {
-        Group {
-          if model.cameraState == .ready {
-            if model.results.isEmpty {
-              ScanHint().transition(.opacity.combined(with: .scale(scale: 0.9)))
-            } else {
-              ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
-                onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
-                .frame(maxWidth: 540)
-                .padding(.horizontal, 16)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+        ZStack(alignment: .bottom) {
+          if model.cameraState == .ready || model.showingPhotoResults || !model.results.isEmpty {
+            let empty = model.results.isEmpty
+            if empty && !model.showingPhotoResults {
+              ScanHint().transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.9)))
             }
+            // Stays mounted when empty so a sheet or dialog opened from a result survives the
+            // last result being dismissed or cleared.
+            ResultsPanel(results: model.results, maxHeight: geometry.size.height * 0.38,
+              onDetails: { detail = $0 }, onAction: { route = $0 }, onDismiss: { model.dismiss($0) })
+              .frame(maxWidth: 540)
+              .padding(.horizontal, 16)
+              .opacity(empty ? 0 : 1)
+              .offset(y: empty && !reduceMotion ? 40 : 0)
+              .allowsHitTesting(!empty)
+              .accessibilityHidden(empty)
           }
         }
         .padding(.bottom, 8)
-        .animation(.snappy, value: model.results)
+        .animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy, value: model.results)
       }
+      .overlay {
+        if photoImport.isLoading {
+          VStack(spacing: 12) {
+            ProgressView("Reading Photo")
+            Button("Cancel") { photoImport.cancel(model) }
+          }
+          .padding(24).modifier(NativeGlass())
+        } else if dropTargeted {
+          Label("Drop a photo to scan", systemImage: "photo")
+            .padding(24).modifier(NativeGlass())
+            .allowsHitTesting(false)
+        }
+      }
+      .overlay(alignment: .center) {
+        if model.showingPhotoResults && !photoImport.isLoading {
+          Button("Scan Another", systemImage: "camera.viewfinder") { model.resumeCamera() }
+            .controlSize(.large).modifier(NativeButton())
+            .accessibilityIdentifier("resume-camera")
+        }
+      }
+      .onDrop(of: [UTType.image], isTargeted: $dropTargeted) { photoImport.drop($0, into: model) }
     }
+    #if DEBUG || targetEnvironment(simulator)
+    .overlay(alignment: .leading) {
+      if model.usesSimulatedScene { FixtureControls(model: model).padding(.leading, 8) }
+    }
+    #endif
     .toolbar(.hidden, for: .navigationBar)
-    .onAppear {
-      model.showingHistory = false
-      Task { await model.activate() }
+    .navigationDestination(isPresented: $model.showingHistory) {
+      HistoryScreen(model: model.history, scanner: model)
+    }
+    .photosPicker(isPresented: $showingPhotos, selection: $selectedPhoto, matching: .images, preferredItemEncoding: .current)
+    .onChange(of: selectedPhoto) { _, photo in
+      if let photo { photoImport.load(photo, into: model) }
+    }
+    .onChange(of: showingPhotos) { _, showing in
+      if !showing && selectedPhoto == nil && !photoImport.isLoading { model.cancelPhotoImport() }
+    }
+    .alert("Photo Scan", isPresented: Binding(get: { photoImport.failure != nil }, set: { if !$0 { photoImport.failure = nil } })) {
+      Button("OK", role: .cancel) {}
+    } message: {
+      if photoImport.failure == .noCodes { Text("No QR codes or barcodes were found in this photo. Try a clearer image.") }
+      else { Text("This image couldn’t be read. Try another photo.") }
     }
     .sheet(item: $detail) { ResultDetail(payload: $0) }
     .sheet(item: $route) { route in NativeActionSheet(route: route) }
     .onChange(of: scenePhase) { _, phase in
       if phase == .background {
+        photoImport.cancel(model)
+        selectedPhoto = nil
+        showingPhotos = false
+        photoImport.failure = nil
         detail = nil
         route = nil
       }
@@ -126,7 +194,7 @@ private struct ScanHint: View {
 }
 
 private struct DetectionHighlights: View {
-  let model: ScannerModel
+  let model: ScannerViewModel
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   var body: some View {
     GeometryReader { frame in
@@ -147,44 +215,5 @@ private struct DetectionHighlights: View {
       }
     }
     .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: model.highlights)
-  }
-}
-
-struct CameraPreview: UIViewRepresentable {
-  let model: ScannerModel
-  func makeUIView(context: Context) -> ScannerPreviewView {
-    let view = ScannerPreviewView(frame: .zero)
-    view.onObservations = { [weak model] observations in
-      model?.receive(observations)
-    }
-    return view
-  }
-  func updateUIView(_ view: ScannerPreviewView, context: Context) {
-    if view.imageFixtureName != model.imageFixture { view.imageFixtureName = model.imageFixture }
-    if view.running != model.isCapturing { view.running = model.isCapturing }
-    if view.torchEnabled != model.torchOn { view.torchEnabled = model.torchOn }
-  }
-  static func dismantleUIView(_ view: ScannerPreviewView, coordinator: ()) { view.running = false }
-}
-
-struct NativeButton: ViewModifier {
-  func body(content: Content) -> some View {
-    if #available(iOS 26.0, *) { content.buttonStyle(.glass) }
-    else { content.buttonStyle(.bordered) }
-  }
-}
-
-struct NativeGlass: ViewModifier {
-  var cornerRadius: CGFloat = 28
-  var interactive = false
-  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-  func body(content: Content) -> some View {
-    if reduceTransparency {
-      content.background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: cornerRadius))
-    } else if #available(iOS 26.0, *) {
-      content.glassEffect(.regular.interactive(interactive), in: .rect(cornerRadius: cornerRadius))
-    } else {
-      content.background(.regularMaterial, in: RoundedRectangle(cornerRadius: cornerRadius))
-    }
   }
 }

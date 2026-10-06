@@ -1,37 +1,9 @@
-import Foundation
 import SwiftUI
 
-struct ProductRecord: Decodable {
-  let productName: String?
-  let brands: String?
-  let quantity: String?
-  let productType: String?
-
-  enum CodingKeys: String, CodingKey {
-    case productName = "product_name", brands, quantity, productType = "product_type"
-  }
-}
-
-enum ProductLookup {
-  private struct Response: Decodable { let status: String; let product: ProductRecord? }
-
-  static func find(_ code: String) async throws -> ProductRecord? {
-    guard code.count <= 14, code.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
-    guard let url = URL(string: "https://world.openfoodfacts.org/api/v3/product/\(code).json?product_type=all&fields=product_name,brands,quantity,product_type") else { return nil }
-    var request = URLRequest(url: url)
-    request.timeoutInterval = 12
-    request.setValue("QRScanner/1.0 (help@marginally-better.app)", forHTTPHeaderField: "User-Agent")
-    let (data, response) = try await URLSession.shared.data(for: request)
-    guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
-    if http.statusCode == 404 { return nil }
-    guard http.statusCode == 200 else { throw URLError(.badServerResponse) }
-    let result = try JSONDecoder().decode(Response.self, from: data)
-    return result.status == "success" || result.status == "success_with_errors" ? result.product : nil
-  }
-}
-
 struct ProductLookupScreen: View {
+  /// A GTIN from `CodeFormat.productCode`, already validated as digits with a correct check digit.
   let code: String
+  var client: OpenFoodFactsClient = .live
   @Environment(\.dismiss) private var dismiss
   @State private var product: ProductRecord?
   @State private var loading = true
@@ -44,10 +16,10 @@ struct ProductLookupScreen: View {
         else if failed { ContentUnavailableView("Lookup Unavailable", systemImage: "wifi.exclamationmark", description: Text("Check your connection and try again.")) }
         else if let product {
           List {
-            LabeledContent("Product", value: product.productName?.isEmpty == false ? product.productName! : "Unnamed product")
-            if let brands = product.brands, !brands.isEmpty { LabeledContent("Brand", value: brands) }
-            if let quantity = product.quantity, !quantity.isEmpty { LabeledContent("Quantity", value: quantity) }
-            if let type = product.productType, !type.isEmpty { LabeledContent("Category", value: type.capitalized) }
+            LabeledContent("Product", value: product.name ?? String(localized: "Unnamed product"))
+            if let brand = product.brand { LabeledContent("Brand", value: brand) }
+            if let size = product.size { LabeledContent("Quantity", value: size) }
+            if let category = product.category { LabeledContent("Category", value: category) }
             LabeledContent("Barcode", value: code)
             Section { Text("Community product data from Open Food Facts. Check the package for accuracy.") }
           }
@@ -68,7 +40,7 @@ struct ProductLookupScreen: View {
   private func lookup() async {
     loading = true
     failed = false
-    do { product = try await ProductLookup.find(code) }
+    do { product = try await client.find(code) }
     catch { if !Task.isCancelled { failed = true } }
     loading = false
   }

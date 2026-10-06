@@ -1,0 +1,26 @@
+name: Select Xcode 26+
+description: Select the newest installed Xcode 26 or later and print its version and iOS SDK.
+outputs:
+  fingerprint:
+    description: SHA-256 of `xcodebuild -version`, for toolchain-scoped cache keys.
+    value: ${{ steps.select.outputs.fingerprint }}
+runs:
+  using: composite
+  steps:
+    - name: Select Xcode 26+
+      id: select
+      shell: bash
+      run: |
+        set -euo pipefail
+        shopt -s nullglob
+        candidates=(/Applications/Xcode_26*.app /Applications/Xcode_27*.app)
+        if [[ ${#candidates[@]} -eq 0 ]]; then
+          echo "::error::No Xcode 26+ install found"
+          ls -d /Applications/Xcode*.app >&2 || true
+          exit 1
+        fi
+        XCODE_APP="$(printf '%s\n' "${candidates[@]}" | sort -V | tail -1)"
+        sudo xcode-select -s "${XCODE_APP}/Contents/Developer"
+        xcodebuild -version
+        xcrun --sdk iphoneos --show-sdk-version
+        echo "fingerprint=$(xcodebuild -version | shasum -a 256 | awk '{print $1}')" >> "$GITHUB_OUTPUT"
