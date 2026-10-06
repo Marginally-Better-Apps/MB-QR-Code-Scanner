@@ -19,22 +19,22 @@ Working copy for the 1.0 release. The App Store record already exists as MB QR S
 
 ## Promotional text
 
-Scan a code with your camera or from a photo. Open it, use it, and find it again in History.
+Scan QR codes and barcodes with your camera or from a photo. Find past scans in History.
 
 ## Description
 
-Got a code on a menu, a package, or a photo? MB QR Scanner reads it and keeps your past scans in one place.
+Scan QR codes and barcodes with your camera or from a photo. Keep past scans in History. Turn on location saving to search by place.
 
-Point your camera at a QR code or barcode, or pick a photo you already have. If there are a few codes in view, you can choose from all the results.
+Read boarding passes, links, text, Wi-Fi details, contacts, calendar events, email, phone numbers, SMS, map locations, and app links.
 
-Open a link, copy some text, or add a contact or event. Come back to History when you need a past scan. Turn on location saving if you'd like to remember where you found a code, then search for that place later.
+Scanning works offline and happens on your device. No account, ads, or tracking.
 
-Codes it reads, starting with the ones you're most likely to run into:
+Supported codes:
 
 - QR codes
-- UPC-A and EAN-13 product barcodes
-- EAN-8 product barcodes
-- UPC-E product barcodes
+- UPC-A and EAN-13
+- EAN-8
+- UPC-E
 - Code 128
 - PDF417
 - Aztec
@@ -56,14 +56,6 @@ Codes it reads, starting with the ones you're most likely to run into:
 - Code 93i
 - MSI Plessey
 
-That includes airline boarding passes encoded as QR, Aztec, PDF417, or Data Matrix. You can see the route and flight without saving passenger or ticket details.
-
-It also understands website links, plain text, Wi-Fi details, contacts in vCard or MECARD format, calendar events, email, phone numbers, SMS, map locations, and app links. Authenticator setup and export codes are recognized as sensitive and kept out of History. Available barcode formats depend on your iOS version.
-
-Scanning happens on your device. No account, no ads, and no tracking. Camera images and imported photos aren't uploaded or saved by the app. Passwords, login codes, and boarding-pass contents aren't saved in History.
-
-For product barcodes, tap Look Up Product to check Open Food Facts. That lookup needs internet; reading a code doesn't. Apple helps look up place names when you choose to save scan locations.
-
 ## TestFlight notes
 
 Try a printed QR code, a retail barcode, and a photo with a code in it. Photos works even with camera access denied. Check History, deletion and Undo. To try place search, turn on Save scan location in History settings, scan a code, and search for its saved place. Imported photos do not get the current device location. There is no sign-in. Reading codes works offline; product lookup and looking up place names need internet.
@@ -82,4 +74,4 @@ No sign-in or demo account is needed. Grant camera access and point the device a
 | Place search | Find it by where you scanned. |
 | Scan details | Pick up where you left off. |
 
-Screenshots use sample scans in the real native app. The name, subtitle, and keywords are the search fields; this description is written for people. Apple also uses category and customer activity when ordering search results. [Apple's search guidance](https://developer.apple.com/app-store/search/).
+Screenshots use sample scans in the real native app. The name, subtitle, and keywords are the search fields. Apple also uses category and customer activity when ordering search results. [Apple's search guidance](https://developer.apple.com/app-store/search/).
