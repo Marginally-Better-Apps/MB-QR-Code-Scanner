@@ -63,7 +63,7 @@ import Testing
   history.query = "chicago"
   #expect(history.sections.flatMap(\.events).count == 1)
   scanner.beginPhotoImport()
-  scanner.acceptPhoto([Detection("photo scan")])
+  scanner.acceptPhoto(importedPhoto([Detection("photo scan")]))
   await settle()
   #expect(history.events.first(where: { $0.original == "photo scan" })?.location == nil)
   let reloaded = try HistoryStore(directory: directory)

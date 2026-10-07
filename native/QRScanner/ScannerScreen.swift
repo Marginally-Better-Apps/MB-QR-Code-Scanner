@@ -12,13 +12,19 @@ struct ScannerScreen: View {
   @State private var dropTargeted = false
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @Environment(\.scenePhase) private var scenePhase
+  @Environment(\.colorScheme) private var colorScheme
 
   var body: some View {
     GeometryReader { geometry in
       ZStack {
         Color.black.ignoresSafeArea()
-        if model.showingPhotoResults {
-          Color.black.ignoresSafeArea()
+        if let photo = model.photo {
+          PhotoResult(photo: photo, highlights: model.photoHighlights, title: { model.payload(for: $0).title }) {
+            detail = model.payload(for: $0)
+          }
+          // Clear the floating buttons; the results panel is already a bottom inset.
+          .padding(.top, 68).padding([.horizontal, .bottom], 16)
+          .transition(.opacity)
         } else if model.cameraState == .ready {
           if !model.usesSimulatedScene {
             CameraPreview(model: model).ignoresSafeArea()
@@ -33,15 +39,25 @@ struct ScannerScreen: View {
       }
       .overlay(alignment: .top) {
         HStack {
-          if model.hasTorch && model.cameraState == .ready && !model.showingPhotoResults {
+          if model.showingPhotoResults {
+            Button { model.resumeCamera() } label: {
+              Image(systemName: "xmark").font(.system(size: 20, weight: .medium)).frame(width: 44, height: 44)
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .modifier(NativeGlass(cornerRadius: 22, interactive: true))
+            .accessibilityLabel("Back to Camera")
+            .accessibilityIdentifier("resume-camera")
+          } else if model.hasTorch && model.cameraState == .ready {
             Button { model.torchOn.toggle() } label: {
               Image(systemName: model.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
                 .font(.system(size: 20)).frame(width: 44, height: 44)
+                .foregroundStyle(model.torchOn ? AnyShapeStyle(.yellow) : AnyShapeStyle(.primary))
                 .contentTransition(.symbolEffect(.replace))
+                .contentShape(Circle())
             }
-            .modifier(NativeButton())
-            .buttonBorderShape(.circle)
-            .tint(model.torchOn ? .yellow : nil)
+            .buttonStyle(.plain)
+            .modifier(NativeGlass(cornerRadius: 22, interactive: true))
             .sensoryFeedback(.selection, trigger: model.torchOn)
             .accessibilityLabel("Flashlight")
             .accessibilityValue(model.torchOn ? Text("On") : Text("Off"))
@@ -94,8 +110,11 @@ struct ScannerScreen: View {
           }
         }
         .padding(.bottom, 8)
+        // A photo sits on black, where light glass turns a muddy gray.
+        .environment(\.colorScheme, model.showingPhotoResults ? .dark : colorScheme)
         .animation(reduceMotion ? .easeInOut(duration: 0.2) : .snappy, value: model.results)
       }
+      .animation(.easeInOut(duration: 0.2), value: model.showingPhotoResults)
       .overlay {
         if photoImport.isLoading {
           VStack(spacing: 12) {
@@ -107,13 +126,6 @@ struct ScannerScreen: View {
           Label("Drop a photo to scan", systemImage: "photo")
             .padding(24).modifier(NativeGlass())
             .allowsHitTesting(false)
-        }
-      }
-      .overlay(alignment: .center) {
-        if model.showingPhotoResults && !photoImport.isLoading {
-          Button("Scan Another", systemImage: "camera.viewfinder") { model.resumeCamera() }
-            .controlSize(.large).modifier(NativeButton())
-            .accessibilityIdentifier("resume-camera")
         }
       }
       .onDrop(of: [UTType.image], isTargeted: $dropTargeted) { photoImport.drop($0, into: model) }
@@ -201,13 +213,7 @@ private struct DetectionHighlights: View {
       ForEach(model.highlights) { detection in
         let width = detection.bounds.width * frame.size.width
         let height = detection.bounds.height * frame.size.height
-        // A little breathing room keeps the outline off the code's own modules.
-        let inset = min(10, max(4, min(width, height) * 0.08))
-        RoundedRectangle(cornerRadius: min(14, max(6, min(width, height) * 0.14)), style: .continuous)
-          .fill(.yellow.opacity(0.14))
-          .stroke(.yellow, lineWidth: 3)
-          .shadow(color: .black.opacity(0.3), radius: 4)
-          .frame(width: width + inset * 2, height: height + inset * 2)
+        CodeOutline(size: CGSize(width: width, height: height))
           .position(x: detection.bounds.midX * frame.size.width, y: detection.bounds.midY * frame.size.height)
           .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 1.15)))
           .accessibilityHidden(true)
@@ -215,5 +221,63 @@ private struct DetectionHighlights: View {
       }
     }
     .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: model.highlights)
+  }
+}
+
+/// The yellow outline drawn around a found code, live or in a photo.
+private struct CodeOutline: View {
+  let size: CGSize
+
+  var body: some View {
+    let side = min(size.width, size.height)
+    // A little breathing room keeps the outline off the code's own modules.
+    let inset = min(10, max(4, side * 0.08))
+    RoundedRectangle(cornerRadius: min(14, max(6, side * 0.14)), style: .continuous)
+      .fill(.yellow.opacity(0.14))
+      .stroke(.yellow, lineWidth: 3)
+      .shadow(color: .black.opacity(0.3), radius: 4)
+      .frame(width: size.width + inset * 2, height: size.height + inset * 2)
+  }
+}
+
+/// An imported photo with each code it contains outlined. Tapping an outline shows that code's details.
+private struct PhotoResult: View {
+  let photo: ImportedPhoto
+  let highlights: [Detection]
+  let title: (Detection) -> String
+  let onSelect: (Detection) -> Void
+  @State private var outlined = false
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  var body: some View {
+    Image(decorative: photo.image, scale: 1)
+      .resizable()
+      .aspectRatio(contentMode: .fit)
+      .clipShape(.rect(cornerRadius: 20, style: .continuous))
+      .overlay {
+        // The fitted image fills this frame exactly, so normalized bounds map straight onto it.
+        GeometryReader { frame in
+          ForEach(highlights) { detection in
+            Button { onSelect(detection) } label: {
+              CodeOutline(size: CGSize(width: detection.bounds.width * frame.size.width,
+                height: detection.bounds.height * frame.size.height))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .scaleEffect(outlined || reduceMotion ? 1 : 1.15)
+            .opacity(outlined ? 1 : 0)
+            .position(x: detection.bounds.midX * frame.size.width, y: detection.bounds.midY * frame.size.height)
+            .accessibilityLabel(Text(verbatim: title(detection)))
+            .accessibilityHint("Shows details")
+            .accessibilityIdentifier("photo-code-outline")
+          }
+        }
+      }
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .accessibilityElement(children: .contain)
+      .accessibilityLabel("Scanned Photo")
+      .onAppear {
+        withAnimation(reduceMotion ? .easeIn(duration: 0.2) : .snappy.delay(0.15)) { outlined = true }
+      }
   }
 }

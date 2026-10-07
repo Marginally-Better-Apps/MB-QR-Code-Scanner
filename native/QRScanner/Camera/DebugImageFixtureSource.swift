@@ -2,8 +2,8 @@
 import UIKit
 
 /// Debug and Simulator stand-in for the camera. A bundled image goes through the same
-/// Vision path as live frames, and the frame repeats so acceptance and History behave
-/// like live capture. Device Release builds always use the camera.
+/// Vision path as live frames, and the frame repeats while running so acceptance and History
+/// behave like live capture. Device Release builds always use the camera.
 @MainActor
 final class DebugImageFixtureSource {
   private static let names: Set = ["normal-qr", "damaged-distant-qr"]
@@ -17,10 +17,12 @@ final class DebugImageFixtureSource {
   /// Invalidates detection and repeats scheduled before the latest stop.
   private var generation = 0
 
+  /// A bundled fixture name, or an absolute path to a photo on the Mac running Simulator (store screenshots).
   init?(named name: String, deliver: @escaping @MainActor (QRScanFrame?) -> Void) {
+    let url = name.hasPrefix("/") ? URL(fileURLWithPath: name)
+      : Self.names.contains(name) ? Bundle.main.url(forResource: name, withExtension: "png") : nil
     guard
-      Self.names.contains(name),
-      let url = Bundle.main.url(forResource: name, withExtension: "png"),
+      let url,
       let uiImage = UIImage(contentsOfFile: url.path),
       let image = uiImage.cgImage
     else {
@@ -38,8 +40,8 @@ final class DebugImageFixtureSource {
 
   func start() {
     isRunning = true
-    if let frame {
-      deliver(frame)
+    if frame != nil {
+      repeatFrame(generation: generation)
       return
     }
     guard !isDetecting else {
@@ -75,15 +77,17 @@ final class DebugImageFixtureSource {
     }
     isDetecting = false
     self.frame = frame
+    repeatFrame(generation: generation)
+  }
+
+  /// Keeps delivering the frame like a camera held still, so acceptance, History, and the outline behave as live.
+  private func repeatFrame(generation: Int) {
+    guard isRunning, generation == self.generation else {
+      return
+    }
     deliver(frame)
-    // Repeat the image frame to exercise acceptance and History, like live capture.
-    for delay in [0.25, 1.0] {
-      DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-        guard let self, isRunning, generation == self.generation else {
-          return
-        }
-        deliver(frame)
-      }
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+      self?.repeatFrame(generation: generation)
     }
   }
 }

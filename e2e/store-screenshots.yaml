@@ -1,0 +1,73 @@
+# App Store screenshots. Run through scripts/capture-store-screenshots.sh, which seeds History,
+# adds the photo to the Photos library, and passes the camera photo path and first-photo position.
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    arguments:
+      nativeImageFixture: ${CAMERA_PHOTO}
+      locationFixture: chicago
+- extendedWaitUntil:
+    visible:
+      id: scan-result-row
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 01-camera
+# The first tap can land while the camera result is still settling, so retry until History is open.
+- retry:
+    maxRetries: 3
+    commands:
+      - tapOn:
+          id: open-history
+          optional: true
+      - extendedWaitUntil:
+          visible: '.*Jamie Rivera.*'
+          timeout: 8000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 02-history
+- tapOn:
+    id: history-row
+    text: '.*Lincoln Park.*'
+- swipe:
+    from:
+      text: Sheet Grabber
+    direction: UP
+    duration: 700
+- waitForAnimationToEnd:
+    timeout: 10000
+- assertVisible: Scan Location
+- takeScreenshot: 03-details
+- tapOn:
+    text: Done
+    retryTapIfNoChange: true
+- tapOn: Search History
+- inputText: Chicago
+# Submitting the search dismisses the keyboard without tapping a row.
+- pressKey: Enter
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 04-places
+
+- launchApp:
+    arguments:
+      cameraFixture: denied
+- tapOn:
+    id: open-photos
+    retryTapIfNoChange: true
+# The picker runs out of process and its labels are not always readable, so wait a fixed time for a freshly
+# erased library to load, then tap the newest photo by position.
+- extendedWaitUntil:
+    visible: 'never shown'
+    timeout: 10000
+    optional: true
+- takeScreenshot: 05-photo-picker
+- tapOn:
+    point: ${PHOTO_POINT}
+- extendedWaitUntil:
+    visible:
+      id: photo-code-outline
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: 06-photo-results

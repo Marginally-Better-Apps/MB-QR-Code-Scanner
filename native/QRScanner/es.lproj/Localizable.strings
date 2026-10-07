@@ -125,7 +125,9 @@
 
 /* Photo import and optional scan location */
 "Scan a Photo" = "Escanear una foto";
-"Scan Another" = "Escanear otro código";
+"Back to Camera" = "Volver a la cámara";
+"Scanned Photo" = "Foto escaneada";
+"Shows details" = "Muestra los detalles";
 "Reading Photo" = "Leyendo la foto";
 "Drop a photo to scan" = "Suelta una foto para escanear";
 "Photo Scan" = "Escaneo de foto";

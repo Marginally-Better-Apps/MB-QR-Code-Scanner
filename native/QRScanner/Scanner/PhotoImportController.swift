@@ -46,7 +46,7 @@ final class PhotoImportController {
         let decoded = try await Task.detached(priority: .userInitiated) { try ImportedImageDecoder.decode(data) }.value
         try Task.checkCancellation()
         guard model.phase != .background else { return cancel(model) }
-        if decoded.isEmpty {
+        if decoded.detections.isEmpty {
           failure = .noCodes
           model.cancelPhotoImport()
         } else { model.acceptPhoto(decoded) }
