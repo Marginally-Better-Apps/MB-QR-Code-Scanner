@@ -10,7 +10,7 @@ enum LaunchFixtures {
   enum Key: String {
     /// Replaces the camera with fixed detections: `url` (default), `two-codes`, `three-codes`.
     case scannerFixture
-    /// Decodes a bundled image through the real preview pipeline: `normal-qr`, `damaged-distant-qr`.
+    /// Decodes an image through the real preview pipeline: `normal-qr`, `damaged-distant-qr`, or an absolute path.
     case nativeImageFixture
     /// Seeds an empty History: `grouped`.
     case historyFixture

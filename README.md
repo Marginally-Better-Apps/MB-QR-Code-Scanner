@@ -2,7 +2,7 @@
 
 Support: [help@marginally-better.app](mailto:help@marginally-better.app). See the [privacy policy](docs/privacy-policy.md).
 
-An iPhone and iPad code scanner built with SwiftUI, AVFoundation, and on-device Vision. Live scanning and photo decoding work offline. Select an image with Photos or drop an image onto Scanner to read every code in it. Photos and History share a compact glass pill; Scan Another returns to the camera. Product lookup uses Open Food Facts only when you tap Look Up Product.
+An iPhone and iPad code scanner built with SwiftUI, AVFoundation, and on-device Vision. Live scanning and photo decoding work offline. Select an image with Photos or drop an image onto Scanner to read every code in it. Photos and History share a compact glass pill. A scanned photo stays on screen with each code outlined; tap an outline for its details, or the close button to return to the camera. Product lookup uses Open Food Facts only when you tap Look Up Product.
 
 All detected codes appear together in one Liquid Glass panel on iOS 26. Earlier iOS versions use system material. Highlights survive brief detection gaps. History uses native swipe-to-delete, confirmation for clearing, and Undo. Wi-Fi scans explain manual joining through Settings and offer safe copy actions.
 

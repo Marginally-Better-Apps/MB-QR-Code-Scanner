@@ -128,7 +128,7 @@ struct HistoryScreen: View {
           Text(presentation.title).lineLimit(1)
           Text(presentation.subtitle).font(.footnote).foregroundStyle(.secondary).lineLimit(1)
           if let location = event.location {
-            Label(location.displayName, systemImage: "mappin.and.ellipse")
+            (Text(Image(systemName: "mappin.and.ellipse")) + Text(verbatim: " " + location.displayName))
               .font(.footnote).foregroundStyle(.secondary).lineLimit(2)
           }
         }

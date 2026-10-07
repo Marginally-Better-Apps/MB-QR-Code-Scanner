@@ -25,7 +25,16 @@ final class ScannerViewModel {
   let imageFixture: String?
   let history: HistoryViewModel
   private(set) var importingPhoto = false
-  private(set) var showingPhotoResults = false
+  /// The imported photo on screen in place of the camera, or `nil` while scanning live.
+  private(set) var photo: ImportedPhoto?
+  var showingPhotoResults: Bool { photo != nil }
+  /// Codes in the photo that still have a result. Dismissed codes lose their outline too.
+  var photoHighlights: [Detection] {
+    guard let photo else { return [] }
+    return photo.detections.filter { detection in
+      results.contains { $0.original == detection.payload && $0.format == detection.format }
+    }
+  }
   var savesScanLocation: Bool {
     get { location?.enabled ?? false }
     set { location?.enabled = newValue }
@@ -105,6 +114,9 @@ final class ScannerViewModel {
     }
   }
 
+  /// The parsed result for a code, such as one outlined in an imported photo.
+  func payload(for detection: Detection) -> ScanPayload { payloads.payload(for: detection) }
+
   func dismiss(_ payload: ScanPayload) {
     session.dismiss(payload.original, format: payload.format)
     publishSession()
@@ -120,11 +132,11 @@ final class ScannerViewModel {
     updateCapture()
   }
 
-  func acceptPhoto(_ detections: [Detection]) {
-    guard phase != .background, !detections.isEmpty else { return cancelPhotoImport() }
-    showingPhotoResults = true
+  func acceptPhoto(_ photo: ImportedPhoto) {
+    guard phase != .background, !photo.detections.isEmpty else { return cancelPhotoImport() }
+    self.photo = photo
     importingPhoto = false
-    let accepted = session.acceptPhoto(detections)
+    let accepted = session.acceptPhoto(photo.detections)
     publishSession()
     for detection in accepted {
       let parsed = payloads.payload(for: detection)
@@ -137,7 +149,7 @@ final class ScannerViewModel {
 
   func resumeCamera() {
     importingPhoto = false
-    showingPhotoResults = false
+    photo = nil
     session = ScanSession(timing: session.timing)
     publishSession()
     updateCapture()
@@ -230,6 +242,8 @@ final class ScannerViewModel {
     payloads.removeAll()
     announced.removeAll()
     publishSession()
+    // A photo whose codes were all sensitive has nothing left to show.
+    if photo != nil && results.isEmpty { photo = nil }
   }
 
   /// Camera bookkeeping must not rebuild an open native menu every frame, so results are only

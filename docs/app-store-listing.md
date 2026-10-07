@@ -74,4 +74,4 @@ No sign-in or demo account is needed. Grant camera access and point the device a
 | Place search | Find it by where you scanned. |
 | Scan details | Pick up where you left off. |
 
-Screenshots use sample scans in the real native app. The name, subtitle, and keywords are the search fields. Apple also uses category and customer activity when ordering search results. [Apple's search guidance](https://developer.apple.com/app-store/search/).
+Screenshots come from the real native app, scanning real photos of QR codes in the wild (see `design/store-screenshots`). History uses sample scans. Run `scripts/capture-store-screenshots.sh` to capture them at 6.9" iPhone and 13" iPad sizes. The name, subtitle, and keywords are the search fields. Apple also uses category and customer activity when ordering search results. [Apple's search guidance](https://developer.apple.com/app-store/search/).
