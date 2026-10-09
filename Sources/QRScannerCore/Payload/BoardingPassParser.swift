@@ -43,12 +43,12 @@ enum BoardingPassParser: PayloadKindParser {
       String(localized: "Day \(pass.julianDay) of the year"),
       String(localized: "Passenger: \(field(Field.passengerName))"),
       String(localized: "Booking reference: \(field(Field.pnr))"),
-      String(localized: "Ticket indicator: \(characters[Field.electronicTicket])"),
-      String(localized: "Flight legs: \(characters[Field.legCount])"),
-      String(localized: "Cabin: \(characters[Field.compartment])"),
+      String(localized: "Ticket indicator: \(String(characters[Field.electronicTicket]))"),
+      String(localized: "Flight legs: \(String(characters[Field.legCount]))"),
+      String(localized: "Cabin: \(String(characters[Field.compartment]))"),
       String(localized: "Seat: \(field(Field.seat))"),
       String(localized: "Check-in sequence: \(field(Field.sequence))"),
-      String(localized: "Passenger status: \(characters[Field.passengerStatus])"),
+      String(localized: "Passenger status: \(String(characters[Field.passengerStatus]))"),
     ].joined(separator: "\n")
     return ParsedPayload(kind: .boardingPass, title: String(localized: "Boarding pass"), details: details,
       isSensitive: true, summary: "Boarding pass")
