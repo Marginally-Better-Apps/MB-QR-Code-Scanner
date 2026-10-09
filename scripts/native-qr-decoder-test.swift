@@ -31,6 +31,10 @@ enum NativeQRDecoderTest {
       "MECARD:N:Tester,Camera;TEL:+14155552671;;",
       "BEGIN:VEVENT\nDTSTART:20261001T120000Z\nSUMMARY:Camera test\nEND:VEVENT",
       "otpauth://totp/Test?secret=JBSWY3DPEHPK3PXP", "myapp://test?value=42",
+      "M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 326J001A0025 100",
+      "https://example.com/reset?token=full-data#secret=retained",
+      "otpauth-migration://offline?data=export-data",
+      String(repeating: "ab", count: 32),
     ]
     for payload in payloads {
       try check(try QRScanFrame.detect(in: CodeImages.pixelBuffer(CodeImages.qr(payload))), expected: [payload])
@@ -64,12 +68,10 @@ enum NativeQRDecoderTest {
     let reopened = try HistoryStore(directory: directory)
     guard reopened.events.count == expected.count else { throw failure("History lost results") }
     for raw in expected {
+      guard reopened.events.contains(where: { $0.original == raw }) else { throw failure("History changed payload") }
       let parsed = ScanPayload(raw)
-      if parsed.isSensitive || parsed.kind == .wifi {
-        guard !reopened.events.contains(where: { $0.original == raw }) else { throw failure("Secret persisted") }
-      } else {
-        guard reopened.events.contains(where: { $0.original == raw }) else { throw failure("History changed payload") }
-      }
+      guard PayloadActionRules.clipboardText(for: .copy, payload: parsed) == raw,
+        PayloadActionRules.actions(for: parsed).actions.contains(.share) else { throw failure("Complete-data actions unavailable") }
     }
   }
 
