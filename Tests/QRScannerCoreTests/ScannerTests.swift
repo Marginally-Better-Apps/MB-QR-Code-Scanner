@@ -87,31 +87,31 @@ import Testing
   #expect(saved.original == "3017624010701")
 }
 
-@Test func boardingPassesShowTravelSummaryWithoutSavingTicketData() {
+@Test func boardingPassesShowTravelAndPassengerDetailsAndSaveTicketData() {
   let name = "DOE/JOHN".padding(toLength: 20, withPad: " ", startingAt: 0)
   let raw = "M1" + name + "E" + "ABC123 " + "ORD" + "LAX" + "AA " + "00123" + "273" + "Y" + "012A" + "00042" + "1" + "00"
   let pass = ScanPayload(raw, format: CodeFormat(rawValue: "VNBarcodeSymbologyAztec"))
   #expect(pass.kind == .boardingPass)
   #expect(pass.isSensitive)
   #expect(pass.details.contains("ORD to LAX"))
-  #expect(!pass.details.contains("DOE"))
-  #expect(pass.historyEvent(at: Date()).original == nil)
+  #expect(pass.details.contains("DOE"))
+  #expect(pass.historyEvent(at: Date()).original == raw)
   #expect(ScanPayload("M1too short").kind == .text)
 }
 
-@Test func secretsAndWifiNeverPersistRawPayloads() {
+@Test func secretsAndWifiPersistCompleteRawPayloads() {
   for raw in ["otpauth://totp/Test?secret=JBSWY3DPEHPK3PXP", "otpauth-migration://offline?data=SECRET", "FIDO:/000111222333", "-----BEGIN PRIVATE KEY-----"] {
     let parsed = ScanPayload(raw)
     #expect(parsed.isSensitive)
-    #expect(parsed.historyEvent(at: Date()).original == nil)
+    #expect(parsed.historyEvent(at: Date()).original == raw)
     #expect(!parsed.title.contains("SECRET"))
   }
   let wifi = ScanPayload("WIFI:T:WPA;S:Office\\;Guest;P:secret;;")
   #expect(wifi.kind == .wifi)
   #expect(wifi.wifi?.ssid == "Office;Guest")
   #expect(wifi.wifi?.password == "secret")
-  #expect(!wifi.details.contains("secret"))
-  #expect(wifi.historyEvent(at: Date()).original == nil)
+  #expect(wifi.details.contains("secret"))
+  #expect(wifi.historyEvent(at: Date()).original == wifi.original)
 }
 
 @Test func historyKeepsTheExistingEnvelopeAndSupportsRepeatedUndo() throws {

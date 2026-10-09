@@ -13,7 +13,7 @@ struct HistoryRowPresentation {
   var title: String {
     switch category {
     case .redacted: String(localized: "Sensitive scan")
-    case .wifi: String(localized: "Wi-Fi network")
+    case .wifi: event.original == nil ? String(localized: "Wi-Fi network") : ScanPayload.visible(event.summary ?? "", limit: 120)
     case .boardingPass: String(localized: "Boarding pass")
     case .payload, .unknown: ScanPayload.visible(event.summary ?? "", limit: 120)
     }
@@ -22,8 +22,12 @@ struct HistoryRowPresentation {
   var subtitle: String {
     guard event.original != nil else { return String(localized: "Details not saved") }
     let kind: String
-    if case .payload(let payloadKind) = category { kind = ScanPayload.kindName(payloadKind) }
-    else { kind = String(localized: "Text") }
+    switch category {
+    case .payload(let payloadKind): kind = ScanPayload.kindName(payloadKind)
+    case .wifi: kind = ScanPayload.kindName(.wifi)
+    case .boardingPass: kind = ScanPayload.kindName(.boardingPass)
+    default: kind = String(localized: "Text")
+    }
     return "\(kind) · \((event.format ?? .qr).name)"
   }
 

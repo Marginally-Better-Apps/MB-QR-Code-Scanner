@@ -2,16 +2,16 @@ import Foundation
 import Testing
 @testable import QRScannerCore
 
-private func expectPrivate(_ parsed: ScanPayload, sourceLocation: SourceLocation = #_sourceLocation) {
+private func expectComplete(_ parsed: ScanPayload, sourceLocation: SourceLocation = #_sourceLocation) {
   #expect(parsed.kind == .wifi, sourceLocation: sourceLocation)
   let password = parsed.wifi?.password ?? ""
   if !password.isEmpty {
-    #expect(!parsed.details.contains(password), sourceLocation: sourceLocation)
+    #expect(parsed.details.contains(password), sourceLocation: sourceLocation)
     #expect(!parsed.title.contains(password), sourceLocation: sourceLocation)
   }
   let event = parsed.historyEvent(at: Date())
-  #expect(event.original == nil, sourceLocation: sourceLocation)
-  #expect(event.summary == "Wi-Fi network", sourceLocation: sourceLocation)
+  #expect(event.original == parsed.original, sourceLocation: sourceLocation)
+  #expect(event.summary == parsed.historySummary, sourceLocation: sourceLocation)
 }
 
 @Test func wifiSecurityIsShownInPlainWords() {
@@ -26,7 +26,7 @@ private func expectPrivate(_ parsed: ScanPayload, sourceLocation: SourceLocation
   ]
   for (raw, type, label) in cases {
     let parsed = ScanPayload(raw)
-    expectPrivate(parsed)
+    expectComplete(parsed)
     #expect(parsed.wifi?.securityType == type, "\(raw)")
     #expect(parsed.details.contains("Security: \(label)"), "\(raw)")
   }
@@ -34,7 +34,7 @@ private func expectPrivate(_ parsed: ScanPayload, sourceLocation: SourceLocation
 
 @Test func wifiHiddenFlagQuotesAndEscapes() {
   let hidden = ScanPayload("WIFI:T:WPA;S:Secret Lab;P:pw;H:true;;")
-  expectPrivate(hidden)
+  expectComplete(hidden)
   #expect(hidden.wifi?.hidden == true)
   #expect(hidden.details.contains("Hidden network"))
   #expect(!ScanPayload("WIFI:T:WPA;S:Lab;P:pw;;").details.contains("Hidden"))
@@ -45,7 +45,7 @@ private func expectPrivate(_ parsed: ScanPayload, sourceLocation: SourceLocation
   #expect(quoted.title == "My Network")
 
   let escaped = ScanPayload(#"WIFI:T:WPA;S:a\;b\,c\:d\\e\"f;P:p\;w\\;;"#)
-  expectPrivate(escaped)
+  expectComplete(escaped)
   #expect(escaped.wifi?.ssid == #"a;b,c:d\e"f"#)
   #expect(escaped.wifi?.password == #"p;w\"#)
 
@@ -56,19 +56,19 @@ private func expectPrivate(_ parsed: ScanPayload, sourceLocation: SourceLocation
   #expect(ScanPayload("WIFI:S:4F6666696365;;").wifi?.ssid == "4F6666696365")
 }
 
-@Test func malformedWifiNeverSavesItsPassword() {
+@Test func malformedWifiKeepsItsCompleteData() {
   for raw in ["WIFI:P:hunter2;;", "WIFI:", "WIFI:garbage", "WIFI:T:WPA;P:hunter2", "wifi:s:lower;p:hunter2;;"] {
     let parsed = ScanPayload(raw)
-    expectPrivate(parsed)
+    expectComplete(parsed)
     #expect(!parsed.title.contains("hunter2"), "\(raw)")
   }
   #expect(ScanPayload("WIFI:P:hunter2;;").title == "Wi-Fi network")
 }
 
-@Test func wifiExplainsManualJoiningWithoutExposingThePassword() {
+@Test func wifiExplainsManualJoiningAndShowsThePassword() {
   let payload = ScanPayload("WIFI:T:WPA;S:Cafe;P:private-password;;")
   #expect(payload.details.contains("Join this network in Wi-Fi Settings."))
   #expect(payload.details.contains("QR Scanner does not join networks automatically."))
-  #expect(!payload.details.contains("private-password"))
-  #expect(PayloadActionRules.actions(for: payload).actions == [.copyPassword, .copy])
+  #expect(payload.details.contains("private-password"))
+  #expect(PayloadActionRules.actions(for: payload).actions == [.copyPassword, .copy, .share])
 }

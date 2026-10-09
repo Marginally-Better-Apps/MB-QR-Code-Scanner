@@ -1,7 +1,7 @@
 import Foundation
 
 /// IATA Bar Coded Boarding Pass (Resolution 792), mandatory first-leg fields.
-/// Only the route, flight, and day are shown. The raw pass is sensitive and never saved.
+/// Readable travel fields supplement the complete original data.
 enum BoardingPassParser: PayloadKindParser {
   /// Character offsets of the mandatory unique and first-leg fields.
   enum Field {
@@ -33,11 +33,22 @@ enum BoardingPassParser: PayloadKindParser {
 
   static func parse(_ input: PayloadInput) -> ParsedPayload? {
     guard let pass = summary(input.raw, format: input.format) else { return nil }
+    let characters = Array(input.raw)
+    func field(_ range: Range<Int>) -> String {
+      String(characters[range]).trimmingCharacters(in: .whitespaces)
+    }
     let details = [
       String(localized: "\(pass.origin) to \(pass.destination)"),
       "\(pass.carrier) \(pass.flight)",
       String(localized: "Day \(pass.julianDay) of the year"),
-      String(localized: "Passenger details and ticket data are hidden."),
+      String(localized: "Passenger: \(field(Field.passengerName))"),
+      String(localized: "Booking reference: \(field(Field.pnr))"),
+      String(localized: "Ticket indicator: \(characters[Field.electronicTicket])"),
+      String(localized: "Flight legs: \(characters[Field.legCount])"),
+      String(localized: "Cabin: \(characters[Field.compartment])"),
+      String(localized: "Seat: \(field(Field.seat))"),
+      String(localized: "Check-in sequence: \(field(Field.sequence))"),
+      String(localized: "Passenger status: \(characters[Field.passengerStatus])"),
     ].joined(separator: "\n")
     return ParsedPayload(kind: .boardingPass, title: String(localized: "Boarding pass"), details: details,
       isSensitive: true, summary: "Boarding pass")

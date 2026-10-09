@@ -1,0 +1,44 @@
+appId: com.marginallybetter.qrscanner
+---
+- launchApp:
+    clearState: true
+    arguments:
+      cameraFixture: "authorized"
+      scannerFixture: "full-data"
+- extendedWaitUntil:
+    visible: ".*Authentication code.*"
+    timeout: 30000
+- tapOn:
+    id: "open-history"
+- tapOn:
+    id: "history-row"
+    text: ".*Authentication code.*"
+- assertVisible: "Raw Data"
+- assertVisible:
+    id: "scan-raw-data"
+    text: ".*secret=JBSWY3DPEHPK3PXP.*"
+- tapOn: "Actions"
+- assertVisible: "Copy"
+- assertVisible: "Share"
+- tapOn: "Copy"
+- takeScreenshot: authentication-complete-data
+- tapOn: "Done"
+- swipe:
+    from:
+      id: "history-row"
+      text: ".*Authentication code.*"
+    direction: LEFT
+    duration: 600
+- tapOn: "Delete"
+- assertNotVisible:
+    id: "history-row"
+    text: ".*Authentication code.*"
+- tapOn:
+    id: "history-undo"
+- tapOn:
+    id: "history-row"
+    text: ".*Authentication code.*"
+- assertVisible:
+    id: "scan-raw-data"
+    text: ".*secret=JBSWY3DPEHPK3PXP.*"
+- tapOn: "Done"

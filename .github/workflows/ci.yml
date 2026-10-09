@@ -86,6 +86,7 @@ jobs:
           xcrun simctl addmedia "$DEVICE_ID" native/QRScanner/Fixtures/normal-qr.png
           maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/photo-import-acceptance.yaml
           maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/scan-location-acceptance.yaml
+          maestro test --device "$DEVICE_ID" --test-output-dir artifacts/native-ui e2e/full-scan-data-acceptance.yaml
       - name: Upload UI evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

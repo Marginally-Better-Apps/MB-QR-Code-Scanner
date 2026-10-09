@@ -10,18 +10,23 @@ private let sample = "M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 326J001A0025 1
   #expect(summary == .init(origin: "YUL", destination: "FRA", carrier: "AC", flight: "834", julianDay: 326))
 }
 
-@Test func boardingPassesAreRedactedInEveryTwoDimensionalFormat() {
+@Test func boardingPassesKeepPassengerAndTicketDataInEveryTwoDimensionalFormat() {
   for format in [CodeFormat.qr, .aztec, .dataMatrix, .pdf417] {
     let pass = ScanPayload(sample, format: format)
     #expect(pass.kind == .boardingPass, "\(format.name)")
     #expect(pass.isSensitive, "\(format.name)")
     #expect(pass.details.contains("YUL"))
     #expect(pass.details.contains("AC 834"))
-    #expect(!pass.details.contains("DESMARAIS"))
-    #expect(!pass.details.contains("ABC123"))
+    #expect(pass.details.contains("Passenger: DESMARAIS/LUC"))
+    #expect(pass.details.contains("Booking reference: ABC123"))
+    #expect(pass.details.contains("Seat: 001A"))
+    #expect(pass.details.contains("Cabin: J"))
+    #expect(pass.details.contains("Check-in sequence: 0025"))
     #expect(!pass.title.contains("DESMARAIS"))
     let event = pass.historyEvent(at: Date())
-    #expect(event.original == nil)
+    #expect(event.original == sample)
+    #expect(pass.rawData == sample)
+    #expect(PayloadActionRules.actions(for: pass).actions == [.copy, .share])
     #expect(event.kind == "boardingPass")
     #expect(event.summary == "Boarding pass")
   }

@@ -6,7 +6,7 @@ The Swift port preserves `com.marginallybetter.qrscanner` and `Documents/history
 
 `acceptedAt` is parsed once when an event is decoded, with or without fractional seconds and with `Z` or a numeric offset. An unparseable timestamp sorts last instead of failing the file. The persisted `kind` string maps to a typed `HistoryEvent.Category`; unknown kinds are kept and shown as text.
 
-Authentication codes and private-key material store a generic redacted row with no original payload. Wi-Fi stores only a generic network row, without SSID or password. Backgrounding discards sensitive in-memory results.
+Every new scan stores the complete original payload, including authentication codes, private keys, Wi-Fi credentials, boarding passes, and credential-bearing links. Copy and Share export that exact payload. Parser version 5 reclassifies older originals without changing or removing them. Previously redacted rows remain readable, but data omitted by older builds cannot be recovered. Backgrounding discards sensitive in-memory results; their saved History remains available.
 
 Recording keeps the 5,000 newest scans; the oldest rows are dropped when a new scan exceeds that. Opening a larger file never trims or rewrites it.
 

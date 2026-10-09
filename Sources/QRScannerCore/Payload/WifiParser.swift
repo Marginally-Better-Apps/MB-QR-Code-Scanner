@@ -30,7 +30,7 @@ extension ScanPayload.Wifi {
 }
 
 /// `WIFI:T:WPA;S:name;P:password;H:true;;` (ZXing convention). Every `WIFI:` code is a Wi-Fi
-/// result, even when malformed, so a password is never saved as plain text.
+/// result, even when malformed. The full code remains available in Raw Data.
 ///
 /// SSIDs are shown as written. Quoted values are unquoted. An unquoted hex-looking SSID is not
 /// decoded: without quotes the convention is ambiguous, and the app never joins networks.
@@ -47,9 +47,10 @@ enum WifiParser: PayloadKindParser {
     let hidden = ["true", "1", "yes"].contains(fields["H"]?.lowercased() ?? "")
     let network = ScanPayload.Wifi(ssid: ssid, password: password, security: security, hidden: hidden)
     var details = [String(localized: "Security: \(network.securityType.name)")]
+    if !password.isEmpty { details.append(String(localized: "Password: \(password)")) }
     if hidden { details.append(String(localized: "Hidden network")) }
     details.append(String(localized: "Join this network in Wi-Fi Settings. QR Scanner does not join networks automatically."))
     return ParsedPayload(kind: .wifi, title: ssid.isEmpty ? String(localized: "Wi-Fi network") : ssid,
-      details: details.joined(separator: "\n"), wifi: network, summary: "Wi-Fi network")
+      details: details.joined(separator: "\n"), wifi: network, summary: ssid.isEmpty ? "Wi-Fi network" : ssid)
   }
 }

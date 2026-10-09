@@ -74,8 +74,8 @@ struct HistoryEvent: Codable, Identifiable, Equatable {
     /// Rows whose raw payload was deliberately never written to disk.
     var withholdsPayload: Bool {
       switch self {
-      case .redacted, .wifi, .boardingPass: true
-      case .payload, .unknown: false
+      case .redacted: true
+      case .wifi, .boardingPass, .payload, .unknown: false
       }
     }
   }
@@ -104,19 +104,16 @@ enum HistoryTimestamp {
 }
 
 extension HistoryEvent {
-  /// Rows saved under older parser rules are re-checked on load, so secrets those versions kept (boarding passes,
-  /// recovery phrases, token links) are hidden now and dropped from the file at the next save. Loading never writes.
-  func applyingCurrentRedaction() -> HistoryEvent {
+  /// Reclassifies older rows that still have their data. Never rewrites or removes their payload.
+  /// Previously omitted data cannot be recovered.
+  func applyingCurrentParsing() -> HistoryEvent {
     guard parserVersion < ScanPayload.historyParserVersion, let original else { return self }
     let current = ScanPayload(original, format: format ?? .qr).historyEvent(at: date)
-    // Rows the current rules would store unchanged keep their saved kind and summary. Either way the
-    // row is marked current, so after the next save it is never parsed on load again.
-    guard current.original != original else {
-      return HistoryEvent(id: id, acceptedAt: acceptedAt, kind: kind, summary: summary, original: original,
-        parserVersion: current.parserVersion, format: format, location: location)
-    }
-    return HistoryEvent(id: id, acceptedAt: acceptedAt, kind: current.kind, summary: current.summary,
-      original: current.original, parserVersion: current.parserVersion, format: format, location: location)
+    let nextKind: String
+    if case .unknown = category { nextKind = kind } else { nextKind = current.kind }
+    return HistoryEvent(id: id, acceptedAt: acceptedAt, kind: nextKind,
+      summary: nextKind == kind ? summary : current.summary, original: original,
+      parserVersion: current.parserVersion, format: format, location: location)
   }
 }
 
@@ -150,7 +147,7 @@ final class HistoryStore: HistoryRepository {
       let data = try Data(contentsOf: fileURL)
       let envelope = try JSONDecoder().decode(Envelope.self, from: data)
       guard envelope.version == 1 else { throw StoreError.unsupportedFormat }
-      events = Self.newestFirst(envelope.events).map { $0.applyingCurrentRedaction() }
+      events = Self.newestFirst(envelope.events).map { $0.applyingCurrentParsing() }
     } else {
       events = []
     }

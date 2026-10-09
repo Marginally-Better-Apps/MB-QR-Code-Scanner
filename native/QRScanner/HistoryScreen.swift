@@ -147,7 +147,7 @@ struct HistoryScreen: View {
     }
     .contextMenu {
       if let payload {
-        // Same rules as scan results, so sensitive and Wi-Fi rows never export their raw code.
+        // History offers the same complete-data actions as live results.
         let actions = PayloadActionRules.actions(for: payload).actions
         if let text = PayloadActionRules.clipboardText(for: .copy, payload: payload) {
           Button("Copy", systemImage: "doc.on.doc") {

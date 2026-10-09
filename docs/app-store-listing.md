@@ -23,7 +23,7 @@ Scan QR codes and barcodes with your camera or from a photo. Find past scans in 
 
 ## Description
 
-Scan QR codes and barcodes with your camera or from a photo. Keep past scans in History. Turn on location saving to search by place.
+Scan QR codes and barcodes with your camera or from a photo. Keep the complete original data in History. View, copy, share, or swipe to delete any scan. Turn on location saving to search by place.
 
 Read boarding passes, links, text, Wi-Fi details, contacts, calendar events, email, phone numbers, SMS, map locations, and app links.
 
@@ -62,7 +62,7 @@ Try a printed QR code, a retail barcode, and a photo with a code in it. Photos w
 
 ## App Review notes
 
-No sign-in or demo account is needed. Grant camera access and point the device at a QR code or barcode. History fills after a successful scan. Product lookup appears for valid retail barcodes and sends the barcode number to Open Food Facts only after a tap. Add Contact and Add Event open the standard iOS contact and event editors. The app does not request Contacts or Calendars access, so no permission prompt appears; nothing is saved unless you confirm in the system editor. Data Not Collected: product lookup is a user-initiated request sent directly to Open Food Facts. We do not receive, store, or link it. Photo selection and drag and drop work without camera permission. Save scan location is off by default and requests When In Use access only when enabled. Apple reverse geocoding may receive coordinates to find place names. Imported photos are never tagged with the current device location. Wi-Fi joining is manual through Settings.
+No sign-in or demo account is needed. Grant camera access and point the device at a QR code or barcode. History fills after a successful scan. Product lookup appears for valid retail barcodes and sends the barcode number to Open Food Facts only after a tap. Add Contact and Add Event open the standard iOS contact and event editors. The app does not request Contacts or Calendars access, so no permission prompt appears; nothing is saved unless you confirm in the system editor. Data Not Collected: product lookup is a user-initiated request sent directly to Open Food Facts. We do not receive, store, or link it. Photo selection and drag and drop work without camera permission. Save scan location is off by default and requests When In Use access only when enabled. Apple reverse geocoding may receive coordinates to find place names. Imported photos are never tagged with the current device location. Wi-Fi joining is manual through Settings. Every scanned code retains its complete original payload in local History, including boarding passes and authentication or Wi-Fi data. Raw Data, Copy, and Share expose the full payload; swipe to delete or clear History removes it.
 
 ## Screenshot copy
 

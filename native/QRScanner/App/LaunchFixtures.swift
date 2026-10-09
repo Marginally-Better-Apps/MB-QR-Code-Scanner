@@ -45,6 +45,8 @@ enum LaunchFixtures {
   static func detections(named name: String) -> [Detection] {
     let bounds = CGRect(x: 0.2, y: 0.3, width: 0.4, height: 0.2)
     switch name {
+    case "full-data":
+      return [Detection("otpauth://totp/Test?secret=JBSWY3DPEHPK3PXP", bounds: bounds)]
     case "three-codes":
       return [Detection("https://example.com/three-top", bounds: CGRect(x: 0.1, y: 0.15, width: 0.25, height: 0.12)), Detection("Hello middle code", bounds: CGRect(x: 0.55, y: 0.3, width: 0.25, height: 0.12)), Detection("myapp://pay?amount=10", bounds: CGRect(x: 0.2, y: 0.48, width: 0.25, height: 0.12))]
     case "two-codes": return [Detection("https://example.com/left", bounds: bounds), Detection("Hello from the right code", bounds: CGRect(x: 0.6, y: 0.3, width: 0.25, height: 0.15))]

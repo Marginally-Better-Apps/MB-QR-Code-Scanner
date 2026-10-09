@@ -73,11 +73,11 @@ private func actions(_ raw: String, format: CodeFormat = .qr, availability: Open
   #expect(payload.openURL != nil)
   #expect(PayloadActionRules.handoff(for: payload) == .authenticator)
   #expect(PayloadActionRules.queryableScheme(for: payload) == "otpauth")
-  #expect(actions(raw).actions == [.open])
+  #expect(actions(raw).actions == [.open, .copy, .share])
   #expect(actions(raw).primary == .open)
   let unavailable = actions(raw, availability: .unavailable)
-  #expect(unavailable.actions.isEmpty)
-  #expect(unavailable.primary == nil)
+  #expect(unavailable.actions == [.copy, .share])
+  #expect(unavailable.primary == .copy)
   #expect(unavailable.openUnavailableReason == .authenticator)
 }
 
@@ -87,25 +87,25 @@ private func actions(_ raw: String, format: CodeFormat = .qr, availability: Open
   #expect(payload.openURL != nil)
   #expect(PayloadActionRules.handoff(for: payload) == .passkey)
   #expect(PayloadActionRules.queryableScheme(for: payload) == "fido")
-  #expect(actions(raw, availability: .available).actions == [.open])
+  #expect(actions(raw, availability: .available).actions == [.open, .copy, .share])
   #expect(actions(raw, availability: .unavailable).openUnavailableReason == .passkey)
 }
 
-@Test func authenticatorExportsAndSecretsOfferNothing() {
-  #expect(actions("otpauth-migration://offline?data=abc").actions.isEmpty)
-  #expect(actions("-----BEGIN PRIVATE KEY-----").actions.isEmpty)
+@Test func authenticatorExportsAndSecretsOfferCopyAndShare() {
+  #expect(actions("otpauth-migration://offline?data=abc").actions == [.copy, .share])
+  #expect(actions("-----BEGIN PRIVATE KEY-----").actions == [.copy, .share])
 }
 
-@Test func wifiNeverSharesTheRawCode() {
+@Test func wifiCopiesAndSharesTheCompleteCode() {
   let raw = "WIFI:S:Home;T:WPA;P:hunter2;;"
   let payload = ScanPayload(raw)
   let set = actions(raw)
-  #expect(set.actions == [.copyPassword, .copy])
+  #expect(set.actions == [.copyPassword, .copy, .share])
   #expect(set.primary == .copyPassword)
   #expect(PayloadActionRules.clipboardText(for: .copyPassword, payload: payload) == "hunter2")
-  #expect(PayloadActionRules.clipboardText(for: .copy, payload: payload) == "Home")
-  #expect(actions("WIFI:S:Cafe;T:nopass;;").actions == [.copy])
-  #expect(actions("WIFI:T:nopass;;").actions.isEmpty)
+  #expect(PayloadActionRules.clipboardText(for: .copy, payload: payload) == raw)
+  #expect(actions("WIFI:S:Cafe;T:nopass;;").actions == [.copy, .share])
+  #expect(actions("WIFI:T:nopass;;").actions == [.copy, .share])
 }
 
 @Test func structuredCodesOfferTheirNativeAction() {

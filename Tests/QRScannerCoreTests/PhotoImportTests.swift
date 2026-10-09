@@ -69,7 +69,7 @@ func importedScreenshotsAndCameraPhotoFormatsDecode(_ type: String) throws {
   #expect(scanner.showingPhotoResults)
   #expect(feedback.accepted == 1)
   #expect(history.events.count == 2)
-  #expect(history.events.first(where: { $0.category == .redacted })?.original == nil)
+  #expect(history.events.first(where: { $0.category == .payload(.auth) })?.original == detections[1].payload)
   #expect(try HistoryStore(directory: directory).events.count == 2)
   scanner.setPhase(.background)
   #expect(scanner.results.map(\.original) == ["https://example.com/photo"])

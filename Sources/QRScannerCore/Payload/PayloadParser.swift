@@ -39,11 +39,9 @@ struct ParsedPayload {
   var isSensitive = false
   /// English History summary when `title` is a translated label. Defaults to `title`.
   var summary: String?
-  /// What History may store as the payload. Defaults to the original payload.
-  var historyOriginal: String?
 
   init(kind: ScanPayload.Kind, title: String, details: String, openURL: URL? = nil, wifi: ScanPayload.Wifi? = nil,
-       isSensitive: Bool = false, summary: String? = nil, historyOriginal: String? = nil) {
+       isSensitive: Bool = false, summary: String? = nil) {
     self.kind = kind
     self.title = title
     self.details = details
@@ -51,7 +49,6 @@ struct ParsedPayload {
     self.wifi = wifi
     self.isSensitive = isSensitive
     self.summary = summary
-    self.historyOriginal = historyOriginal
   }
 
   /// The non-actionable fallback for anything unrecognized or malformed.
