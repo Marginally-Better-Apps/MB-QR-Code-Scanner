@@ -6,16 +6,15 @@ struct ScanPayload: Identifiable, Equatable {
   }
   struct Wifi: Equatable {
     let ssid: String
-    /// Never shown, saved, or included in details. Only copied on request.
+    /// Decoded password, also available in the original payload.
     let password: String
     /// The raw `T:` value, for example `WPA` or `nopass`. See `securityType` for display.
     let security: String
     let hidden: Bool
   }
 
-  /// Written to every History event. Rows from an older version are re-redacted on load
-  /// (`HistoryEvent.applyingCurrentRedaction`); bump it whenever History redaction rules change.
-  static let historyParserVersion = 4
+  /// Written to every History event. Older saved payloads are reclassified without changing their data.
+  static let historyParserVersion = 5
 
   let original: String
   let format: CodeFormat
@@ -23,15 +22,15 @@ struct ScanPayload: Identifiable, Equatable {
   let kind: Kind
   /// One line, possibly translated. Shown in results.
   let title: String
-  /// A readable multi-line description, possibly translated. Never contains secrets.
+  /// A readable multi-line description, possibly translated.
   let details: String
   let openURL: URL?
   let wifi: Wifi?
   let isSensitive: Bool
   /// The English, untranslated label History stores. Equals `title` for user content.
   let historySummary: String
-  /// What History may store as the payload; links have credential parameters removed.
-  let historyOriginal: String
+  /// Display-safe original data, without truncation. Copy, Share, and History use the exact original.
+  var rawData: String { TextSanitizer.details(original, limit: .max) }
 
   var id: String { CodeIdentity.id(original, format: format) }
 
@@ -65,7 +64,6 @@ struct ScanPayload: Identifiable, Equatable {
     wifi = parsed.wifi
     isSensitive = parsed.isSensitive
     historySummary = TextSanitizer.title(parsed.summary ?? parsed.title)
-    historyOriginal = parsed.historyOriginal ?? original
   }
 
   /// The event to add to Calendar, read from the payload's first `VEVENT`.
@@ -86,10 +84,8 @@ struct ScanPayload: Identifiable, Equatable {
   }
 
   func historyEvent(at date: Date) -> HistoryEvent {
-    let redacted = isSensitive || kind == .wifi
-    return HistoryEvent(id: UUID().uuidString, acceptedAt: HistoryEvent.timestamp(date),
-      kind: kind == .boardingPass ? "boardingPass" : isSensitive ? "redacted" : kind.rawValue,
-      summary: kind == .boardingPass ? "Boarding pass" : isSensitive ? nil : kind == .wifi ? "Wi-Fi network" : historySummary,
-      original: redacted ? nil : historyOriginal, parserVersion: Self.historyParserVersion, format: format)
+    HistoryEvent(id: UUID().uuidString, acceptedAt: HistoryEvent.timestamp(date),
+      kind: kind.rawValue, summary: historySummary, original: original,
+      parserVersion: Self.historyParserVersion, format: format)
   }
 }

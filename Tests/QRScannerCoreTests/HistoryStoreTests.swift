@@ -95,8 +95,8 @@ private struct ShippingEnvelope: Codable {
 
   let shipping = try JSONDecoder().decode(ShippingEnvelope.self, from: data)
   #expect(shipping.events.map(\.id).last == "legacy")
-  #expect(shipping.events[0].kind == "redacted")
-  #expect(shipping.events[0].original == nil)
+  #expect(shipping.events[0].kind == "auth")
+  #expect(shipping.events[0].original == "otpauth://totp/A?secret=JBSWY3DPEHPK3PXP")
   #expect(shipping.events[1].format == ean)
   #expect(try HistoryStore(directory: directory).events == store.events)
 }
@@ -144,11 +144,11 @@ private struct ShippingEnvelope: Codable {
   for value in ["redacted", "wifi", "boardingPass", "url", "product", "legacy-kind"] {
     #expect(HistoryEvent.Category(persisted: value).persistedValue == value)
   }
-  #expect(HistoryEvent.Category.wifi.withholdsPayload)
+  #expect(!HistoryEvent.Category.wifi.withholdsPayload)
   #expect(!HistoryEvent.Category.payload(.url).withholdsPayload)
   // What the payload parser writes stays consistent with the categories.
   #expect(ScanPayload("WIFI:T:WPA;S:Office;P:secret;;").historyEvent(at: Date()).category == .wifi)
-  #expect(ScanPayload("otpauth://totp/A?secret=JBSWY3DPEHPK3PXP").historyEvent(at: Date()).category == .redacted)
+  #expect(ScanPayload("otpauth://totp/A?secret=JBSWY3DPEHPK3PXP").historyEvent(at: Date()).category == .payload(.auth))
   #expect(ScanPayload("https://example.com").historyEvent(at: Date()).category == .payload(.url))
 }
 
@@ -207,7 +207,7 @@ struct SeededGenerator: RandomNumberGenerator {
   }
 }
 
-@Test func secretsSavedByOlderVersionsAreHiddenAndDroppedAtTheNextSave() throws {
+@Test func olderSavedPayloadsStayIntactWhenReclassifiedAndSaved() throws {
   let directory = temporaryDirectory()
   let pass = "M1DESMARAIS/LUC       EABC123 YULFRAAC 0834 326J001A0025 100"
   let phrase = "abandon ability able about above absent absorb abstract absurd abuse access accident"
@@ -223,11 +223,11 @@ struct SeededGenerator: RandomNumberGenerator {
   let store = try HistoryStore(directory: directory)
   let byID = Dictionary(uniqueKeysWithValues: store.events.map { ($0.id, $0) })
 
-  #expect(byID["pass"]?.original == nil)
+  #expect(byID["pass"]?.original == pass)
   #expect(byID["pass"]?.category == .boardingPass)
-  #expect(byID["phrase"]?.original == nil)
-  #expect(byID["phrase"]?.summary == nil)
-  #expect(byID["reset"]?.original == "https://example.com/reset")
+  #expect(byID["phrase"]?.original == phrase)
+  #expect(byID["phrase"]?.summary == "Recovery phrase")
+  #expect(byID["reset"]?.original == "https://example.com/reset?token=abc")
   #expect(byID["plain"]?.original == "https://example.com/old")
   #expect(store.events.map(\.id) == ["pass", "phrase", "reset", "plain"])
   // Loading alone leaves the file untouched.
@@ -235,7 +235,7 @@ struct SeededGenerator: RandomNumberGenerator {
 
   try store.delete(id: "plain")
   let saved = try String(contentsOf: file, encoding: .utf8)
-  #expect(!saved.contains("DESMARAIS"))
-  #expect(!saved.contains("abandon"))
-  #expect(!saved.contains("token=abc"))
+  #expect(saved.contains("DESMARAIS"))
+  #expect(saved.contains("abandon"))
+  #expect(saved.contains("token=abc"))
 }

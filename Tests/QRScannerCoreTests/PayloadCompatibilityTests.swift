@@ -35,12 +35,12 @@ private struct Fixture: Decodable {
   }
 }
 
-@Test func malformedAuthIsRedactedWithoutOfferingAHandoff() {
+@Test func malformedAuthKeepsItsDataWithoutOfferingAHandoff() {
   for raw in ["FIDO://example.invalid/hybrid", "FIDO:/123", "otpauth://totp/Test?issuer=Example", "otpauth://totp/Test?secret=INVALID!", "otpauth-migration://offline?data=secret"] {
     let parsed = ScanPayload(raw)
     #expect(parsed.isSensitive)
     #expect(parsed.openURL == nil)
-    #expect(parsed.historyEvent(at: Date()).original == nil)
+    #expect(parsed.historyEvent(at: Date()).original == raw)
   }
 }
 

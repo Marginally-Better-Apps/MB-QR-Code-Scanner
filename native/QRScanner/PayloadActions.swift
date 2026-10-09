@@ -40,7 +40,7 @@ extension ScanPayload {
     case .addContact: "Add Contact"
     case .addEvent: "Add Event"
     case .copyPassword: "Copy Password"
-    case .copy: kind == .wifi ? "Copy Network Name" : "Copy"
+    case .copy: "Copy"
     case .share: "Share"
     }
   }
@@ -186,7 +186,7 @@ private struct PayloadActionHost: ViewModifier {
       guard let text = PayloadActionRules.clipboardText(for: action, payload: payload) else { return }
       ScanPayload.copy(text)
       showToast(action == .copyPassword ? String(localized: "Password Copied")
-        : payload.kind == .wifi ? String(localized: "Network Name Copied") : String(localized: "Copied"))
+        : String(localized: "Copied"))
     case .share: onAction(ActionRoute(kind: .share, payload: payload))
     }
   }

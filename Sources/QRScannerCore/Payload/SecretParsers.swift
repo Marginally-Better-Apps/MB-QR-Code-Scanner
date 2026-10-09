@@ -31,8 +31,7 @@ enum AuthParser: PayloadKindParser {
   }
 }
 
-/// Private keys, wallet recovery phrases, and bearer tokens. Shown as a redacted label only:
-/// never copied, shared, or saved.
+/// Labels private keys, wallet recovery phrases, and bearer tokens. Full data stays available.
 enum SecretParser: PayloadKindParser {
   enum Secret: Equatable {
     case privateKey, recoveryPhrase, accessToken
@@ -72,7 +71,7 @@ enum SecretParser: PayloadKindParser {
     if isWalletImportFormat(input.raw) || (lower.contains("prv") && containsExtendedPrivateKey(scanned))
       || isRawPrivateKey(input.raw) { return .privateKey }
     if isRecoveryPhrase(input.raw) || isSeedQR(input.raw) { return .recoveryPhrase }
-    // Tokens inside links are handled by History redaction so magic links still open. A bare token
+    // Tokens inside links keep their link classification so magic links still open. A bare token
     // whose last segment happens to look like a domain is still a token.
     if containsJWT(scanned), !isLinkCandidate(input) || !input.raw.contains(where: { $0 == "/" || $0 == ":" }) {
       return .accessToken
@@ -81,7 +80,7 @@ enum SecretParser: PayloadKindParser {
   }
 
   /// Nostr `nsec1…` keys, and 64 hex digits with or without `0x` (Ethereum and other raw private
-  /// keys). A transaction hash has the same shape; hiding one only costs a copy.
+  /// keys). A transaction hash has the same shape and receives the same label.
   static func isRawPrivateKey(_ raw: String) -> Bool {
     raw.range(of: #"^(?i:nsec1[02-9ac-hj-np-z]{58})$"#, options: .regularExpression) != nil
       || raw.range(of: #"^(?:0[xX])?[0-9a-fA-F]{64}$"#, options: .regularExpression) != nil
@@ -118,7 +117,7 @@ enum SecretParser: PayloadKindParser {
   }
 
   /// 12–24 words that are all in the BIP39 English list. The checksum is not verified, so a
-  /// rare ordinary sentence of only list words is also hidden, which errs on the safe side.
+  /// rare ordinary sentence of only list words receives this label too.
   static func isRecoveryPhrase(_ raw: String) -> Bool {
     guard raw.count <= maxRecoveryPhraseLength else { return false }
     // Commas, line breaks, and numbering ("1. abandon 2. ability …") are common in exported phrases.

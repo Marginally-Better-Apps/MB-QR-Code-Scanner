@@ -65,11 +65,7 @@ enum PayloadActionRules {
     if payload.kind == .contact { actions.append(.addContact) }
     if payload.kind == .calendar { actions.append(.addEvent) }
     if let wifi = payload.wifi, !wifi.password.isEmpty { actions.append(.copyPassword) }
-    if !payload.isSensitive {
-      if clipboardText(for: .copy, payload: payload) != nil { actions.append(.copy) }
-      // Raw Wi-Fi codes carry the password, so they are never exported.
-      if payload.kind != .wifi { actions.append(.share) }
-    }
+    actions.append(contentsOf: [.copy, .share])
     return PayloadActionSet(actions: actions, primary: actions.first { $0 != .share }, openUnavailableReason: reason)
   }
 
@@ -111,18 +107,13 @@ enum PayloadActionRules {
     }
   }
 
-  /// Text placed on the pasteboard for a copy action. Wi-Fi copies only the network name, never the raw code.
+  /// Copy exports the exact scanned payload. Copy Password offers the decoded Wi-Fi password too.
   static func clipboardText(for action: PayloadAction, payload: ScanPayload) -> String? {
     switch action {
     case .copyPassword:
       guard let password = payload.wifi?.password, !password.isEmpty else { return nil }
       return password
     case .copy:
-      guard !payload.isSensitive else { return nil }
-      if payload.kind == .wifi {
-        guard let ssid = payload.wifi?.ssid, !ssid.isEmpty else { return nil }
-        return ssid
-      }
       return payload.original
     default:
       return nil

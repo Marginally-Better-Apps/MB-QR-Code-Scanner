@@ -166,8 +166,18 @@ private struct ResultDetailContent: View {
         if payload.details != payload.title {
           Section("Contents") {
             Text(payload.details)
+              .accessibilityIdentifier(payload.details == payload.rawData ? "scan-raw-data" : "scan-readable-details")
               .textSelection(.enabled)
               .frame(maxWidth: .infinity, alignment: .leading)
+          }
+        }
+        if payload.details != payload.rawData || payload.details == payload.title {
+          Section("Raw Data") {
+            Text(payload.rawData)
+              .font(.system(.body, design: .monospaced))
+              .textSelection(.enabled)
+              .frame(maxWidth: .infinity, alignment: .leading)
+              .accessibilityIdentifier("scan-raw-data")
           }
         }
         if let reason = actions.openUnavailableReason {

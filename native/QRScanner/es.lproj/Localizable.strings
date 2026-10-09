@@ -109,7 +109,6 @@
 "Open" = "Abierta";
 "Open Payment Link?" = "¿Abrir enlace de pago?";
 "Open in Another App?" = "¿Abrir en otra app?";
-"Passenger details and ticket data are hidden." = "Los datos del pasajero y del billete están ocultos.";
 "Passkey sign-in" = "Inicio de sesión con llave de acceso";
 "Private key" = "Clave privada";
 "Product %@" = "Producto %@";
@@ -139,3 +138,14 @@
 "Location access is off. Scanning still works without it." = "El acceso a la ubicación está desactivado. Puedes seguir escaneando sin él.";
 "Scan Location" = "Ubicación del escaneo";
 "Join this network in Wi-Fi Settings. QR Scanner does not join networks automatically." = "Conéctate a esta red en los ajustes de Wi-Fi. QR Scanner no se conecta a redes automáticamente.";
+
+"Raw Data" = "Datos originales";
+"Password: %@" = "Contraseña: %@";
+"Passenger: %@" = "Pasajero: %@";
+"Booking reference: %@" = "Referencia de reserva: %@";
+"Ticket indicator: %@" = "Indicador de billete: %@";
+"Flight legs: %@" = "Tramos de vuelo: %@";
+"Cabin: %@" = "Cabina: %@";
+"Seat: %@" = "Asiento: %@";
+"Check-in sequence: %@" = "Secuencia de facturación: %@";
+"Passenger status: %@" = "Estado del pasajero: %@";

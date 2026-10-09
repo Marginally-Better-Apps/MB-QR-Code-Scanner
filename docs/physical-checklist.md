@@ -35,7 +35,7 @@ Simulator tests, `swift test`, and the Maestro flows cannot check the real camer
 - Authenticator (`otpauth`) and FIDO/passkey codes ask before handing off. They offer no Copy or Share and vanish when the app goes to the background.
 - Email, Call, Text Message, and Open Map open the right apps with prefilled data. Carrier codes like `*21*…#` never dial.
 - Add Contact and Add Event open the system editors with no permission prompt. Check the MECARD card brings both phone numbers, and the TZID event lands at the right local time.
-- Wi-Fi: password masked, Copy Password works and expires, no Share, History says details not saved.
+- Wi-Fi: password shown, Copy Password works and expires, Copy and Share contain the complete code, and History reopens its details.
 - Copy shows a confirmation. Copied text does not appear on other devices through Universal Clipboard.
 - Look Up Product with a known product, a UPC-E product, an unknown code, and in Airplane Mode. No network request happens before the tap.
 
@@ -44,7 +44,7 @@ Simulator tests, `swift test`, and the Maestro flows cannot check the real camer
 - Rows group under Today, Yesterday, weekday names, then full dates.
 - Swipe to delete (partial and full swipe), Undo, repeat on the same and a different row.
 - Clear shows the scan count. Cancel keeps rows; Clear All empties History and stays empty after relaunch.
-- Tap a row to replay it: details show the exact and relative time. Sensitive rows explain the details were not saved.
+- Tap a row to replay it: details show the exact and relative time. All new rows expose their complete original data. Legacy rows whose data was omitted explain that details were not saved.
 - Search finds rows by title and type.
 - Launch the app while the device is locked (e.g. from Shortcuts), unlock, open History: rows load and new scans save.
 

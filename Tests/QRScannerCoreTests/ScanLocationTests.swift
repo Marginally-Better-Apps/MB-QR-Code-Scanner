@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import QRScannerCore
 
-@MainActor @Test func legacyLocationMetadataSurvivesRedactionAndIsSearchable() throws {
+@MainActor @Test func legacyLocationMetadataSurvivesReclassificationAndIsSearchable() throws {
   let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
   defer { try? FileManager.default.removeItem(at: directory) }
   try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -26,7 +26,7 @@ import Testing
   let rows = try #require(object["events"] as? [[String: Any]])
   let metadata = try #require(rows.first?["location"] as? [String: Any])
   #expect(metadata["placeName"] as? String == "Millennium Park, Chicago")
-  #expect(rows.first?["original"] as? String == "https://example.com/reset")
+  #expect(rows.first?["original"] as? String == "https://example.com/reset?token=private")
   #expect(rows.last?["location"] == nil)
 }
 
