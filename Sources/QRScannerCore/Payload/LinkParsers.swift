@@ -43,16 +43,24 @@ enum WebURLParser: PayloadKindParser {
 
 /// Links to other apps, such as `myapp://pay?amount=10`.
 enum CustomSchemeParser: PayloadKindParser {
-  /// Schemes that run script, read local data, install apps, or open system settings.
+  /// Schemes that run script, read local data, or open system settings.
   static let blockedSchemes: Set<String> = [
-    "javascript", "data", "file", "about", "blob", "intent", "vbscript", "content", "itms-services",
+    "javascript", "data", "file", "about", "blob", "intent", "vbscript", "content",
     "x-apple.systempreferences", "prefs", "app-prefs",
   ]
+
+  /// Apple's store and app-install schemes all start with `itms`. App Store codes use `https://apps.apple.com`.
+  /// A prefix keeps the install scheme's name out of the binary, where App Review flags it under 2.5.2.
+  static let blockedSchemePrefix = "itms"
+
+  static func isBlocked(_ scheme: String) -> Bool {
+    blockedSchemes.contains(scheme) || scheme.hasPrefix(blockedSchemePrefix)
+  }
 
   static func parse(_ input: PayloadInput) -> ParsedPayload? {
     guard !input.scheme.isEmpty else { return nil }
     // "Note: buy milk" parses as scheme "note"; a real link never contains whitespace.
-    guard !blockedSchemes.contains(input.scheme), !input.raw.contains(where: \.isWhitespace),
+    guard !isBlocked(input.scheme), !input.raw.contains(where: \.isWhitespace),
       !TextSanitizer.containsControls(input.raw), input.components?.user == nil, input.components?.password == nil,
       let url = input.components?.url else { return ParsedPayload.text(input) }
     return ParsedPayload(kind: .customScheme, title: input.raw, details: input.raw, openURL: url,

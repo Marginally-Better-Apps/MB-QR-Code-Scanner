@@ -1,4 +1,4 @@
-# QR Scanner
+# MB Code Scanner
 
 Support: [help@marginally-better.app](mailto:help@marginally-better.app). See the [privacy policy](docs/privacy-policy.md).
 

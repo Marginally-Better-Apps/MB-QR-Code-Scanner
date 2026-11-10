@@ -91,7 +91,7 @@ jobs:
           python3 scripts/write-autoloader-page.py \
             --ipa-url "${IPA_URL}" \
             --output autoloader-page/index.html \
-            --title "QR Scanner"
+            --title "MB Code Scanner"
 
       - name: Publish prerelease
         id: preview

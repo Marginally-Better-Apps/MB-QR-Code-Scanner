@@ -130,13 +130,13 @@ func escape(_ text: String) -> String {
 }
 
 var html = """
-  <!doctype html><meta charset="utf-8"><title>QR Scanner test sheet</title>
+  <!doctype html><meta charset="utf-8"><title>MB Code Scanner test sheet</title>
   <style>body{font:14px -apple-system,sans-serif;margin:24px}h2{margin-top:32px}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:24px}
   .card{break-inside:avoid;border:1px solid #ddd;border-radius:12px;padding:16px}
   img{image-rendering:pixelated;max-width:100%;background:#fff;padding:12px}
   code{display:block;white-space:pre-wrap;word-break:break-all;color:#555;font-size:11px}</style>
-  <h1>QR Scanner physical test sheet</h1>
+  <h1>MB Code Scanner physical test sheet</h1>
   <p>Scan each code and check the expectation. Retail EAN/UPC codes: use real packaged products.</p>
   """
 var currentSection = ""
