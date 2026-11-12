@@ -1,20 +1,20 @@
-# MB QR Scanner store draft
+# MB Code Scanner store draft
 
-Working copy for the 1.0 release. The App Store record already exists as MB QR Scanner; this draft can still be tweaked before submission.
+Working copy for the 1.0 release. The App Store record was created as MB QR Scanner; rename it to MB Code Scanner in App Store Connect before resubmitting.
 
 | Field | Value |
 | --- | --- |
 | Platform | iOS |
-| Name | MB QR Scanner |
-| Name beneath the app icon | MB QR Scanner |
+| Name | MB Code Scanner |
+| Name beneath the app icon | MB Codes |
 | Primary language | English (US) |
 | Bundle ID | `com.marginallybetter.qrscanner` |
 | SKU | `mb-qr-scanner-ios` |
-| Subtitle | Barcodes, photos & history |
+| Subtitle | QR, Barcodes, Boarding Passes |
 | Primary category | Utilities |
-| Keywords | `reader,image,location,aztec,pdf417,data matrix,upc,ean,code128,contact,wifi,offline,boarding pass` |
-| Support URL | https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner |
-| Privacy policy URL | https://github.com/Marginally-Better-Apps/MB-QR-Code-Scanner/blob/main/docs/privacy-policy.md |
+| Keywords | `reader,image,location,aztec,pdf417,data matrix,upc,ean,code128,contact,wifi,offline,ticket,history` |
+| Support URL | https://marginally-better.app/support/mb-qr-code-scanner/ |
+| Privacy policy URL | https://marginally-better.app/privacy/mb-qr-code-scanner/ |
 | Feedback email | help@marginally-better.app |
 
 ## Promotional text

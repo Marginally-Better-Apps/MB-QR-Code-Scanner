@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-  <key>CFBundleDisplayName</key><string>MB QR Scanner</string>
+  <key>CFBundleDisplayName</key><string>MB Codes</string>
   <key>CFBundleLocalizations</key><array><string>en</string><string>es</string></array>
   <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
   <key>ITSAppUsesNonExemptEncryption</key><false/>
-  <key>NSCameraUsageDescription</key><string>QR Scanner reads QR codes, barcodes, and other codes on this device. Camera frames are never uploaded or saved.</string>
+  <key>NSCameraUsageDescription</key><string>MB Codes reads QR codes, barcodes, and other codes on this device. Camera frames are never uploaded or saved.</string>
   <key>NSLocationWhenInUseUsageDescription</key><string>Optionally save where you scan so you can find scans by place in History. Location is never tracked in the background.</string>
   <key>NSContactsUsageDescription</key><string>Add a scanned contact with your permission.</string>
   <key>NSCalendarsWriteOnlyAccessUsageDescription</key><string>Add a scanned event with your permission.</string>

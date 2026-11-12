@@ -34,15 +34,15 @@ def main() -> int:
     with info_path.open("rb") as handle:
         info = plistlib.load(handle)
 
-    if info.get("CFBundleDisplayName") != "MB QR Scanner":
-        print("error: the installed app must be named MB QR Scanner", file=sys.stderr)
+    if info.get("CFBundleDisplayName") != "MB Codes":
+        print("error: the installed app must be named MB Codes", file=sys.stderr)
         return 1
     if info.get("CFBundleIdentifier") != "com.marginallybetter.qrscanner":
         print("error: existing app identity changed", file=sys.stderr)
         return 1
 
     expected = (
-        "QR Scanner reads QR codes, barcodes, and other codes on this device. "
+        "MB Codes reads QR codes, barcodes, and other codes on this device. "
         "Camera frames are never uploaded or saved."
     )
     if info.get("NSCameraUsageDescription") != expected:
@@ -59,7 +59,7 @@ def main() -> int:
         print(f"error: missing {spanish}", file=sys.stderr)
         return 1
     text = strings_contents(spanish)
-    if "QR Scanner lee códigos QR, códigos de barras y otros códigos en este dispositivo" not in text:
+    if "MB Codes lee códigos QR, códigos de barras y otros códigos en este dispositivo" not in text:
         print("error: Spanish camera usage string missing", file=sys.stderr)
         return 1
 

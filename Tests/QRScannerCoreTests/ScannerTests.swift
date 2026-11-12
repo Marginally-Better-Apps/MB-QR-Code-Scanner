@@ -55,7 +55,8 @@ import Testing
   #expect(ScanPayload("example.com/path").kind == .url)
   #expect(ScanPayload("example.com/path").openURL?.absoluteString == "https://example.com/path")
   #expect(ScanPayload("https://example.com/path?q=one#two").original == "https://example.com/path?q=one#two")
-  for unsafe in ["javascript:alert(1)", "file:///etc/passwd", "data:text/html,x", "https://user:pass@example.com"] {
+  for unsafe in ["javascript:alert(1)", "file:///etc/passwd", "data:text/html,x", "https://user:pass@example.com",
+    "itms-services://?action=download-manifest&url=https://example.com/a.plist", "ITMS-SERVICES://?action=x", "itms-apps://apps.apple.com/app/id1"] {
     #expect(ScanPayload(unsafe).openURL == nil)
   }
   #expect(ScanPayload("hello world").kind == .text)
